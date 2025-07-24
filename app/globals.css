@@ -4,26 +4,45 @@
 
 @layer base {
   :root {
+    /* Color Palette */
+    --primary: 346 77% 56%; /* rose-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 96% 62%; /* orange-400 */
+    --secondary-foreground: 0 0% 100%;
+    --accent: 217 91% 60%; /* blue-500 */
+    --accent-foreground: 0 0% 100%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    /* Spacing scale */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+    --space-24: 6rem;
+    --space-32: 8rem;
+    --space-40: 10rem;
+    --space-48: 12rem;
+    --space-56: 14rem;
+    --space-64: 16rem;
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -55,6 +74,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.6;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
   * {
     @apply border-border;
@@ -72,8 +93,8 @@
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--foreground);
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
+    margin-top: var(--space-8);
+    margin-bottom: var(--space-4);
   }
   h1 { font-size: 2.25rem; }
   h2 { font-size: 1.75rem; }
@@ -82,16 +103,37 @@
   h5 { font-size: 1.125rem; }
   h6 { font-size: 1rem; }
   p {
-    margin-top: 0.5rem;
-    margin-bottom: 0.5rem;
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-2);
   }
   a {
-    color: #f43f5e;
+    color: hsl(var(--primary));
     text-decoration: underline;
     transition: color 0.2s;
   }
   a:hover {
-    color: #fb923c;
+    color: hsl(var(--secondary));
+  }
+  /* Utility classes for consistent UI */
+  .shadow-base {
+    box-shadow: 0 2px 8px 0 rgba(16, 30, 54, 0.08);
+  }
+  .card-base {
+    border-radius: var(--radius);
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 2px 8px 0 rgba(16, 30, 54, 0.08);
+    border: 1px solid hsl(var(--border));
+  }
+  .button-base {
+    border-radius: calc(var(--radius) - 2px);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.5rem 1.25rem;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    outline: none;
+    border: none;
+    cursor: pointer;
   }
 }
 

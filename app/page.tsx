@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { CommunityHome } from "@/components/community-home"
 import { OnboardingFlow } from "@/components/onboarding-flow"
-import { LoginScreen } from "@/components/login-screen"
 import { GuidedOnboarding } from "@/components/guided-onboarding"
 import { AnimatePresence, motion } from "framer-motion"
+import CommunityHome from "@/components/community-home"
 
 export default function Home() {
   const [user, setUser] = useState<any>(null)
@@ -49,8 +48,8 @@ export default function Home() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
-            <p className="text-lg text-gray-600">Loading...</p>
+          <div className="flex items-center justify-center min-h-screen bg-background">
+            <p className="text-lg text-muted-foreground">Loading...</p>
           </div>
         </motion.div>
       )}
@@ -62,7 +61,6 @@ export default function Home() {
           exit={{ opacity: 0, y: -40 }}
           transition={{ duration: 0.3 }}
         >
-          <LoginScreen onLogin={handleLogin} />
         </motion.div>
       )}
       {!loading && user && showGuidedOnboarding && (

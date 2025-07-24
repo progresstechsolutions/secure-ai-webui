@@ -14,85 +14,148 @@ interface GuidedOnboardingProps {
 
 const steps = [
   {
-    title: "Welcome to Carelink!",
-    description: "This guided tour will help you get the most out of our platform for rare genetic conditions.",
-    icon: <Lightbulb className="h-12 w-12 text-rose-500" />,
+    title: "Welcome to Caregene! 👋",
+    description: "Your supportive community for rare genetic conditions",
+    icon: "🌟",
+    emoji: "🎉",
     content: (
-      <p className="text-muted-foreground">
-        We're here to connect you with a supportive community, valuable resources, and expert insights tailored to rare
-        genetic conditions. Let's explore how to get started.
-      </p>
-    ),
-  },
-  {
-    title: "Discover Your Communities",
-    description: "Find and join communities relevant to your specific rare genetic condition(s).",
-    icon: <Lightbulb className="h-12 w-12 text-orange-500" />,
-    content: (
-      <div className="space-y-3">
-        <p className="text-muted-foreground">
-          Our platform hosts dedicated communities for various rare genetic conditions like Phelan-McDermid Syndrome,
-          Rett Syndrome, SMA, Batten Disease, and more.
+      <div className="text-center space-y-3 sm:space-y-4">
+        <p className="text-sm sm:text-base text-gray-600">
+          Connect with others who understand your journey
         </p>
-        <ul className="list-disc list-inside text-muted-foreground">
-          <li>Use the "Your Communities" sidebar to quickly access your joined groups.</li>
-          <li>Explore the "Suggested" tab in the main feed to discover new communities and popular discussions.</li>
-          <li>If your condition isn't listed, the "General Genetic Conditions" community is a great starting point.</li>
-        </ul>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4">
+          <div className="bg-blue-50 p-2 sm:p-3 rounded-lg">
+            <div className="text-lg sm:text-xl mb-1">👥</div>
+            <p className="text-xs sm:text-sm font-medium">Community</p>
+          </div>
+          <div className="bg-purple-50 p-2 sm:p-3 rounded-lg">
+            <div className="text-lg sm:text-xl mb-1">💬</div>
+            <p className="text-xs sm:text-sm font-medium">Support</p>
+          </div>
+          <div className="bg-green-50 p-2 sm:p-3 rounded-lg">
+            <div className="text-lg sm:text-xl mb-1">📚</div>
+            <p className="text-xs sm:text-sm font-medium">Resources</p>
+          </div>
+        </div>
       </div>
     ),
   },
   {
-    title: "Engage with Posts & Discussions",
-    description: "Share your experiences, ask questions, and connect with others.",
-    icon: <Lightbulb className="h-12 w-12 text-pink-500" />,
+    title: "Find Your Tribe 🔍",
+    description: "Discover communities that feel like home",
+    icon: "👥",
+    emoji: "🏠",
     content: (
       <div className="space-y-3">
-        <p className="text-muted-foreground">
-          The main feed is where you'll see posts from your communities and suggested content.
-        </p>
-        <ul className="list-disc list-inside text-muted-foreground">
-          <li>Create new posts to share updates, ask for support, or discuss topics.</li>
-          <li>React to posts with hearts, thumbs up, or other emojis to show support.</li>
-          <li>Comment on posts to join conversations and offer advice.</li>
-          <li>Use tags like #research, #treatment, #diagnosis to find specific topics.</li>
-        </ul>
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-lg">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-sm">🧬</span>
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-semibold text-gray-800 text-sm">Condition-Specific Groups</h4>
+              <p className="text-xs text-gray-600">Phelan-McDermid, Rett Syndrome & more</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-sm">💡</span>
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-semibold text-gray-800 text-sm">Quick Tip</h4>
+              <p className="text-xs text-gray-600">Check "Suggested" tab for popular discussions</p>
+            </div>
+          </div>
+        </div>
       </div>
     ),
   },
   {
-    title: "Utilize Key Features",
-    description: "Explore DMs, Milestones, Resources, and Expert Q&A.",
-    icon: <Lightbulb className="h-12 w-12 text-rose-600" />,
+    title: "Share & Connect 💬",
+    description: "Your voice matters in our community",
+    icon: "💝",
+    emoji: "✨",
     content: (
       <div className="space-y-3">
-        <p className="text-muted-foreground">
-          Beyond the main feed, Carelink offers powerful tools to support your journey.
-        </p>
-        <ul className="list-disc list-inside text-muted-foreground">
-          <li>**Direct Messages (DMs):** Connect privately with other members for one-on-one support.</li>
-          <li>**Milestones:** Track and celebrate personal achievements related to your health journey.</li>
-          <li>**Resource Library:** Access curated articles, guides, and videos on rare genetic conditions.</li>
-          <li>**Expert Q&A:** Submit questions to medical professionals and specialists.</li>
-        </ul>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="bg-pink-50 p-3 rounded-lg text-center">
+            <div className="text-lg sm:text-xl mb-1">📝</div>
+            <h4 className="font-semibold text-gray-800 text-xs sm:text-sm mb-1">Create Posts</h4>
+            <p className="text-xs text-gray-600">Share your story</p>
+          </div>
+          <div className="bg-yellow-50 p-3 rounded-lg text-center">
+            <div className="text-lg sm:text-xl mb-1">❤️</div>
+            <h4 className="font-semibold text-gray-800 text-xs sm:text-sm mb-1">Show Support</h4>
+            <p className="text-xs text-gray-600">React & comment</p>
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-3 rounded-lg">
+          <div className="flex items-center justify-center space-x-2 text-center">
+            <span className="text-sm">🏷️</span>
+            <p className="text-xs sm:text-sm font-medium text-gray-700">
+              Use tags like <span className="bg-purple-100 px-1 py-0.5 rounded text-xs">#research</span>
+            </p>
+          </div>
+        </div>
       </div>
     ),
   },
   {
-    title: "Manage Your Profile & Privacy",
-    description: "Control your personal information and how you interact with the platform.",
-    icon: <Lightbulb className="h-12 w-12 text-orange-600" />,
+    title: "Powerful Tools 🛠️",
+    description: "Everything you need in one place",
+    icon: "🚀",
+    emoji: "💪",
+    content: (
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg">
+          <div className="text-lg sm:text-xl mb-1">💬</div>
+          <h4 className="font-semibold text-gray-800 text-xs sm:text-sm">Messages</h4>
+          <p className="text-xs text-gray-600 mt-1">One-on-one support</p>
+        </div>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg">
+          <div className="text-lg sm:text-xl mb-1">🎯</div>
+          <h4 className="font-semibold text-gray-800 text-xs sm:text-sm">Milestones</h4>
+          <p className="text-xs text-gray-600 mt-1">Track progress</p>
+        </div>
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-3 rounded-lg">
+          <div className="text-lg sm:text-xl mb-1">📚</div>
+          <h4 className="font-semibold text-gray-800 text-xs sm:text-sm">Resources</h4>
+          <p className="text-xs text-gray-600 mt-1">Curated guides</p>
+        </div>
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-3 rounded-lg">
+          <div className="text-lg sm:text-xl mb-1">👨‍⚕️</div>
+          <h4 className="font-semibold text-gray-800 text-xs sm:text-sm">Expert Q&A</h4>
+          <p className="text-xs text-gray-600 mt-1">Ask specialists</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: "Your Privacy First 🔒",
+    description: "You're in complete control",
+    icon: "🛡️",
+    emoji: "✅",
     content: (
       <div className="space-y-3">
-        <p className="text-muted-foreground">
-          Your privacy is important to us. You have full control over your profile.
-        </p>
-        <ul className="list-disc list-inside text-muted-foreground">
-          <li>Update your profile with your conditions, bio, and region.</li>
-          <li>Choose your profile visibility (public or private).</li>
-          <li>Review and adjust your privacy settings at any time.</li>
-          <li>Remember you can post anonymously in communities if you prefer.</li>
-        </ul>
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-sm">👤</span>
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-semibold text-gray-800 text-sm">Your Profile, Your Rules</h4>
+              <p className="text-xs text-gray-600">Public, private, or anonymous posting</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-center space-x-3 bg-blue-50 p-3 rounded-lg">
+          <span className="text-lg">🔐</span>
+          <p className="text-xs sm:text-sm font-medium text-gray-700">
+            Update privacy settings anytime
+          </p>
+        </div>
       </div>
     ),
   },
@@ -153,102 +216,125 @@ export function GuidedOnboarding(props: any) {
   const currentStepContent = steps[currentStep]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
-      {/* Top Bar */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-rose-100 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <User className="h-8 w-8 text-rose-500" />
-            <span className="text-2xl font-bold gradient-text">Carelink</span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
+      {/* Top Bar - More compact on mobile */}
+      <header className="bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm flex-shrink-0">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg sm:rounded-xl flex items-center justify-center">
+              <User className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+            </div>
+            <div>
+              <span className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Caregene</span>
+              <p className="text-xs text-gray-500 hidden sm:block">Getting Started Tour</p>
+            </div>
           </div>
-         
+          <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-500">
+            <span>{currentStep + 1} of {steps.length}</span>
+          </div>
         </div>
       </header>
-      <div className="max-w-2xl mx-auto py-10 px-4">
-        <div className={`transition-all duration-700 ${cardVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}> 
-          <Card className="shadow-2xl rounded-xl border border-gray-200 bg-white overflow-hidden">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold mb-2">Guided Onboarding</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Progress Bar */}
-              <div className="mb-6">
-                <div className="w-full h-2 bg-rose-100 rounded overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-rose-400 to-orange-400 transition-all duration-500"
-                    style={{ width: `${progressValue}%` }}
-                  />
+
+      {/* Main Content - Flex grow to fill remaining space */}
+      <div className="flex-1 flex items-center justify-center p-3 sm:p-4 md:p-8">
+        <div className="w-full max-w-3xl">
+          <div className={`transition-all duration-500 ${cardVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}> 
+            <Card className="shadow-lg rounded-2xl border-0 bg-white/90 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-4 sm:p-6 md:p-8">
+                {/* Progress Bar - More compact */}
+                <div className="mb-4 sm:mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs sm:text-sm font-medium text-gray-600">Progress</span>
+                    <span className="text-xs sm:text-sm font-bold text-blue-600">{Math.round(progressValue)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 ease-out rounded-full"
+                      style={{ width: `${progressValue}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="text-xs text-gray-400 mt-1 text-right">Step {currentStep + 1} of {steps.length}</div>
-              </div>
-              <div className="flex flex-col items-center mb-4">
-                <div className={`mb-2 transition-all duration-300 ${iconPulse ? 'animate-bounce-once' : ''}`}>
-                  {currentStep === steps.length - 1 && finishPulse ? (
-                    <CheckCircle className="h-14 w-14 text-green-500 animate-pulse-once" />
-                  ) : (
-                    currentStepContent.icon
-                  )}
+
+                {/* Main Content - Optimized for mobile */}
+                <div className="text-center mb-4 sm:mb-6">
+                  <div className={`mb-3 sm:mb-4 transition-all duration-300 ${iconPulse ? 'scale-105' : 'scale-100'}`}>
+                    {currentStep === steps.length - 1 && finishPulse ? (
+                      <div className="text-4xl sm:text-6xl">🎉</div>
+                    ) : (
+                      <div className="text-4xl sm:text-6xl mb-1 sm:mb-2">{currentStepContent.icon}</div>
+                    )}
+                  </div>
+                  
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2 sm:mb-3 px-2">
+                    {currentStepContent.title}
+                  </h1>
+                  
+                  <p className="text-sm sm:text-base md:text-lg text-gray-600 mb-4 sm:mb-6 max-w-xl mx-auto px-2">
+                    {currentStepContent.description}
+                  </p>
+                  
+                  <div className={`transition-all duration-300 ${contentFade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} max-w-xl mx-auto px-2`}>
+                    {currentStepContent.content}
+                  </div>
                 </div>
-                <CardTitle className="mb-4 text-2xl gradient-text text-center">{currentStepContent.title}</CardTitle>
-                <p className="text-lg text-gray-700 mb-6 text-center">{currentStepContent.description}</p>
-                <div className={`w-full ${contentFade ? 'animate-fade-in' : 'opacity-0'}`}>{currentStepContent.content}</div>
-              </div>
-              <div className="flex justify-between pt-6">
-                <Button
-                  variant="outline"
-                  onClick={handleBack}
-                  disabled={currentStep === 0}
-                  className="transition-all duration-150 ease-in-out bg-transparent active:scale-95 focus:ring-2 focus:ring-rose-200 focus:outline-none"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-                <Button
-                  onClick={handleNext}
-                  className="min-w-[120px] bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-lg transition-all duration-150 ease-in-out active:scale-95 focus:ring-2 focus:ring-rose-200 focus:outline-none"
-                >
-                  {currentStep === steps.length - 1 ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Finish Tour
-                    </>
-                  ) : (
-                    <>
-                      Continue
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+
+                {/* Navigation - More compact and mobile-friendly */}
+                <div className="flex justify-between items-center pt-4 sm:pt-6 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    onClick={handleBack}
+                    disabled={currentStep === 0}
+                    className="px-3 sm:px-4 py-2 rounded-lg border hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 text-sm"
+                  >
+                    <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Back</span>
+                  </Button>
+                  
+                  <div className="flex space-x-1 sm:space-x-2">
+                    {steps.map((_, index) => (
+                      <div
+                        key={index}
+                        className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-all duration-300 ${
+                          index <= currentStep ? 'bg-blue-500' : 'bg-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  
+                  <Button
+                    onClick={handleNext}
+                    className={`px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-md transition-all duration-200 text-sm ${
+                      finishPulse ? 'animate-pulse' : ''
+                    }`}
+                  >
+                    {currentStep === steps.length - 1 ? (
+                      <>
+                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Get Started!</span>
+                        <span className="sm:hidden">Start</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">Next</span>
+                        <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 ml-0 sm:ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-      {/* Animations */}
+
+      {/* Enhanced Animations - Simplified */}
       <style jsx global>{`
         @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in {
-          animation: fade-in 0.5s ease-in;
-        }
-        @keyframes bounce-once {
-          0% { transform: scale(1); }
-          30% { transform: scale(1.2) translateY(-10px); }
-          60% { transform: scale(0.95) translateY(2px); }
-          100% { transform: scale(1); }
-        }
-        .animate-bounce-once {
-          animation: bounce-once 0.4s cubic-bezier(.36,.07,.19,.97) both;
-        }
-        @keyframes pulse-once {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.2); opacity: 0.7; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-pulse-once {
-          animation: pulse-once 0.8s cubic-bezier(.36,.07,.19,.97) both;
+          animation: fade-in 0.3s ease-out;
         }
       `}</style>
     </div>

@@ -767,7 +767,7 @@ export {
 const AppSidebarHeader = () => (
   <SidebarHeader>
     <div className="flex items-center gap-2 px-2 py-4">
-      <span className="text-2xl font-extrabold gradient-text tracking-tight select-none">Carelink</span>
+      <span className="text-2xl font-extrabold gradient-text tracking-tight select-none">Caregene</span>
     </div>
   </SidebarHeader>
 )

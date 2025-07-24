@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, MessageSquare, User, Heart, ThumbsUp, Eye, Clock, Flag, Video, Plus } from "lucide-react"
+import { ArrowLeft, MessageSquare, User, Heart, ThumbsUp, Eye, Clock, Flag, Video, Plus, TrendingUp, Users, Activity, Bookmark, Share2, MoreHorizontal, Filter, Search } from "lucide-react"
 import { CreatePostModal } from "./create-post-modal"
 import { logUserActivity } from "@/lib/utils"
 
@@ -19,12 +19,9 @@ interface CommunityFeedProps {
 const initialMockPosts = [
   {
     id: "1",
-    title: "Our journey with PMS diagnosis",
-    body: "It's been a challenging road since our daughter's Phelan-McDermid Syndrome diagnosis. Looking for others who have been through similar experiences.",
+    caption: "It's been a challenging road since our daughter's Phelan-McDermid Syndrome diagnosis. Looking for others who have been through similar experiences.",
     author: "ParentOfWarrior",
     timestamp: "2 hours ago",
-    type: "support",
-    tags: ["PMS", "diagnosis", "family"],
     reactions: { heart: 12, thumbsUp: 8, thinking: 2, eyes: 15 },
     commentCount: 7,
     anonymous: false,
@@ -43,11 +40,9 @@ const initialMockPosts = [
   },
   {
     id: "2",
-    title: "Therapy ideas for Rett Syndrome communication",
-    body: "What communication therapies have you found most effective for individuals with Rett Syndrome? We're exploring new options.",
+    caption: "What communication therapies have you found most effective for individuals with Rett Syndrome? We're exploring new options.",
     author: "RettAdvocate",
     timestamp: "4 hours ago",
-    type: "advice",
     tags: ["Rett Syndrome", "therapy", "communication"],
     reactions: { heart: 23, thumbsUp: 15, thinking: 3, eyes: 45 },
     commentCount: 12,
@@ -324,6 +319,8 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   const [posts, setPosts] = useState<any[]>([])
   const [userReactions, setUserReactions] = useState<Record<string, string>>({})
   const [showCreatePostModal, setShowCreatePostModal] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [sortBy, setSortBy] = useState<"recent" | "popular" | "trending">("recent")
 
   // Community info mock (could be fetched in real app)
   const communityInfo = useMemo(() => {
@@ -353,15 +350,69 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
     const filteredMock = initialMockPosts.filter((post) => post.community === communitySlug)
     const filteredUser = userPosts.filter((post: any) => post.community === communitySlug)
-    setPosts([...filteredUser, ...filteredMock])
-  }, [communitySlug])
+    
+    let allPosts = [...filteredUser, ...filteredMock]
+    
+    // Apply search filter
+    if (searchTerm) {
+      allPosts = allPosts.filter(post => 
+        post.caption.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+    
+    // Apply sorting
+    if (sortBy === "popular") {
+      allPosts.sort((a, b) => {
+        const aScore = Object.values(a.reactions).reduce((sum: number, val: any) => sum + val, 0)
+        const bScore = Object.values(b.reactions).reduce((sum: number, val: any) => sum + val, 0)
+        return bScore - aScore
+      })
+    } else if (sortBy === "trending") {
+      allPosts.sort((a, b) => b.commentCount - a.commentCount)
+    }
+    // "recent" is default order
+    
+    setPosts(allPosts)
+  }, [communitySlug, searchTerm, sortBy])
 
-  // Trending tags (top 8 by frequency)
-  const trendingTags = useMemo(() => {
-    const tagCount: Record<string, number> = {}
-    posts.forEach(post => post.tags.forEach((tag: string) => { tagCount[tag] = (tagCount[tag] || 0) + 1 }))
-    return Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([tag]) => tag)
-  }, [posts])
+  // Listen for post creation events to refresh the feed
+  useEffect(() => {
+    const handlePostCreated = () => {
+      console.log("Post created event received in community feed, refreshing...")
+      // Force refresh by re-running the post filtering logic
+      const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
+      const filteredMock = initialMockPosts.filter((post) => post.community === communitySlug)
+      const filteredUser = userPosts.filter((post: any) => post.community === communitySlug)
+      
+      let allPosts = [...filteredUser, ...filteredMock]
+      
+      // Apply current filters
+      if (searchTerm) {
+        allPosts = allPosts.filter(post => 
+          post.caption.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      }
+      
+      // Apply current sorting
+      if (sortBy === "popular") {
+        allPosts.sort((a, b) => {
+          const aScore = Object.values(a.reactions).reduce((sum: number, val: any) => sum + val, 0)
+          const bScore = Object.values(b.reactions).reduce((sum: number, val: any) => sum + val, 0)
+          return bScore - aScore
+        })
+      } else if (sortBy === "trending") {
+        allPosts.sort((a, b) => b.commentCount - a.commentCount)
+      }
+      
+      setPosts(allPosts)
+    }
+
+    window.addEventListener("post-created", handlePostCreated)
+    
+    return () => {
+      window.removeEventListener("post-created", handlePostCreated)
+    }
+  }, [communitySlug, searchTerm, sortBy])
 
   // Top contributors (by post count)
   const topContributors = useMemo(() => {
@@ -391,6 +442,10 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
     localStorage.setItem('user_posts', JSON.stringify([postWithComments, ...userPosts]))
     setPosts((prev) => [postWithComments, ...prev])
+    
+    // Dispatch event to notify other components
+    window.dispatchEvent(new CustomEvent('post-created', { detail: postWithComments }))
+    
     setShowCreatePostModal(false)
   }
 
@@ -399,172 +454,235 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     setUserReactions((prev) => ({ ...prev, [postId]: reactionType }))
     const post = posts.find((p) => p.id === postId)
     if (post) {
-      logUserActivity(`Reacted with ${reactionType} to post: \"${post.title}\"`)
+      logUserActivity(`Reacted with ${reactionType} to post: "${post.caption || 'Untitled post'}"`)
     }
     // You can add your existing reaction logic here if needed
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
-      <header className="bg-white/80 backdrop-blur-sm border-b border-rose-100 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowCreatePostModal(true)}
-            className="bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-lg"
-          >
-            + Create Post
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Enhanced Header */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-blue-100 shadow-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-3 md:px-4 py-3 md:py-4">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <Button variant="ghost" size="sm" onClick={onBack} className="text-gray-600 hover:text-gray-900 p-2 md:px-4">
+              <ArrowLeft className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Back to Home</span>
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowCreatePostModal(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg px-3 md:px-4"
+            >
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden sm:inline">Create Post</span>
+            </Button>
+          </div>
+          
+          {/* Search and Filters */}
+          <div className="flex flex-col gap-3 md:flex-row md:gap-4 md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search posts..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-white border-gray-200 focus:border-blue-300 text-sm"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="px-3 py-2 border border-gray-200 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 md:flex-none"
+              >
+                <option value="recent">Recent</option>
+                <option value="popular">Popular</option>
+                <option value="trending">Trending</option>
+              </select>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Community Banner */}
-      <div className={`max-w-4xl mx-auto mt-6 mb-8 rounded-2xl shadow-xl p-8 flex flex-col md:flex-row items-center justify-between ${communityInfo.color || "bg-gradient-to-r from-rose-100 via-pink-50 to-orange-50"} bg-opacity-80`}>
-        <div>
-          <h2 className="text-4xl font-extrabold mb-2 gradient-text drop-shadow-lg">{communityInfo.name}</h2>
-          {hasBioAndConditions(communityInfo) && communityInfo.bio ? (
-            <p className="text-lg mb-2 text-gray-700 max-w-xl">{communityInfo.bio}</p>
-          ) : null}
-          {hasBioAndConditions(communityInfo) && communityInfo.conditions.length > 0 ? (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {communityInfo.conditions.map((cond: string) => (
-                <span key={cond} className="inline-block bg-rose-100 text-rose-700 rounded-full px-3 py-1 text-xs font-semibold shadow">
-                  {cond}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {!hasBioAndConditions(communityInfo) && communityInfo.description ? (
-            <p className="text-lg mb-2 text-gray-700 max-w-xl">{communityInfo.description}</p>
-          ) : null}
-          <span className="inline-block bg-white/80 rounded-full px-4 py-1 text-sm font-semibold text-gray-700 shadow">{communityInfo.memberCount} members</span>
-        </div>
-        <div className="mt-6 md:mt-0 flex flex-col items-center">
-          <span className="text-xs uppercase tracking-widest text-gray-500 mb-1">Top Contributors</span>
-          <div className="flex -space-x-3">
-            {topContributors.map((author, idx) => (
-              <div key={author} className="w-10 h-10 rounded-full bg-gradient-to-br from-rose-400 to-orange-400 flex items-center justify-center border-2 border-white text-white font-bold text-lg shadow-lg" style={{ zIndex: 10 - idx }}>
-                {author[0]}
+      {/* Enhanced Community Banner */}
+      <div className="max-w-6xl mx-auto mt-4 md:mt-6 mb-6 md:mb-8 px-3 md:px-4">
+        <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl overflow-hidden">
+          <CardContent className="p-4 md:p-8">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
+              <div className="flex-1 mb-4 md:mb-6 lg:mb-0">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 mb-4">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto sm:mx-0">
+                    <Users className="h-6 w-6 md:h-8 md:w-8 text-white" />
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <h1 className="text-2xl md:text-4xl font-bold mb-2">{communityInfo.name}</h1>
+                    <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                      <Users className="h-3 w-3 mr-1" />
+                      {communityInfo.memberCount.toLocaleString()} members
+                    </Badge>
+                  </div>
+                </div>
+                
+                <p className="text-blue-100 text-sm md:text-lg mb-3 md:mb-4 max-w-2xl text-center sm:text-left">
+                  {communityInfo.description}
+                </p>
+                
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 md:gap-6 text-xs md:text-sm">
+                  <div className="flex items-center space-x-1 md:space-x-2">
+                    <Activity className="h-3 w-3 md:h-4 md:w-4" />
+                    <span>{posts.length} posts</span>
+                  </div>
+                  <div className="flex items-center space-x-1 md:space-x-2">
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+                    <span>Active community</span>
+                  </div>
+                  <div className="flex items-center space-x-1 md:space-x-2">
+                    <MessageSquare className="h-3 w-3 md:h-4 md:w-4" />
+                    <span>
+                      {posts.reduce((sum, post) => sum + post.commentCount, 0)} comments
+                    </span>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+              
+              <div className="flex flex-col items-center lg:items-end w-full lg:w-auto">
+                <div className="text-center lg:text-right mb-4">
+                  <span className="text-blue-200 text-xs md:text-sm font-medium block">Top Contributors</span>
+                  <div className="flex justify-center lg:justify-end -space-x-2 mt-2">
+                    {topContributors.slice(0, 5).map((author, idx) => (
+                      <div 
+                        key={author} 
+                        className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center border-2 border-white/20 text-white font-semibold text-xs md:text-sm shadow-lg hover:scale-110 transition-transform" 
+                        style={{ zIndex: 10 - idx }}
+                        title={author}
+                      >
+                        {author[0].toUpperCase()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Trending Tags */}
-      {trendingTags.length > 0 && (
-        <div className="max-w-4xl mx-auto mb-6 px-4">
-          <div className="flex items-center space-x-2 mb-2">
-            <span className="text-sm font-semibold text-gray-600">Trending:</span>
-            <div className="flex overflow-x-auto space-x-2 scrollbar-hide">
-              {trendingTags.map(tag => (
-                <span key={tag} className="inline-block bg-gradient-to-r from-rose-200 to-orange-200 text-rose-700 px-3 py-1 rounded-full text-xs font-medium shadow hover:scale-105 transition-transform cursor-pointer">#{tag}</span>
-              ))}
+      {/* Enhanced Featured Post */}
+      {featuredPost && (
+        <div className="max-w-6xl mx-auto mb-6 md:mb-8 px-3 md:px-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-2">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full animate-pulse"></div>
+              <h3 className="text-base md:text-lg font-semibold text-gray-900">Featured Post</h3>
+              <Badge variant="secondary" className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border-amber-200 text-xs">
+                ⭐ Trending
+              </Badge>
+            </div>
+            <div className="flex items-center space-x-2 text-xs md:text-sm text-gray-500">
+              <Eye className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Most engaged</span>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Featured Post */}
-      {featuredPost && (
-        <div className="max-w-4xl mx-auto mb-8 px-4">
-          <div className="mb-2 text-xs font-bold text-orange-600 uppercase tracking-widest">Featured Post</div>
-          <Card
-            className="group hover:shadow-2xl shadow-lg transition-shadow duration-200 ease-in-out rounded-xl border border-gray-200 bg-white overflow-hidden mb-6"
-          >
+          
+          <Card className="group hover:shadow-2xl shadow-lg transition-all duration-300 ease-in-out rounded-xl border border-gray-200 bg-white overflow-hidden relative">
+            {/* Featured Badge */}
+            <div className="absolute top-3 md:top-4 right-3 md:right-4 z-10">
+              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg text-xs">
+                ⭐ Featured
+              </Badge>
+            </div>
+            
             {/* Banner Image */}
             {featuredPost.images && featuredPost.images.length > 0 && (
-              <div className="w-full h-56 bg-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="relative w-full h-48 md:h-64 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                 <img
                   src={featuredPost.images[0]}
                   alt="Post banner"
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
+                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
               </div>
             )}
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline">{featuredPost.community}</Badge>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground flex items-center"><User className="h-3 w-3 mr-1" />{featuredPost.author}</span>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <span className="text-xs text-muted-foreground flex items-center"><Clock className="h-3 w-3 mr-1" />{featuredPost.timestamp}</span>
+            
+            <CardHeader className="pb-3 md:pb-4 p-3 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2 md:space-x-3 text-xs md:text-sm text-gray-600">
+                  <div className="flex items-center space-x-1">
+                    <User className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="font-medium">{featuredPost.anonymous ? "Anonymous" : featuredPost.author}</span>
+                  </div>
+                  <span>•</span>
+                  <div className="flex items-center space-x-1">
+                    <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                    <span>{featuredPost.timestamp}</span>
+                  </div>
                 </div>
-                <Badge
-                  variant={
-                    featuredPost.type === "support"
-                      ? "default"
-                      : featuredPost.type === "advice"
-                        ? "secondary"
-                        : featuredPost.type === "event"
-                          ? "destructive"
-                          : "outline"
-                  }
-                  className="capitalize"
-                >
-                  {featuredPost.type}
-                </Badge>
               </div>
-              <CardTitle className="text-2xl font-bold mt-2 mb-1">{featuredPost.title}</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0 pb-2">
-              <p className="text-gray-700 mb-3 line-clamp-4">
-                {featuredPost.body.length > 220 ? `${featuredPost.body.slice(0, 220)}... ` : featuredPost.body}
-                {featuredPost.body.length > 220 && (
-                  <span className="text-blue-500 cursor-pointer hover:underline">Read more</span>
+            
+            <CardContent className="pt-0 p-3 md:p-6 md:pt-0">
+              <p className="text-gray-700 mb-4 leading-relaxed text-sm md:text-base">
+                {featuredPost.caption && featuredPost.caption.length > 200 ? `${featuredPost.caption.slice(0, 200)}...` : featuredPost.caption}
+                {featuredPost.caption && featuredPost.caption.length > 200 && (
+                  <button className="text-blue-600 hover:text-blue-700 font-medium ml-1 hover:underline">
+                    Read more
+                  </button>
                 )}
               </p>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {featuredPost.tags.map((tag: string) => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex items-center justify-between border-t pt-3 mt-2">
-                <div className="flex items-center space-x-4">
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-100 gap-3">
+                <div className="flex items-center space-x-3 md:space-x-6 overflow-x-auto">
                   <button
-                    className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[featuredPost.id] === "heart" ? "text-red-500" : "text-muted-foreground hover:text-red-500"}`}
+                    className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
+                      userReactions[featuredPost.id] === "heart" 
+                        ? "bg-red-50 text-red-600 border border-red-200" 
+                        : "text-gray-600 hover:bg-red-50 hover:text-red-600"
+                    }`}
                     onClick={() => handleReaction(featuredPost.id, "heart")}
                   >
-                    <Heart className="h-4 w-4" />
-                    <span>{featuredPost.reactions.heart}</span>
+                    <Heart className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="font-medium text-xs md:text-sm">{featuredPost.reactions.heart}</span>
                   </button>
                   <button
-                    className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[featuredPost.id] === "thumbsUp" ? "text-blue-500" : "text-muted-foreground hover:text-blue-500"}`}
+                    className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
+                      userReactions[featuredPost.id] === "thumbsUp" 
+                        ? "bg-blue-50 text-blue-600 border border-blue-200" 
+                        : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                    }`}
                     onClick={() => handleReaction(featuredPost.id, "thumbsUp")}
                   >
-                    <ThumbsUp className="h-4 w-4" />
-                    <span>{featuredPost.reactions.thumbsUp}</span>
+                    <ThumbsUp className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="font-medium text-xs md:text-sm">{featuredPost.reactions.thumbsUp}</span>
                   </button>
                   <button
-                    className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[featuredPost.id] === "thinking" ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500"}`}
-                    onClick={() => handleReaction(featuredPost.id, "thinking")}
-                  >
-                    <span>🤔</span>
-                    <span>{featuredPost.reactions.thinking}</span>
-                  </button>
-                  <button
-                    className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[featuredPost.id] === "eyes" ? "text-green-500" : "text-muted-foreground hover:text-green-500"}`}
+                    className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
+                      userReactions[featuredPost.id] === "eyes" 
+                        ? "bg-green-50 text-green-600 border border-green-200" 
+                        : "text-gray-600 hover:bg-green-50 hover:text-green-600"
+                    }`}
                     onClick={() => handleReaction(featuredPost.id, "eyes")}
                   >
-                    <Eye className="h-4 w-4" />
-                    <span>{featuredPost.reactions.eyes}</span>
+                    <Eye className="h-3 w-3 md:h-4 md:w-4" />
+                    <span className="font-medium text-xs md:text-sm">{featuredPost.reactions.eyes}</span>
                   </button>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <MessageSquare className="h-4 w-4 mr-1" />
-                    {featuredPost.commentCount}
+                
+                <div className="flex items-center space-x-1 md:space-x-2 overflow-x-auto">
+                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 p-1 md:p-2">
+                    <MessageSquare className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                    <span className="text-xs md:text-sm">{featuredPost.commentCount}</span>
                   </Button>
-                  <Button variant="ghost" size="sm">
-                    <Flag className="h-4 w-4" />
+                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                    <Bookmark className="h-3 w-3 md:h-4 md:w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                    <Share2 className="h-3 w-3 md:h-4 md:w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                    <MoreHorizontal className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
                 </div>
               </div>
@@ -573,111 +691,144 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
         </div>
       )}
 
-      {/* Masonry/Grid Feed */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      {/* Enhanced Posts Feed */}
+      <div className="max-w-6xl mx-auto px-3 md:px-4 py-4 md:py-6">
         {posts.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No posts in this community yet.</h3>
-              <p className="text-muted-foreground">Be the first to share something!</p>
+          <Card className="bg-white shadow-sm">
+            <CardContent className="text-center py-12 md:py-16 px-4">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
+                {searchTerm ? "No posts found" : "No posts in this community yet"}
+              </h3>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm md:text-base">
+                {searchTerm 
+                  ? "Try adjusting your search to find more content."
+                  : "Be the first to share something with this community!"
+                }
+              </p>
+              {!searchTerm && (
+                <Button
+                  onClick={() => setShowCreatePostModal(true)}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Post
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="space-y-4 md:space-y-6">
+            {/* Results header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 md:py-4 border-b border-gray-200 gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                <h2 className="text-base md:text-lg font-semibold text-gray-900">
+                  {searchTerm ? `Search results for "${searchTerm}"` : "Community Posts"}
+                </h2>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 w-fit text-xs">
+                  {posts.filter(p => !featuredPost || p.id !== featuredPost.id).length} posts
+                </Badge>
+              </div>
+              <div className="text-xs md:text-sm text-gray-500">
+                Sorted by {sortBy}
+              </div>
+            </div>
+            
             {posts.filter(p => !featuredPost || p.id !== featuredPost.id).map((post) => (
               <Card
                 key={post.id}
-                className="group hover:shadow-2xl shadow-lg transition-shadow duration-200 ease-in-out rounded-xl border border-gray-200 bg-white overflow-hidden mb-6"
+                className="group hover:shadow-lg shadow-sm transition-all duration-300 ease-in-out rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-blue-200"
               >
                 {/* Banner Image */}
                 {post.images && post.images.length > 0 && (
-                  <div className="w-full h-56 bg-gray-100 flex items-center justify-center overflow-hidden">
+                  <div className="relative w-full h-40 md:h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                     <img
                       src={post.images[0]}
                       alt="Post banner"
-                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
                   </div>
                 )}
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline">{post.community}</Badge>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground flex items-center"><User className="h-3 w-3 mr-1" />{post.author}</span>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground flex items-center"><Clock className="h-3 w-3 mr-1" />{post.timestamp}</span>
+                
+                <CardHeader className="pb-2 md:pb-3 p-3 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2 md:space-x-3 text-xs md:text-sm text-gray-600">
+                      <div className="flex items-center space-x-1">
+                        <User className="h-3 w-3 md:h-4 md:w-4" />
+                        <span className="font-medium">{post.anonymous ? "Anonymous" : post.author}</span>
+                      </div>
+                      <span>•</span>
+                      <div className="flex items-center space-x-1">
+                        <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                        <span>{post.timestamp}</span>
+                      </div>
                     </div>
-                    <Badge
-                      variant={
-                        post.type === "support"
-                          ? "default"
-                          : post.type === "advice"
-                            ? "secondary"
-                            : post.type === "event"
-                              ? "destructive"
-                              : "outline"
-                      }
-                      className="capitalize"
-                    >
-                      {post.type}
-                    </Badge>
                   </div>
-                  <CardTitle className="text-2xl font-bold mt-2 mb-1">{post.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0 pb-2">
-                  <p className="text-gray-700 mb-3 line-clamp-4">
-                    {post.body.length > 220 ? `${post.body.slice(0, 220)}... ` : post.body}
-                    {post.body.length > 220 && (
-                      <span className="text-blue-500 cursor-pointer hover:underline">Read more</span>
+                
+                <CardContent className="pt-0 p-3 md:p-6 md:pt-0">
+                  <p className="text-gray-700 mb-4 leading-relaxed text-sm md:text-base">
+                    {post.caption && post.caption.length > 180 ? `${post.caption.slice(0, 180)}...` : post.caption}
+                    {post.caption && post.caption.length > 180 && (
+                      <button className="text-blue-600 hover:text-blue-700 font-medium ml-1 hover:underline">
+                        Read more
+                      </button>
                     )}
                   </p>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {post.tags.map((tag: string) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between border-t pt-3 mt-2">
-                    <div className="flex items-center space-x-4">
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-100 gap-3">
+                    <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto">
                       <button
-                        className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[post.id] === "heart" ? "text-red-500" : "text-muted-foreground hover:text-red-500"}`}
+                        className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
+                          userReactions[post.id] === "heart" 
+                            ? "bg-red-50 text-red-600 border border-red-200" 
+                            : "text-gray-600 hover:bg-red-50 hover:text-red-600"
+                        }`}
                         onClick={() => handleReaction(post.id, "heart")}
                       >
-                        <Heart className="h-4 w-4" />
-                        <span>{post.reactions.heart}</span>
+                        <Heart className="h-3 w-3 md:h-4 md:w-4" />
+                        <span className="font-medium text-xs md:text-sm">{post.reactions.heart}</span>
                       </button>
                       <button
-                        className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[post.id] === "thumbsUp" ? "text-blue-500" : "text-muted-foreground hover:text-blue-500"}`}
+                        className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
+                          userReactions[post.id] === "thumbsUp" 
+                            ? "bg-blue-50 text-blue-600 border border-blue-200" 
+                            : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                        }`}
                         onClick={() => handleReaction(post.id, "thumbsUp")}
                       >
-                        <ThumbsUp className="h-4 w-4" />
-                        <span>{post.reactions.thumbsUp}</span>
+                        <ThumbsUp className="h-3 w-3 md:h-4 md:w-4" />
+                        <span className="font-medium text-xs md:text-sm">{post.reactions.thumbsUp}</span>
                       </button>
                       <button
-                        className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[post.id] === "thinking" ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500"}`}
-                        onClick={() => handleReaction(post.id, "thinking")}
-                      >
-                        <span>🤔</span>
-                        <span>{post.reactions.thinking}</span>
-                      </button>
-                      <button
-                        className={`flex items-center space-x-1 text-sm transition-colors duration-200 ${userReactions[post.id] === "eyes" ? "text-green-500" : "text-muted-foreground hover:text-green-500"}`}
+                        className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
+                          userReactions[post.id] === "eyes" 
+                            ? "bg-green-50 text-green-600 border border-green-200" 
+                            : "text-gray-600 hover:bg-green-50 hover:text-green-600"
+                        }`}
                         onClick={() => handleReaction(post.id, "eyes")}
                       >
-                        <Eye className="h-4 w-4" />
-                        <span>{post.reactions.eyes}</span>
+                        <Eye className="h-3 w-3 md:h-4 md:w-4" />
+                        <span className="font-medium text-xs md:text-sm">{post.reactions.eyes}</span>
                       </button>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm">
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        {post.commentCount}
+                    
+                    <div className="flex items-center space-x-1 md:space-x-2 overflow-x-auto">
+                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 p-1 md:p-2">
+                        <MessageSquare className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                        <span className="text-xs md:text-sm">{post.commentCount}</span>
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <Flag className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                        <Bookmark className="h-3 w-3 md:h-4 md:w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                        <Share2 className="h-3 w-3 md:h-4 md:w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                        <MoreHorizontal className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                   </div>
@@ -689,7 +840,8 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
       </div>
       {showCreatePostModal && (
         <CreatePostModal
-          onClose={() => setShowCreatePostModal(false)}
+           open={showCreatePostModal}
+          onOpenChange={setShowCreatePostModal}
           availableCommunities={[{ name: communityInfo.name, slug: communitySlug }]}
           communitySlug={communitySlug}
           user={user}
