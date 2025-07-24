@@ -17,9 +17,24 @@ export default function Home() {
     const storedUser = localStorage.getItem("user")
     const storedOnboardingStatus = localStorage.getItem("onboarding_complete")
     const guidedOnboardingShown = localStorage.getItem("guided_onboarding_shown")
-    if (storedUser) setUser(JSON.parse(storedUser))
-    if (storedOnboardingStatus === "true") setOnboardingComplete(true)
-    setShowGuidedOnboarding(!guidedOnboardingShown)
+    
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+      if (storedOnboardingStatus === "true") setOnboardingComplete(true)
+      setShowGuidedOnboarding(!guidedOnboardingShown)
+    } else {
+      // No user exists, create a default user and start guided onboarding
+      const defaultUser = {
+        id: "default-user",
+        username: "User",
+        email: "user@example.com",
+        role: "Member",
+        joined: "today"
+      }
+      setUser(defaultUser)
+      localStorage.setItem("user", JSON.stringify(defaultUser))
+      setShowGuidedOnboarding(true)
+    }
     setLoading(false)
   }, [])
 
@@ -51,16 +66,6 @@ export default function Home() {
           <div className="flex items-center justify-center min-h-screen bg-background">
             <p className="text-lg text-muted-foreground">Loading...</p>
           </div>
-        </motion.div>
-      )}
-      {!loading && !user && (
-        <motion.div
-          key="login"
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -40 }}
-          transition={{ duration: 0.3 }}
-        >
         </motion.div>
       )}
       {!loading && user && showGuidedOnboarding && (

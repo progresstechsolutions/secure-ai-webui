@@ -18,6 +18,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
 import { logUserActivity } from "@/lib/utils"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { useProfilePicture } from "@/hooks/use-profile-picture"
+import { UserAvatar } from "@/components/ui/user-avatar"
 
 interface CreatePostModalProps {
   open: boolean
@@ -38,29 +40,62 @@ export function CreatePostModal(props: CreatePostModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [userName, setUserName] = useState<string>("")
   const { toast } = useToast()
+  const { profilePicture } = useProfilePicture()
 
   const router = useRouter()
 
-  // Fetch user's name on component mount
+  // Debug log to see the current userName state and props.open
+  console.log("CreatePostModal - Current userName state:", userName, "props.open:", props.open)
+
+  // Fetch user's name on component mount and when modal opens
   useEffect(() => {
     const fetchUserName = () => {
+      console.log("Fetching username... props.open:", props.open)
       try {
         // Try to get from props first
         if (props.user?.username) {
+          console.log("Setting username from props:", props.user.username)
           setUserName(props.user.username)
           return
         }
         
-        // Fallback to localStorage
-        const userData = localStorage.getItem("user_data")
-        if (userData) {
-          const parsed = JSON.parse(userData)
+        // Check user_profile first (from profile setup)
+        const userProfile = localStorage.getItem("user_profile")
+        if (userProfile) {
+          const parsed = JSON.parse(userProfile)
+          console.log("Found user_profile:", parsed)
           if (parsed.username) {
+            console.log("Setting username from user_profile:", parsed.username)
             setUserName(parsed.username)
             return
           }
         }
         
+        // Fallback to user_data (from onboarding)
+        const userData = localStorage.getItem("user_data")
+        if (userData) {
+          const parsed = JSON.parse(userData)
+          console.log("Found user_data:", parsed)
+          if (parsed.username) {
+            console.log("Setting username from user_data:", parsed.username)
+            setUserName(parsed.username)
+            return
+          }
+        }
+        
+        // Check user (from login)
+        const user = localStorage.getItem("user")
+        if (user) {
+          const parsed = JSON.parse(user)
+          console.log("Found user:", parsed)
+          if (parsed.username) {
+            console.log("Setting username from user:", parsed.username)
+            setUserName(parsed.username)
+            return
+          }
+        }
+        
+        console.log("No username found, using default: User")
         // Default fallback
         setUserName("User")
       } catch (error) {
@@ -69,8 +104,27 @@ export function CreatePostModal(props: CreatePostModalProps) {
       }
     }
     
+    console.log("useEffect running, props.open:", props.open)
     fetchUserName()
-  }, [props.user])
+  }, [props.open])
+
+  // Additional effect to run on mount
+  useEffect(() => {
+    console.log("Mount effect running")
+    const userData = localStorage.getItem("user_data")
+    if (userData) {
+      try {
+        const parsed = JSON.parse(userData)
+        console.log("Mount effect - Found user_data:", parsed)
+        if (parsed.username) {
+          console.log("Mount effect - Setting username:", parsed.username)
+          setUserName(parsed.username)
+        }
+      } catch (error) {
+        console.error("Mount effect - Error:", error)
+      }
+    }
+  }, [])
 
   const handleClose = () => {
     props.onOpenChange(false)
@@ -193,12 +247,24 @@ export function CreatePostModal(props: CreatePostModalProps) {
         
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
-                <User className="h-6 w-6 text-white" />
-              </div>
+              {anonymous ? (
+                <div className="w-12 h-12 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center shadow-md">
+                  <User className="h-6 w-6 text-white" />
+                </div>
+              ) : (
+                <UserAvatar 
+                  profilePicture={profilePicture}
+                  username={userName || "User"}
+                  size="lg"
+                  className="shadow-md"
+                />
+              )}
               <div className="flex flex-col">
                 <p className="font-semibold text-gray-900 text-base">
-                  {anonymous ? "Anonymous User" : userName || "User"}
+                  {anonymous ? "Anonymous" : (userName || "User")}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Posting to community
                 </p>
                 <Select value={selectedCommunity} onValueChange={setSelectedCommunity}>
                   <SelectTrigger className="w-auto h-7 border-none p-0 text-sm text-gray-600 hover:bg-gray-50 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
@@ -225,7 +291,7 @@ export function CreatePostModal(props: CreatePostModalProps) {
                   ? 'bg-blue-100 text-blue-600 shadow-sm hover:bg-blue-200' 
                   : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
               }`}
-              title={anonymous ? "Posting anonymously - Click to use your name" : "Click to post anonymously"}
+              title={anonymous ? "Posting anonymously - Click to show your name and picture" : "Click to post anonymously"}
             >
               {anonymous ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
@@ -237,7 +303,7 @@ export function CreatePostModal(props: CreatePostModalProps) {
           {/* Text Input Area */}
           <div className="px-6 py-4">
             <Textarea
-              placeholder={`What's on your mind, ${anonymous ? 'Anonymous' : userName || 'User'}?`}
+              placeholder={`What's on your mind, ${anonymous ? 'Anonymous' : (userName || 'User')}?`}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               className="border-none resize-none text-base p-0 focus:ring-0 focus:outline-none min-h-[120px] placeholder:text-gray-400 bg-transparent leading-relaxed"

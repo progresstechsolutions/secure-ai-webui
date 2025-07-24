@@ -170,9 +170,9 @@ export function OnboardingFlow({ onComplete, onBack }: OnboardingFlowProps) {
       switch (step) {
         case 0:
           setError("Please enter a username."); break;
-        case 1:
-          setError("Please select at least one condition."); break;
         case 2:
+          setError("Please select at least one condition."); break;
+        case 3:
           setError("Please select your region."); break;
         case 5:
           setError("You must accept the privacy policy to continue."); break;
@@ -203,6 +203,8 @@ export function OnboardingFlow({ onComplete, onBack }: OnboardingFlowProps) {
       case 0:
         return username.trim().length > 0
       case 1:
+        return true // Photo is optional
+      case 2:
         return selectedConditions.length > 0
       case 3:
         return selectedRegion !== ""
@@ -318,10 +320,10 @@ export function OnboardingFlow({ onComplete, onBack }: OnboardingFlowProps) {
                       <span className="text-3xl">📸</span>
                     </div>
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                      📷 Add Your Photo
+                      📷 Add Your Photo (Optional)
                     </h2>
                     <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                      Upload a profile picture to help others recognize you in the community. This is optional.
+                      Upload a profile picture to help others recognize you in the community. You can always add this later.
                     </p>
                     <div className={`max-w-md mx-auto ${contentFade ? 'animate-fade-in' : 'opacity-0'}`}>
                       <div className="flex flex-col items-center space-y-4">
@@ -366,7 +368,7 @@ export function OnboardingFlow({ onComplete, onBack }: OnboardingFlowProps) {
                             {profilePicture ? "Change Photo" : "Upload Photo"}
                           </Button>
                           <p className="text-xs text-gray-500">
-                            Max 5MB • JPG, PNG, GIF
+                            Optional • Max 5MB • JPG, PNG, GIF
                           </p>
                         </div>
                       </div>
