@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { Save } from "lucide-react"
-import { Edit, User, MessageSquare, Camera } from "lucide-react"
+import { Edit, User, MessageSquare, Camera, LogOut } from "lucide-react"
 import { Users } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,9 +27,10 @@ import { UserAvatar } from "@/components/ui/user-avatar"
 interface UserProfileProps {
   user: any
   onBack: () => void
+  onLogout?: () => void
 }
 
-export function UserProfile({ user, onBack }: UserProfileProps) {
+export function UserProfile({ user, onBack, onLogout }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [profileData, setProfileData] = useState({
     username: "",
@@ -422,6 +423,28 @@ export function UserProfile({ user, onBack }: UserProfileProps) {
   }
   const keepEditing = () => {
     setShowDiscardDialog(false)
+  }
+
+  const handleLogout = () => {
+    // Clear all user data from localStorage
+    localStorage.removeItem("user")
+    localStorage.removeItem("user_data")
+    localStorage.removeItem("user_profile")
+    localStorage.removeItem("onboarding_complete")
+    localStorage.removeItem("guided_onboarding_shown")
+    localStorage.removeItem("user_communities")
+    localStorage.removeItem("user_activity")
+    localStorage.removeItem("profile_picture")
+    
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out.",
+    })
+    
+    // Call the onLogout callback if provided
+    if (onLogout) {
+      onLogout()
+    }
   }
 
   return (
@@ -900,6 +923,17 @@ export function UserProfile({ user, onBack }: UserProfileProps) {
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
                       {recentActivity.length}
                     </Badge>
+                  </div>
+                  <div className="pt-3 border-t border-gray-200">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
                   </div>
                 </div>
               </CardContent>
