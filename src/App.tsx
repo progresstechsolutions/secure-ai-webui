@@ -7,9 +7,11 @@ import AlertsScreen from './components/AlertsScreen';
 import CareTeamScreen from './components/CareTeamScreen';
 import ProfileSettingsScreen from './components/ProfileSettingsScreen';
 import GrowthDevelopmentScreen from './components/GrowthDevelopmentScreen';
+import LogAndTrackScreen from './components/LogAndTrackScreen';
+import AppLayout from './components/AppLayout';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log'>('home');
   const [recipeLibraryMealType, setRecipeLibraryMealType] = useState<string | undefined>();
   const [insightData, setInsightData] = useState<{
     symptomName: string;
@@ -77,16 +79,30 @@ function App() {
     setCurrentView('home');
   };
 
+  const handleNavigateToLog = () => {
+    setCurrentView('log');
+  };
+
+  const handleNavigateBackFromLog = () => {
+    setCurrentView('home');
+  };
+
   return (
-    <div className="App min-h-screen bg-gray-50">
+    <AppLayout
+      currentView={currentView}
+      onNavigateToHome={handleNavigateToHome}
+      onNavigateToNutrition={handleNavigateToNutrition}
+      onNavigateToCareTeam={handleNavigateToCareTeam}
+      onNavigateToProfile={handleNavigateToProfile}
+      onLogSymptom={handleNavigateToLog}
+    >
                    {currentView === 'home' && (
                <HomeDashboard
-                 onNavigateToNutrition={handleNavigateToNutrition}
                  onNavigateToSymptomInsights={handleNavigateToSymptomInsights}
                  onNavigateToAlerts={handleNavigateToAlerts}
-                 onNavigateToCareTeam={handleNavigateToCareTeam}
-                 onNavigateToProfile={handleNavigateToProfile}
                  onNavigateToGrowthDevelopment={handleNavigateToGrowthDevelopment}
+                 onNavigateToNutrition={handleNavigateToNutrition}
+                 onNavigateToLog={handleNavigateToLog}
                />
              )}
       {currentView === 'nutrition' && (
@@ -136,8 +152,13 @@ function App() {
                  }}
                />
              )}
-           </div>
-         );
-       }
+             {currentView === 'log' && (
+               <LogAndTrackScreen
+                 onBack={handleNavigateBackFromLog}
+               />
+             )}
+    </AppLayout>
+  );
+}
 
 export default App; 
