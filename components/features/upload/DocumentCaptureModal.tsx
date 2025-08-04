@@ -293,125 +293,130 @@ export function DocumentCaptureModal({
             window.cv.CHAIN_APPROX_SIMPLE
           )
           
-                     // Find the largest contour (likely the document)
-           let maxArea = 0
-           let maxContourIndex = -1
-           
-           console.log('Found', contours.size(), 'contours')
-           
-           for (let i = 0; i < contours.size(); i++) {
-             const area = window.cv.contourArea(contours.get(i))
-             console.log(`Contour ${i}: area = ${area}`)
-             if (area > maxArea) {
-               maxArea = area
-               maxContourIndex = i
-             }
-           }
-           
-           console.log('Largest contour area:', maxArea, 'index:', maxContourIndex)
-           
-           // Lower the threshold significantly and check if contour is roughly rectangular
-           if (maxContourIndex >= 0 && maxArea > 100) {
-                         const contour = contours.get(maxContourIndex)
-             
-             // Try different epsilon values for better approximation
-             const arcLength = window.cv.arcLength(contour, true)
-             console.log('Contour arc length:', arcLength)
-             
-             // Try multiple epsilon values to find the best approximation
-             let bestApprox = null
-             let bestEpsilon = 0
-             
-             for (let epsilonFactor = 0.01; epsilonFactor <= 0.1; epsilonFactor += 0.01) {
-               const epsilon = epsilonFactor * arcLength
-               const approx = new window.cv.Mat()
-               window.cv.approxPolyDP(contour, approx, epsilon, true)
-               
-               console.log(`Epsilon ${epsilonFactor}: ${approx.rows} points`)
-               
-               // Prefer 4 points, but accept 3-6 points for more flexibility
-               if (approx.rows >= 3 && approx.rows <= 6) {
-                 bestApprox = approx
-                 bestEpsilon = epsilonFactor
-                 if (approx.rows === 4) break // Perfect rectangle found
-               } else {
-                 approx.delete()
-               }
-             }
-             
-             if (bestApprox && bestApprox.rows >= 3) {
-               console.log(`Using approximation with ${bestApprox.rows} points (epsilon factor: ${bestEpsilon})`)
-               
-                              // If we have 4 points, we have a rectangle
-               if (bestApprox.rows === 4) {
-                 console.log('Found 4 corners, applying perspective correction')
-                 // Get the corners and apply perspective correction
-                 const corners = []
-                 for (let i = 0; i < 4; i++) {
-                   corners.push({
-                     x: bestApprox.data32S[i * 2],
-                     y: bestApprox.data32S[i * 2 + 1]
-                   })
-                 }
+          // Find the largest contour (likely the document)
+          let maxArea = 0
+          let maxContourIndex = -1
+          
+          console.log('Found', contours.size(), 'contours')
+          
+          for (let i = 0; i < contours.size(); i++) {
+            const area = window.cv.contourArea(contours.get(i))
+            console.log(`Contour ${i}: area = ${area}`)
+            if (area > maxArea) {
+              maxArea = area
+              maxContourIndex = i
+            }
+          }
+          
+          console.log('Largest contour area:', maxArea, 'index:', maxContourIndex)
+          
+          // Lower the threshold significantly and check if contour is roughly rectangular
+          if (maxContourIndex >= 0 && maxArea > 100) {
+            const contour = contours.get(maxContourIndex)
+            
+            // Try different epsilon values for better approximation
+            const arcLength = window.cv.arcLength(contour, true)
+            console.log('Contour arc length:', arcLength)
+            
+            // Try multiple epsilon values to find the best approximation
+            let bestApprox = null
+            let bestEpsilon = 0
+            
+            for (let epsilonFactor = 0.01; epsilonFactor <= 0.1; epsilonFactor += 0.01) {
+              const epsilon = epsilonFactor * arcLength
+              const approx = new window.cv.Mat()
+              window.cv.approxPolyDP(contour, approx, epsilon, true)
               
-              // Sort corners: top-left, top-right, bottom-right, bottom-left
-              corners.sort((a, b) => a.y - b.y)
-              const top = corners.slice(0, 2).sort((a, b) => a.x - b.x)
-              const bottom = corners.slice(2, 4).sort((a, b) => a.x - b.x)
-              const sortedCorners = [...top, ...bottom.reverse()]
+              console.log(`Epsilon ${epsilonFactor}: ${approx.rows} points`)
               
-              // Calculate perspective transform
-              const srcPoints = window.cv.matFromArray(4, 1, window.cv.CV_32FC2, [
-                sortedCorners[0].x, sortedCorners[0].y,
-                sortedCorners[1].x, sortedCorners[1].y,
-                sortedCorners[2].x, sortedCorners[2].y,
-                sortedCorners[3].x, sortedCorners[3].y
-              ])
+              // Prefer 4 points, but accept 3-6 points for more flexibility
+              if (approx.rows >= 3 && approx.rows <= 6) {
+                bestApprox = approx
+                bestEpsilon = epsilonFactor
+                if (approx.rows === 4) break // Perfect rectangle found
+              } else {
+                approx.delete()
+              }
+            }
+            
+            if (bestApprox && bestApprox.rows >= 3) {
+              console.log(`Using approximation with ${bestApprox.rows} points (epsilon factor: ${bestEpsilon})`)
               
-              const width = Math.max(
-                Math.hypot(sortedCorners[1].x - sortedCorners[0].x, sortedCorners[1].y - sortedCorners[0].y),
-                Math.hypot(sortedCorners[2].x - sortedCorners[3].x, sortedCorners[2].y - sortedCorners[3].y)
-              )
-              const height = Math.max(
-                Math.hypot(sortedCorners[3].x - sortedCorners[0].x, sortedCorners[3].y - sortedCorners[0].y),
-                Math.hypot(sortedCorners[2].x - sortedCorners[1].x, sortedCorners[2].y - sortedCorners[1].y)
-              )
-              
-              const dstPoints = window.cv.matFromArray(4, 1, window.cv.CV_32FC2, [
-                0, 0,
-                width, 0,
-                width, height,
-                0, height
-              ])
-              
-              const transformMatrix = window.cv.getPerspectiveTransform(srcPoints, dstPoints)
-              const warped = new window.cv.Mat()
-              window.cv.warpPerspective(gray, warped, transformMatrix, new window.cv.Size(width, height))
-              
-                             // Convert back to canvas
-               const processedCanvas = document.createElement('canvas')
-               processedCanvas.width = width
-               processedCanvas.height = height
-               const processedCtx = processedCanvas.getContext('2d')
-               if (processedCtx) {
-                 // Convert grayscale to RGBA for canvas
-                 const rgbaData = new Uint8ClampedArray(width * height * 4)
-                 for (let i = 0; i < warped.data.length; i++) {
-                   const grayValue = warped.data[i]
-                   const rgbaIndex = i * 4
-                   rgbaData[rgbaIndex] = grayValue     // R
-                   rgbaData[rgbaIndex + 1] = grayValue // G
-                   rgbaData[rgbaIndex + 2] = grayValue // B
-                   rgbaData[rgbaIndex + 3] = 255       // A
-                 }
-                 
-                 const processedImageData = new ImageData(rgbaData, width, height)
-                 processedCtx.putImageData(processedImageData, 0, 0)
-                 const processedImage = processedCanvas.toDataURL('image/jpeg', 0.9)
-                 
-                 console.log('Perspective correction completed successfully')
-                 
-                                   // Clean up OpenCV objects
+              // If we have 4 points, we have a rectangle
+              if (bestApprox.rows === 4) {
+                console.log('Found 4 corners, applying perspective correction')
+                // Get the corners and apply perspective correction
+                const corners = []
+                for (let i = 0; i < 4; i++) {
+                  corners.push({
+                    x: bestApprox.data32S[i * 2],
+                    y: bestApprox.data32S[i * 2 + 1]
+                  })
+                }
+                
+                // Sort corners: top-left, top-right, bottom-right, bottom-left
+                corners.sort((a, b) => a.y - b.y)
+                const top = corners.slice(0, 2).sort((a, b) => a.x - b.x)
+                const bottom = corners.slice(2, 4).sort((a, b) => a.x - b.x)
+                const sortedCorners = [...top, ...bottom.reverse()]
+                
+                // Calculate perspective transform
+                const srcPoints = window.cv.matFromArray(4, 1, window.cv.CV_32FC2, [
+                  sortedCorners[0].x, sortedCorners[0].y,
+                  sortedCorners[1].x, sortedCorners[1].y,
+                  sortedCorners[2].x, sortedCorners[2].y,
+                  sortedCorners[3].x, sortedCorners[3].y
+                ])
+                
+                const width = Math.max(
+                  Math.hypot(sortedCorners[1].x - sortedCorners[0].x, sortedCorners[1].y - sortedCorners[0].y),
+                  Math.hypot(sortedCorners[2].x - sortedCorners[3].x, sortedCorners[2].y - sortedCorners[3].y)
+                )
+                const height = Math.max(
+                  Math.hypot(sortedCorners[3].x - sortedCorners[0].x, sortedCorners[3].y - sortedCorners[0].y),
+                  Math.hypot(sortedCorners[2].x - sortedCorners[1].x, sortedCorners[2].y - sortedCorners[1].y)
+                )
+                
+                const dstPoints = window.cv.matFromArray(4, 1, window.cv.CV_32FC2, [
+                  0, 0,
+                  width, 0,
+                  width, height,
+                  0, height
+                ])
+                
+                const transformMatrix = window.cv.getPerspectiveTransform(srcPoints, dstPoints)
+                const warped = new window.cv.Mat()
+                window.cv.warpPerspective(gray, warped, transformMatrix, new window.cv.Size(width, height))
+                
+                                 // Convert back to canvas
+                 const processedCanvas = document.createElement('canvas')
+                 processedCanvas.width = width
+                 processedCanvas.height = height
+                 const processedCtx = processedCanvas.getContext('2d')
+                 if (processedCtx) {
+                   // Convert grayscale to RGBA for canvas
+                   const rgbaData = new Uint8ClampedArray(width * height * 4)
+                   const warpedData = warped.data
+                   console.log('Warped data length:', warpedData.length, 'Expected RGBA length:', width * height * 4)
+                   
+                   // Ensure we don't exceed the warped data length
+                   const maxIndex = Math.min(warpedData.length, width * height)
+                   for (let i = 0; i < maxIndex; i++) {
+                     const grayValue = warpedData[i]
+                     const rgbaIndex = i * 4
+                     rgbaData[rgbaIndex] = grayValue     // R
+                     rgbaData[rgbaIndex + 1] = grayValue // G
+                     rgbaData[rgbaIndex + 2] = grayValue // B
+                     rgbaData[rgbaIndex + 3] = 255       // A
+                   }
+                   
+                   const processedImageData = new ImageData(rgbaData, width, height)
+                   processedCtx.putImageData(processedImageData, 0, 0)
+                   const processedImage = processedCanvas.toDataURL('image/jpeg', 0.9)
+                  
+                  console.log('Perspective correction completed successfully')
+                  
+                  // Clean up OpenCV objects
                   src.delete()
                   gray.delete()
                   blurred.delete()
@@ -423,13 +428,14 @@ export function DocumentCaptureModal({
                   dstPoints.delete()
                   transformMatrix.delete()
                   warped.delete()
-                 
-                 resolve(processedImage)
-                 return
-                             }
-             }
-             if (bestApprox) bestApprox.delete()
-           }
+                  
+                  resolve(processedImage)
+                  return
+                }
+              }
+            }
+            if (bestApprox) bestApprox.delete()
+          }
           
                      // If no good contour found, just return enhanced grayscale
            console.log('No good contour found, returning enhanced grayscale')
@@ -440,8 +446,13 @@ export function DocumentCaptureModal({
            if (processedCtx) {
              // Convert grayscale to RGBA for canvas
              const rgbaData = new Uint8ClampedArray(canvas.width * canvas.height * 4)
-             for (let i = 0; i < gray.data.length; i++) {
-               const grayValue = gray.data[i]
+             const grayData = gray.data
+             console.log('Gray data length:', grayData.length, 'Expected RGBA length:', canvas.width * canvas.height * 4)
+             
+             // Ensure we don't exceed the gray data length
+             const maxIndex = Math.min(grayData.length, canvas.width * canvas.height)
+             for (let i = 0; i < maxIndex; i++) {
+               const grayValue = grayData[i]
                const rgbaIndex = i * 4
                rgbaData[rgbaIndex] = grayValue     // R
                rgbaData[rgbaIndex + 1] = grayValue // G
@@ -452,32 +463,32 @@ export function DocumentCaptureModal({
              const processedImageData = new ImageData(rgbaData, canvas.width, canvas.height)
              processedCtx.putImageData(processedImageData, 0, 0)
              const processedImage = processedCanvas.toDataURL('image/jpeg', 0.9)
-             
-             console.log('Enhanced grayscale processing completed')
-             
-             // Clean up OpenCV objects
-             src.delete()
-             gray.delete()
-             blurred.delete()
-             thresh.delete()
-             contours.delete()
-             hierarchy.delete()
-             
-             resolve(processedImage)
-           }
+            
+            console.log('Enhanced grayscale processing completed')
+            
+            // Clean up OpenCV objects
+            src.delete()
+            gray.delete()
+            blurred.delete()
+            thresh.delete()
+            contours.delete()
+            hierarchy.delete()
+            
+            resolve(processedImage)
+          }
           
-                  } catch (error) {
-           console.error('OpenCV processing error:', error)
-           reject(error)
-         }
-       }
-       
-       img.onerror = () => {
-         reject(new Error('Failed to load image'))
-       }
-       
-       img.src = imageData
-     })
+        } catch (error) {
+          console.error('OpenCV processing error:', error)
+          reject(error)
+        }
+      }
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image'))
+      }
+      
+      img.src = imageData
+    })
   }, [])
 
   const processImage = useCallback(async (pageId: string, imageData: string) => {
