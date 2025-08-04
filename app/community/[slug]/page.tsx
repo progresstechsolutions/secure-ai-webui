@@ -1,22 +1,48 @@
 "use client"
-import { useRouter, useParams } from "next/navigation"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { CommunityFeed } from "@/components/community-feed"
-import { ArrowLeft, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
-export default function CommunityPage() {
+interface CommunityPageProps {
+  params: Promise<{
+    slug: string
+  }>
+}
+
+export default function CommunityPage({ params }: CommunityPageProps) {
   const router = useRouter()
-  const params = useParams()
-  const slug = typeof params.slug === "string" ? params.slug : Array.isArray(params.slug) ? params.slug[0] : ""
+  
+  // Mock user data - in a real app, you'd get this from your auth system
+  const user = {
+    id: "current-user",
+    email: "user@example.com",
+    name: "Current User",
+    username: "current_user",
+    image: "/placeholder-user.jpg",
+    healthConditions: ["Cystic Fibrosis"],
+    location: {
+      region: "United States",
+      state: "California"
+    }
+  }
 
-  // Optionally, fetch user from context or props if needed
-  const user = {} // Replace with actual user logic if available
+  // Extract slug from params
+  const [slug, setSlug] = useState<string>("")
+  
+  useEffect(() => {
+    params.then(p => setSlug(p.slug))
+  }, [params])
+
+  if (!slug) {
+    return <div>Loading...</div>
+  }
 
   return (
-   
-   
-        <CommunityFeed communitySlug={slug} onBack={() => router.back()} user={user} />
-     
-  
+    <CommunityFeed 
+      communitySlug={slug} 
+      user={user}
+      onBack={() => router.back()}
+    />
   )
 } 

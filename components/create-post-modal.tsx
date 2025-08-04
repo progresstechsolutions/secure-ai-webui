@@ -3,21 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, ImageIcon, Video, Paperclip, User, ArrowLeft, PenTool, X, Check, Hash, Eye, EyeOff, Upload } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+import { ImageIcon, Video, User, X, Check, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logUserActivity } from "@/lib/utils"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useProfilePicture } from "@/hooks/use-profile-picture"
 import { UserAvatar } from "@/components/ui/user-avatar"
 
@@ -42,19 +34,12 @@ export function CreatePostModal(props: CreatePostModalProps) {
   const { toast } = useToast()
   const { profilePicture } = useProfilePicture()
 
-  const router = useRouter()
-
-  // Debug log to see the current userName state and props.open
-  console.log("CreatePostModal - Current userName state:", userName, "props.open:", props.open)
-
   // Fetch user's name on component mount and when modal opens
   useEffect(() => {
     const fetchUserName = () => {
-      console.log("Fetching username... props.open:", props.open)
       try {
         // Try to get from props first
         if (props.user?.username) {
-          console.log("Setting username from props:", props.user.username)
           setUserName(props.user.username)
           return
         }
@@ -63,9 +48,7 @@ export function CreatePostModal(props: CreatePostModalProps) {
         const userProfile = localStorage.getItem("user_profile")
         if (userProfile) {
           const parsed = JSON.parse(userProfile)
-          console.log("Found user_profile:", parsed)
           if (parsed.username) {
-            console.log("Setting username from user_profile:", parsed.username)
             setUserName(parsed.username)
             return
           }
@@ -75,27 +58,12 @@ export function CreatePostModal(props: CreatePostModalProps) {
         const userData = localStorage.getItem("user_data")
         if (userData) {
           const parsed = JSON.parse(userData)
-          console.log("Found user_data:", parsed)
           if (parsed.username) {
-            console.log("Setting username from user_data:", parsed.username)
             setUserName(parsed.username)
             return
           }
         }
         
-        // Check user (from login)
-        const user = localStorage.getItem("user")
-        if (user) {
-          const parsed = JSON.parse(user)
-          console.log("Found user:", parsed)
-          if (parsed.username) {
-            console.log("Setting username from user:", parsed.username)
-            setUserName(parsed.username)
-            return
-          }
-        }
-        
-        console.log("No username found, using default: User")
         // Default fallback
         setUserName("User")
       } catch (error) {
@@ -104,27 +72,8 @@ export function CreatePostModal(props: CreatePostModalProps) {
       }
     }
     
-    console.log("useEffect running, props.open:", props.open)
     fetchUserName()
-  }, [props.open])
-
-  // Additional effect to run on mount
-  useEffect(() => {
-    console.log("Mount effect running")
-    const userData = localStorage.getItem("user_data")
-    if (userData) {
-      try {
-        const parsed = JSON.parse(userData)
-        console.log("Mount effect - Found user_data:", parsed)
-        if (parsed.username) {
-          console.log("Mount effect - Setting username:", parsed.username)
-          setUserName(parsed.username)
-        }
-      } catch (error) {
-        console.error("Mount effect - Error:", error)
-      }
-    }
-  }, [])
+  }, [props.open, props.user])
 
   const handleClose = () => {
     props.onOpenChange(false)
@@ -206,7 +155,7 @@ export function CreatePostModal(props: CreatePostModalProps) {
         caption: caption.trim(),
         author: anonymous ? "Anonymous" : userName || "Guest User",
         timestamp: new Date().toLocaleString(),
-        reactions: { heart: 0, thumbsUp: 0, thinking: 0, eyes: 0 },
+        reactions: { heart: 0, thumbsUp: 0, thinking: 0, eyes: 0, hope: 0, hug: 0, grateful: 0 },
         commentCount: 0,
         anonymous,
         images: images.map(img => img.url) || [],
@@ -235,269 +184,205 @@ export function CreatePostModal(props: CreatePostModalProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-lg w-[95vw] max-h-[85vh] flex flex-col overflow-hidden bg-white rounded-xl shadow-2xl border-0">
-        {/* Header Section */}
-       
-          <DialogTitle className="text-xl font-bold text-gray-900 text-center tracking-tight">
+      <DialogContent className="sm:max-w-lg w-[95vw] max-h-[90vh] flex flex-col overflow-hidden bg-white rounded-2xl shadow-2xl border-0 p-0">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <DialogTitle className="text-xl font-semibold text-gray-900">
             Create Post
           </DialogTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            className="h-8 w-8 rounded-full hover:bg-gray-100"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
 
-
-        {/* User Info Section */}
-        
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {anonymous ? (
-                <div className="w-12 h-12 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center shadow-md">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-              ) : (
-                <UserAvatar 
-                  profilePicture={profilePicture}
-                  username={userName || "User"}
-                  size="lg"
-                  className="shadow-md"
-                />
-              )}
-              <div className="flex flex-col">
-                <p className="font-semibold text-gray-900 text-base">
-                  {anonymous ? "Anonymous" : (userName || "User")}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Posting to community
-                </p>
-                <Select value={selectedCommunity} onValueChange={setSelectedCommunity}>
-                  <SelectTrigger className="w-auto h-7 border-none p-0 text-sm text-gray-600 hover:bg-gray-50 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
-                    <SelectValue placeholder="Select community" />
-                  </SelectTrigger>
-                  <SelectContent className="border border-gray-200 shadow-lg rounded-lg">
-                    {props.availableCommunities.map((c) => (
-                      <SelectItem key={c.slug} value={c.slug} className="hover:bg-blue-50">
-                         {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* User Info */}
+        <div className="flex items-center space-x-3 p-4 pb-2">
+          {anonymous ? (
+            <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-white" />
             </div>
-            
-            {/* Anonymous Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setAnonymous(!anonymous)}
-              className={`p-2.5 rounded-full transition-all duration-200 ${
-                anonymous 
-                  ? 'bg-blue-100 text-blue-600 shadow-sm hover:bg-blue-200' 
-                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-              }`}
-              title={anonymous ? "Posting anonymously - Click to show your name and picture" : "Click to post anonymously"}
-            >
-              {anonymous ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-          </div>
-       
-
-        {/* Content Section */}
-        <div className="flex-1 overflow-y-auto min-h-0 bg-gray-50/30">
-          {/* Text Input Area */}
-          <div className="px-6 py-4">
-            <Textarea
-              placeholder={`What's on your mind, ${anonymous ? 'Anonymous' : (userName || 'User')}?`}
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              className="border-none resize-none text-base p-0 focus:ring-0 focus:outline-none min-h-[120px] placeholder:text-gray-400 bg-transparent leading-relaxed"
-              maxLength={2000}
+          ) : (
+            <UserAvatar 
+              profilePicture={profilePicture}
+              username={userName || "User"}
+              size="md"
             />
-          </div>
-
-          {/* Character Counter */}
-          {caption.length > 0 && (
-            <div className="px-6 pb-2">
-              <div className="flex justify-end">
-                <span className={`text-xs font-medium ${
-                  caption.length > 1800 ? 'text-red-500' : 
-                  caption.length > 1500 ? 'text-amber-500' : 
-                  'text-gray-400'
-                }`}>
-                  {caption.length}/2000
-                </span>
-              </div>
-            </div>
           )}
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <p className="font-semibold text-gray-900">
+                {anonymous ? "Anonymous" : (userName || "User")}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAnonymous(!anonymous)}
+                className={`p-1 rounded transition-colors ${
+                  anonymous ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title={anonymous ? "Posting anonymously" : "Click to post anonymously"}
+              >
+                {anonymous ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <Select value={selectedCommunity} onValueChange={setSelectedCommunity}>
+              <SelectTrigger className="w-auto h-6 border-none p-0 text-sm text-gray-600 hover:bg-gray-100 rounded focus:ring-0">
+                <SelectValue placeholder="Select community" />
+              </SelectTrigger>
+              <SelectContent>
+                {props.availableCommunities.map((c) => (
+                  <SelectItem key={c.slug} value={c.slug}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-          {/* Media Preview Section */}
-          {(images.length > 0 || videos.length > 0) && (
-            <div className="px-6 pb-4">
-              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                  <ImageIcon className="h-4 w-4 mr-2" />
-                  Media ({images.length + videos.length})
-                </h4>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                  {images.map((img, idx) => (
-                    <div key={idx} className="relative group">
-                      <div className="relative w-full max-w-sm mx-auto bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                        <img
-                          src={img.url}
-                          alt={`uploaded image ${idx + 1}`}
-                          className="w-full h-auto max-h-48 object-contain bg-gray-50"
-                          style={{ aspectRatio: 'auto' }}
-                        />
-                        {/* Upload progress/success indicator */}
-                        {img.uploading ? (
-                          <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center shadow-md">
-                            <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
-                            Uploading...
-                          </div>
-                        ) : (
-                          <div className="absolute bottom-2 left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center shadow-md">
-                            <Check className="h-3 w-3 mr-1" />
-                            Uploaded
-                          </div>
-                        )}
-                        {/* Remove button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setImages(images.filter((_, i) => i !== idx))}
-                          className="absolute top-2 right-2 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-full shadow-md"
-                          disabled={img.uploading}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      {/* Image info */}
-                      <p className="text-xs text-gray-500 mt-1 text-center truncate">
-                        Image {idx + 1} {img.uploading && '(uploading...)'}
-                      </p>
-                    </div>
-                  ))}
-                  {videos.map((vid, idx) => (
-                    <div key={idx} className="relative group">
-                      <div className="relative w-full max-w-sm mx-auto bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                        <video
-                          src={vid.url}
-                          className="w-full h-auto max-h-48 object-contain bg-gray-50"
-                          controls={false}
-                          style={{ aspectRatio: 'auto' }}
-                        />
-                        {/* Video overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg">
-                          <Video className="h-8 w-8 text-white drop-shadow-lg" />
-                        </div>
-                        {/* Upload progress/success indicator */}
-                        {vid.uploading ? (
-                          <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center shadow-md">
-                            <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
-                            Uploading...
-                          </div>
-                        ) : (
-                          <div className="absolute bottom-2 left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center shadow-md">
-                            <Check className="h-3 w-3 mr-1" />
-                            Uploaded
-                          </div>
-                        )}
-                        {/* Remove button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setVideos(videos.filter((_, i) => i !== idx))}
-                          className="absolute top-2 right-2 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-full shadow-md"
-                          disabled={vid.uploading}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      {/* Video info */}
-                      <p className="text-xs text-gray-500 mt-1 text-center truncate">
-                        {vid.name} {vid.uploading && '(uploading...)'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {/* Content Input */}
+        <div className="flex-1 px-4">
+          <Textarea
+            placeholder={`What's on your mind, ${anonymous ? 'Anonymous' : (userName || 'User')}?`}
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            className="w-full border-none resize-none text-lg p-0 focus:ring-0 focus:outline-none min-h-[120px] placeholder:text-gray-500 bg-transparent"
+            maxLength={2000}
+          />
+          
+          {/* Character Counter */}
+          {caption.length > 1500 && (
+            <div className="text-right mt-2">
+              <span className={`text-xs ${
+                caption.length > 1900 ? 'text-red-500' : 'text-gray-400'
+              }`}>
+                {caption.length}/2000
+              </span>
             </div>
           )}
         </div>
 
-        {/* Action Section */}
-        <div className="flex-shrink-0 bg-white border-t border-gray-100">
-          {/* Media Buttons */}
-          <div className="px-6 py-3 border-b border-gray-50">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600">Add to your post</span>
-              <div className="flex items-center space-x-1">
-                {/* Photo Upload */}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  className="sr-only"
-                  id="image-upload"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => document.getElementById('image-upload')?.click()}
-                  className="p-2.5 text-green-600 hover:bg-green-50 hover:text-green-700 rounded-lg transition-all duration-200"
-                  title="Add photos"
-                  disabled={isUploading}
-                >
-                  <ImageIcon className="h-5 w-5" />
-                </Button>
-                
-                {/* Video Upload */}
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  className="sr-only"
-                  id="video-upload"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => document.getElementById('video-upload')?.click()}
-                  className="p-2.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-all duration-200"
-                  title="Add video"
-                  disabled={isUploading}
-                >
-                  <Video className="h-5 w-5" />
-                </Button>
-
-                {/* Upload Status */}
-                {isUploading && (
-                  <div className="flex items-center space-x-2 ml-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-                    <span className="text-xs text-blue-600 font-medium">Uploading...</span>
+        {/* Media Preview */}
+        {(images.length > 0 || videos.length > 0) && (
+          <div className="px-4 pb-4">
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="grid gap-2 grid-cols-2">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative group">
+                    <img
+                      src={img.url}
+                      alt={`Upload ${idx + 1}`}
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    {img.uploading && (
+                      <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setImages(images.filter((_, i) => i !== idx))}
+                      className="absolute top-1 right-1 h-6 w-6 p-0 bg-black/60 hover:bg-black/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                )}
+                ))}
+                {videos.map((vid, idx) => (
+                  <div key={idx} className="relative group">
+                    <video
+                      src={vid.url}
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/30 rounded-lg flex items-center justify-center">
+                      <Video className="h-8 w-8 text-white" />
+                    </div>
+                    {vid.uploading && (
+                      <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setVideos(videos.filter((_, i) => i !== idx))}
+                      className="absolute top-1 right-1 h-6 w-6 p-0 bg-black/60 hover:bg-black/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-          
-          {/* Post Button Section */}
-          <div className="px-6 py-4">
-            <Button 
-              onClick={handleSubmit}
-              disabled={isLoading || !caption.trim() || !selectedCommunity}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold h-11 rounded-lg shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:from-gray-300 disabled:to-gray-300 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3" />
-                  <span>Posting your thoughts...</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center">
-                  <Check className="h-5 w-5 mr-2" />
-                  <span>Share Post</span>
-                </div>
-              )}
-            </Button>
+        )}
+
+        {/* Bottom Actions */}
+        <div className="border-t border-gray-200 p-4">
+          {/* Add to Post */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-gray-900">Add to your post</span>
+            <div className="flex items-center space-x-2">
+              {/* Photo Upload */}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="sr-only"
+                id="image-upload"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => document.getElementById('image-upload')?.click()}
+                className="h-9 w-9 p-0 text-green-600 hover:bg-green-50 rounded-lg"
+                disabled={isUploading}
+              >
+                <ImageIcon className="h-5 w-5" />
+              </Button>
+              
+              {/* Video Upload */}
+              <input
+                type="file"
+                accept="video/*"
+                onChange={handleVideoUpload}
+                className="sr-only"
+                id="video-upload"
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => document.getElementById('video-upload')?.click()}
+                className="h-9 w-9 p-0 text-blue-600 hover:bg-blue-50 rounded-lg"
+                disabled={isUploading}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
+          
+          {/* Post Button */}
+          <Button 
+            onClick={handleSubmit}
+            disabled={isLoading || !caption.trim() || !selectedCommunity}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold h-10 rounded-lg disabled:bg-gray-300 disabled:text-gray-500 transition-colors"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                Posting...
+              </div>
+            ) : (
+              "Post"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

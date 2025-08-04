@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Send, Paperclip, Smile, MoreVertical, ArrowLeft, MessageCircle, Phone, Video, Search, Plus, Edit, X, Users, UserPlus, Check, UserMinus } from "lucide-react"
+import { Send, Paperclip, Smile, MoreVertical, ArrowLeft, MessageCircle, Phone, Video, Search, Plus, Edit, X, Users, UserPlus, Check, UserMinus, Bell, LogOut, User } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useNotifications } from "@/contexts/notification-context"
 
 interface Message {
   id: string
@@ -191,6 +192,7 @@ const mockConversations: Conversation[] = [
 interface DMInboxProps {
   onBack: () => void
   onConversationChange?: (hasConversation: boolean) => void
+  showSidebarHeaderOnMobile?: boolean
 }
 
 // Mock available users for group invitations
@@ -204,7 +206,8 @@ const availableUsers = [
   { id: "user7", name: "CaregiverSupport", avatarUrl: "/placeholder-user.jpg", isOnline: false },
 ]
 
-export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
+export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobile = true }: DMInboxProps) {
+  const { addGroupInvitation, updateInvitationStatus } = useNotifications()
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations)
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null) // Start with no conversation selected for mobile
   const [messages, setMessages] = useState<Message[]>(mockMessages[selectedConversation || ""] || [])
@@ -215,7 +218,6 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
   const [showNewMessageModal, setShowNewMessageModal] = useState(false)
   const [groupName, setGroupName] = useState("")
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [pendingInvitations, setPendingInvitations] = useState<GroupInvitation[]>([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -284,20 +286,27 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
         type: "system",
       }
 
-      // Create invitations for selected users
-      const newInvitations: GroupInvitation[] = selectedUsers.map(user => ({
-        id: `inv${Date.now()}_${user}`,
-        groupId: newGroupId,
-        groupName: groupName.trim(),
-        inviterId: "You",
-        inviterName: "You",
-        status: "pending",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      }))
+      // Create invitations for selected users and add to global notification system
+      selectedUsers.forEach(userName => {
+        const user = availableUsers.find(u => u.name === userName)
+        if (user) {
+          const invitation = {
+            id: `inv${Date.now()}_${user.id}`,
+            groupId: newGroupId,
+            groupName: groupName.trim(),
+            invitedBy: "You",
+            invitedById: "current-user",
+            invitedUser: user.name,
+            invitedUserId: user.id,
+            timestamp: new Date().toISOString(),
+            status: "pending" as const,
+          }
+          addGroupInvitation(invitation)
+        }
+      })
 
       setConversations(prev => [newGroup, ...prev])
       mockMessages[newGroupId] = [systemMessage]
-      setPendingInvitations(prev => [...prev, ...newInvitations])
       setGroupName("")
       setSelectedUsers([])
       setShowCreateGroup(false)
@@ -306,40 +315,35 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
   }
 
   const handleInviteResponse = (invitationId: string, accept: boolean) => {
-    setPendingInvitations(prev => 
-      prev.map(inv => 
-        inv.id === invitationId 
-          ? { ...inv, status: accept ? "accepted" : "declined" }
-          : inv
-      )
-    )
+    const response = accept ? "accepted" : "declined"
+    updateInvitationStatus(invitationId, response)
 
-    const invitation = pendingInvitations.find(inv => inv.id === invitationId)
-    if (invitation) {
-      const responseMessage: Message = {
-        id: `resp${Date.now()}`,
-        sender: "system",
-        text: accept 
-          ? `You joined the group "${invitation.groupName}"` 
-          : `You declined the invitation to "${invitation.groupName}"`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        type: "system",
+    // Add system message to the group chat
+    const responseMessage: Message = {
+      id: `resp${Date.now()}`,
+      sender: "system",
+      text: accept 
+        ? `You joined the group` 
+        : `You declined the group invitation`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      type: "system",
+    }
+
+    if (accept && selectedConversation) {
+      // If accepted and we're in the group chat, add the message
+      if (mockMessages[selectedConversation]) {
+        mockMessages[selectedConversation].push(responseMessage)
+        setMessages(prev => [...prev, responseMessage])
       }
 
-      if (mockMessages[invitation.groupId]) {
-        mockMessages[invitation.groupId].push(responseMessage)
-      }
-
-      if (accept) {
-        // If accepted, make sure the group appears in conversations
-        setConversations(prev => 
-          prev.map(conv => 
-            conv.id === invitation.groupId
-              ? { ...conv, unreadCount: conv.unreadCount + 1 }
-              : conv
-          )
+      // Update conversation to show the user joined
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === selectedConversation
+            ? { ...conv, unreadCount: conv.unreadCount + 1 }
+            : conv
         )
-      }
+      )
     }
   }
 
@@ -404,16 +408,20 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
     const selectedConv = conversations.find(conv => conv.id === selectedConversation)
     
     if (user && selectedConv && selectedConv.type === "group") {
-      // Create invitation
-      const newInvitation: GroupInvitation = {
+      // Create invitation and add to global notification system
+      const invitation = {
         id: `inv${Date.now()}_${user.id}`,
         groupId: selectedConv.id,
         groupName: selectedConv.participantName,
-        inviterId: "You",
-        inviterName: "You",
-        status: "pending",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        invitedBy: "You",
+        invitedById: "current-user", 
+        invitedUser: user.name,
+        invitedUserId: user.id,
+        timestamp: new Date().toISOString(),
+        status: "pending" as const,
       }
+
+      addGroupInvitation(invitation)
 
       // Add system message
       const systemMessage: Message = {
@@ -425,7 +433,6 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
       }
 
       setMessages(prev => [...prev, systemMessage])
-      setPendingInvitations(prev => [...prev, newInvitation])
       setShowInviteModal(false)
     }
   }
@@ -472,48 +479,41 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
             : 'flex' // Always visible when no conversation selected
         } w-full md:w-80 lg:w-96 xl:w-[400px] border-r border-gray-200 flex-col bg-white min-h-0`}>
           {/* Sidebar Header */}
-          <div className="p-2 sm:p-3 border-b border-gray-200 flex-shrink-0">
-            {/* Back button - only show on mobile when no conversation is selected would be wrong, 
-                 we want it only when conversation IS selected (on the conversation view) */}
-            {/* For now, let's remove it from the conversation list entirely on mobile */}
-            <div className="hidden md:block">
-              <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-blue-50 p-2">
-                <ArrowLeft className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Back</span>
-              </Button>
-            </div>
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="flex items-center space-x-2">
+          <div className="p-3 sm:p-4 border-b border-gray-200 flex-shrink-0 bg-gradient-to-r from-blue-50/30 to-purple-50/30">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center">
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={onBack} 
-                  className="md:hidden hover:bg-blue-50 p-2"
+                  className="hover:bg-blue-50 p-1.5 sm:p-2 rounded-full"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900">Messages</h2>
               </div>
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Messages</h2>
+              </div>
+              <div className="flex items-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="hover:bg-blue-50 p-1.5">
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <Button variant="ghost" size="sm" className="hover:bg-blue-50 p-1.5 sm:p-2 rounded-full">
+                      <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-48 sm:w-52">
                     <DropdownMenuItem 
-                      className="cursor-pointer text-sm"
+                      className="cursor-pointer text-sm py-2.5"
                       onClick={() => setShowCreateGroup(true)}
                     >
-                      <Users className="h-4 w-4 mr-2" />
+                      <Users className="h-4 w-4 mr-3" />
                       Create Group
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      className="cursor-pointer text-sm"
+                      className="cursor-pointer text-sm py-2.5"
                       onClick={() => setShowNewMessageModal(true)}
                     >
-                      <Edit className="h-4 w-4 mr-2" />
+                      <Edit className="h-4 w-4 mr-3" />
                       New Message
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -521,12 +521,12 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
               </div>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+              <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
               <Input
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 sm:pl-10 text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-full bg-gray-50 h-8 sm:h-9"
+                className="pl-10 sm:pl-12 pr-4 text-sm sm:text-base border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 rounded-full bg-white/80 backdrop-blur-sm h-10 sm:h-12 shadow-sm transition-all duration-200 hover:shadow-md focus:shadow-md"
               />
             </div>
           </div>
@@ -534,52 +534,144 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto min-h-0">
             {filteredConversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-                <MessageCircle className="h-8 w-8 text-gray-400 mb-3" />
-                <h3 className="text-sm font-medium text-gray-900 mb-1">No conversations found</h3>
-                <p className="text-xs text-gray-500">Try adjusting your search or start a new message.</p>
+              <div className="flex flex-col items-center justify-center h-full p-4 sm:p-6 text-center">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+                  <MessageCircle className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+                </div>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No conversations found</h3>
+                <p className="text-xs sm:text-sm text-gray-500 max-w-xs">Try adjusting your search or start a new message to connect with community members.</p>
               </div>
             ) : (
-              <div className="py-1">
+              <div className="space-y-0.5 sm:space-y-1 p-1 sm:p-2">
                 {filteredConversations.map((conv) => (
                   <div
                     key={conv.id}
-                    className={`flex items-center space-x-3 px-3 py-2 cursor-pointer transition-all hover:bg-gray-50 ${
-                      selectedConversation === conv.id ? "bg-blue-50 border-r-3 border-blue-500" : ""
+                    className={`group relative flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl cursor-pointer transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-sm active:scale-[0.98] ${
+                      selectedConversation === conv.id 
+                        ? "bg-gradient-to-r from-blue-50 to-purple-50 shadow-md border border-blue-100/60" 
+                        : "hover:bg-gray-50"
                     }`}
                     onClick={() => setSelectedConversation(conv.id)}
                   >
+                    {/* Active indicator */}
+                    {selectedConversation === conv.id && (
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-r-full"></div>
+                    )}
+                    
                     <div className="relative flex-shrink-0">
-                      <Avatar className="h-9 w-9">
+                      <Avatar className={`transition-all duration-200 ring-2 ring-white shadow-lg ${
+                        selectedConversation === conv.id 
+                          ? "h-12 w-12 sm:h-14 sm:w-14" 
+                          : "h-10 w-10 sm:h-12 sm:w-12"
+                      }`}>
                         <AvatarImage src={conv.avatarUrl || "/placeholder-user.jpg"} />
-                        <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm">
-                          {conv.type === "group" ? <Users className="h-4 w-4" /> : conv.participantName.charAt(0)}
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-bold text-sm sm:text-lg">
+                          {conv.type === "group" ? <Users className="h-4 w-4 sm:h-5 sm:w-5" /> : conv.participantName.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
+                      
+                      {/* Online status */}
                       {conv.type === "direct" && conv.isOnline && (
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-4 sm:w-4 bg-green-500 border-2 sm:border-3 border-white rounded-full shadow-sm"></div>
                       )}
+                      
+                      {/* Group indicator */}
                       {conv.type === "group" && (
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
-                          <Users className="h-1.5 w-1.5 text-white" />
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-4 sm:w-4 bg-gradient-to-r from-blue-500 to-purple-500 border-2 sm:border-3 border-white rounded-full flex items-center justify-center shadow-sm">
+                          <Users className="h-1.5 w-1.5 sm:h-2 sm:w-2 text-white" />
                         </div>
                       )}
+                      
+                      {/* Unread count badge */}
                       {conv.unreadCount > 0 && (
-                        <div className="absolute -top-0.5 -right-0.5 bg-blue-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px]">
+                        <div className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center min-w-[16px] sm:min-w-[20px] shadow-lg animate-pulse">
                           {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
                         </div>
                       )}
                     </div>
+                    
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <h3 className={`text-sm font-medium truncate ${conv.unreadCount > 0 ? "font-semibold text-gray-900" : "text-gray-900"}`}>
+                      <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                        <h3 className={`font-semibold truncate transition-colors text-sm sm:text-base ${
+                          conv.unreadCount > 0 
+                            ? "text-gray-900" 
+                            : selectedConversation === conv.id 
+                              ? "text-gray-900" 
+                              : "text-gray-800"
+                        }`}>
                           {conv.participantName}
+                          {conv.type === "group" && (
+                            <span className="ml-1 sm:ml-2 text-xs bg-blue-100 text-blue-600 px-1.5 sm:px-2 py-0.5 rounded-full font-medium">
+                              Group
+                            </span>
+                          )}
                         </h3>
-                        <span className="text-xs text-gray-500 ml-2 flex-shrink-0">{conv.timestamp}</span>
+                        <div className="flex items-center space-x-1 sm:space-x-2">
+                          <span className={`text-xs font-medium flex-shrink-0 ${
+                            conv.unreadCount > 0 ? "text-blue-600" : "text-gray-500"
+                          }`}>
+                            {conv.timestamp}
+                          </span>
+                          {selectedConversation === conv.id && (
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
+                          )}
+                        </div>
                       </div>
-                      <p className={`text-xs truncate leading-tight ${conv.unreadCount > 0 ? "font-medium text-gray-700" : "text-gray-500"}`}>
-                        {conv.lastMessage}
-                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs sm:text-sm truncate leading-relaxed ${
+                          conv.unreadCount > 0 
+                            ? "font-medium text-gray-700" 
+                            : "text-gray-600"
+                        }`}>
+                          {conv.lastMessage.startsWith("📎") && (
+                            <Paperclip className="inline h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 text-gray-400" />
+                          )}
+                          {conv.lastMessage}
+                        </p>
+                        
+                        {/* Message status indicators */}
+                        <div className="flex items-center space-x-1 ml-2">
+                          {conv.type === "direct" && conv.isOnline && (
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full"></div>
+                          )}
+                          {conv.unreadCount > 0 && (
+                            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Preview of conversation participants for groups */}
+                      {conv.type === "group" && conv.participants && (
+                        <div className="flex items-center mt-1.5 sm:mt-2 space-x-1">
+                          <div className="flex -space-x-0.5 sm:-space-x-1">
+                            {conv.participants.slice(0, 3).map((participant, idx) => (
+                              <Avatar key={idx} className="h-4 w-4 sm:h-5 sm:w-5 ring-1 sm:ring-2 ring-white">
+                                <AvatarFallback className="bg-gray-300 text-gray-600 text-xs">
+                                  {participant.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))}
+                            {conv.participants.length > 3 && (
+                              <div className="h-4 w-4 sm:h-5 sm:w-5 bg-gray-200 rounded-full flex items-center justify-center ring-1 sm:ring-2 ring-white">
+                                <span className="text-xs text-gray-600 font-medium">
+                                  +{conv.participants.length - 3}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500 ml-1 sm:ml-2">
+                            {conv.participants.length} member{conv.participants.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Hover actions */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-1">
+                      {conv.unreadCount > 0 && (
+                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full"></div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -597,38 +689,38 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
           {selectedConversation && selectedConv ? (
             <>
               {/* Chat Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200 p-2 sm:p-3 flex-shrink-0">
+              <div className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 border-b border-gray-200 p-3 sm:p-4 flex-shrink-0 backdrop-blur-sm sticky top-0 z-30 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 sm:space-x-3">
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="md:hidden hover:bg-white/60 p-2" 
+                      className="md:hidden hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm" 
                       onClick={() => setSelectedConversation(null)}
                     >
-                      <ArrowLeft className="h-4 w-4" />
+                      <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
                     <div className="relative flex-shrink-0">
-                      <Avatar className="h-8 w-8 sm:h-10 sm:w-10 ring-2 ring-white shadow-md">
+                      <Avatar className="h-8 w-8 sm:h-10 sm:w-10 ring-2 ring-white shadow-lg">
                         <AvatarImage src={selectedConv.avatarUrl || "/placeholder-user.jpg"} />
-                        <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold">
+                        <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold text-sm sm:text-base">
                           {selectedConv.type === "group" ? <Users className="h-4 w-4 sm:h-5 sm:w-5" /> : selectedConv.participantName.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       {selectedConv.type === "direct" && selectedConv.isOnline && (
-                        <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 bg-green-500 border-2 border-white rounded-full animate-pulse"></div>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <h2 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-sm sm:text-lg font-bold text-gray-900 truncate">
                         {selectedConv.participantName}
                         {selectedConv.type === "group" && (
-                          <span className="text-xs text-gray-500 ml-2">
+                          <span className="text-xs sm:text-sm text-gray-500 ml-2 font-normal">
                             ({selectedConv.participants?.length || 0} members)
                           </span>
                         )}
                       </h2>
-                      <p className="text-xs sm:text-sm text-gray-600">
+                      <p className="text-xs sm:text-sm text-green-600 font-medium truncate">
                         {selectedConv.type === "group" 
                           ? `Group • ${selectedConv.participants?.join(", ") || ""}`
                           : selectedConv.isOnline ? "Active now" : "Offline"
@@ -636,57 +728,76 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-1 sm:space-x-2">
+                  <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
                     {selectedConv.type === "group" && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="hover:bg-white/60 p-2"
+                        className="hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm"
                         onClick={() => setShowInviteModal(true)}
                       >
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
                       </Button>
                     )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm"
+                    >
+                      <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm"
+                    >
+                      <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="hover:bg-white/60 p-2">
-                          <MoreVertical className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" className="hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm">
+                          <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44 sm:w-48">
+                      <DropdownMenuContent align="end" className="w-48 sm:w-52 shadow-lg border-0 bg-white/95 backdrop-blur-lg">
                         {selectedConv.type === "group" ? (
                           <>
                             <DropdownMenuItem 
-                              className="cursor-pointer text-sm"
+                              className="cursor-pointer text-sm py-2.5 hover:bg-blue-50 transition-colors"
                               onClick={() => setShowGroupInfo(true)}
                             >
+                              <Users className="h-4 w-4 mr-3" />
                               Group Info
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              className="cursor-pointer text-sm"
+                              className="cursor-pointer text-sm py-2.5 hover:bg-blue-50 transition-colors"
                               onClick={() => setShowInviteModal(true)}
                             >
+                              <UserPlus className="h-4 w-4 mr-3" />
                               Add Members
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              className="cursor-pointer text-sm"
+                              className="cursor-pointer text-sm py-2.5 hover:bg-blue-50 transition-colors"
                               onClick={handleToggleMute}
                             >
+                              <Bell className="h-4 w-4 mr-3" />
                               {isMuted ? "Unmute" : "Mute"} Notifications
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              className="text-red-600 cursor-pointer text-sm"
+                              className="text-red-600 cursor-pointer text-sm py-2.5 hover:bg-red-50 transition-colors"
                               onClick={handleLeaveGroup}
                             >
+                              <LogOut className="h-4 w-4 mr-3" />
                               Leave Group
                             </DropdownMenuItem>
                           </>
                         ) : (
                           <>
                             <DropdownMenuItem 
-                              className="cursor-pointer text-sm"
+                              className="cursor-pointer text-sm py-2.5 hover:bg-blue-50 transition-colors"
                               onClick={() => setShowGroupInfo(true)}
                             >
+                              <User className="h-4 w-4 mr-3" />
                               View Profile
                             </DropdownMenuItem>
                             <DropdownMenuItem 
@@ -783,7 +894,7 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
               </div>
 
               {/* Message Input */}
-              <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
+              <div className="bg-gradient-to-r from-blue-50/30 to-purple-50/30 border-t border-gray-200 p-3 sm:p-4 flex-shrink-0 backdrop-blur-sm">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -791,7 +902,7 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
                   onChange={handleFileUpload}
                   accept="*/*"
                 />
-                <div className="flex items-center space-x-3">
+                <div className="flex items-end space-x-2 sm:space-x-3">
                   <div className="flex-1 relative">
                     <Input
                       placeholder="Type a message..."
@@ -803,21 +914,21 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
                           handleSendMessage()
                         }
                       }}
-                      className="pr-20 text-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-full bg-gray-50 h-10 sm:h-11"
+                      className="pr-16 sm:pr-20 text-sm sm:text-base border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 rounded-full bg-white/80 backdrop-blur-sm h-10 sm:h-12 shadow-sm transition-all duration-200 hover:shadow-md focus:shadow-md"
                     />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                    <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 w-7 p-0 hover:bg-blue-50 rounded-full"
+                        className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-blue-50 rounded-full"
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        <Paperclip className="h-4 w-4 text-gray-500" />
+                        <Paperclip className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                       </Button>
                       <DropdownMenu open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-blue-50 rounded-full">
-                            <Smile className="h-4 w-4 text-gray-500" />
+                          <Button variant="ghost" size="sm" className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-blue-50 rounded-full">
+                            <Smile className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-64 p-2">
@@ -839,7 +950,7 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
                   <Button 
                     onClick={handleSendMessage} 
                     disabled={!newMessage.trim()}
-                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg rounded-full h-10 w-10 sm:h-11 sm:w-11 p-0 flex-shrink-0"
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:from-gray-300 disabled:to-gray-400 text-white shadow-lg hover:shadow-xl rounded-full h-10 w-10 sm:h-12 sm:w-12 p-0 flex-shrink-0 transition-all duration-200 disabled:cursor-not-allowed"
                   >
                     <Send className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
@@ -1158,57 +1269,11 @@ export function DMInbox({ onBack, onConversationChange }: DMInboxProps) {
           </div>
         </div>
       )}
-
-      {/* Group Invitations Notifications */}
-      {pendingInvitations.filter(inv => inv.status === "pending").length > 0 && (
-        <div className="fixed bottom-4 right-4 space-y-2 z-50">
-          {pendingInvitations
-            .filter(inv => inv.status === "pending")
-            .slice(0, 3)
-            .map((invitation) => (
-              <div 
-                key={invitation.id}
-                className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm"
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <Users className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-semibold">Group Invitation</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {invitation.inviterName} invited you to join "{invitation.groupName}"
-                    </p>
-                    <div className="flex space-x-2 mt-3">
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleInviteResponse(invitation.id, true)}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Check className="h-3 w-3 mr-1" />
-                        Accept
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleInviteResponse(invitation.id, false)}
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                      >
-                        <X className="h-3 w-3 mr-1" />
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-        </div>
-      )}
     </div>
   )
 }
 
 // Export both for backward compatibility
-export function DMConversation({ onBack, onConversationChange }: { onBack: () => void; onConversationChange?: (hasConversation: boolean) => void }) {
-  return <DMInbox onBack={onBack} onConversationChange={onConversationChange} />
+export function DMConversation({ onBack, onConversationChange, showSidebarHeaderOnMobile = true }: { onBack: () => void; onConversationChange?: (hasConversation: boolean) => void; showSidebarHeaderOnMobile?: boolean }) {
+  return <DMInbox onBack={onBack} onConversationChange={onConversationChange} showSidebarHeaderOnMobile={showSidebarHeaderOnMobile} />
 }

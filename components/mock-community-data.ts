@@ -6,6 +6,8 @@ export interface Community {
   memberCount: number;
   slug: string;
   color: string;
+  region: string;
+  state?: string; // Optional, only for US communities
 }
 
 export interface Post {
@@ -13,7 +15,15 @@ export interface Post {
   caption: string;
   author: string;
   timestamp: string;
-  reactions: { heart: number; thumbsUp: number; thinking: number; eyes: number };
+  reactions: { 
+    heart: number; 
+    thumbsUp: number; 
+    thinking: number; 
+    eyes: number;
+    hope?: number;
+    hug?: number;
+    grateful?: number;
+  };
   commentCount: number;
   anonymous: boolean;
   images: string[];
@@ -30,6 +40,8 @@ export const mockCommunities: Community[] = [
     memberCount: 850,
     slug: "pms-support",
     color: "bg-blue-100 text-blue-800",
+    region: "United States",
+    state: "California",
   },
   {
     id: "2",
@@ -38,6 +50,8 @@ export const mockCommunities: Community[] = [
     memberCount: 620,
     slug: "rett-syndrome-support",
     color: "bg-purple-100 text-purple-800",
+    region: "United States",
+    state: "Texas",
   },
   {
     id: "3",
@@ -46,6 +60,7 @@ export const mockCommunities: Community[] = [
     memberCount: 710,
     slug: "fragile-x-support",
     color: "bg-green-100 text-green-800",
+    region: "Europe",
   },
   {
     id: "4",
@@ -54,6 +69,8 @@ export const mockCommunities: Community[] = [
     memberCount: 480,
     slug: "angelman-support",
     color: "bg-yellow-100 text-yellow-800",
+    region: "United States",
+    state: "New York",
   },
   {
     id: "5",
@@ -62,6 +79,8 @@ export const mockCommunities: Community[] = [
     memberCount: 350,
     slug: "prader-willi-support",
     color: "bg-orange-100 text-orange-800",
+    region: "United States",
+    state: "Florida",
   },
   {
     id: "6",
@@ -70,6 +89,8 @@ export const mockCommunities: Community[] = [
     memberCount: 1500,
     slug: "down-syndrome-support",
     color: "bg-pink-100 text-pink-800",
+    region: "United States",
+    state: "Illinois",
   },
   {
     id: "7",
@@ -78,6 +99,7 @@ export const mockCommunities: Community[] = [
     memberCount: 920,
     slug: "cystic-fibrosis-support",
     color: "bg-teal-100 text-teal-800",
+    region: "Asia",
   },
   {
     id: "8",
@@ -86,6 +108,8 @@ export const mockCommunities: Community[] = [
     memberCount: 550,
     slug: "sickle-cell-anemia-support",
     color: "bg-red-100 text-red-800",
+    region: "United States",
+    state: "Georgia",
   },
   {
     id: "9",
@@ -94,6 +118,7 @@ export const mockCommunities: Community[] = [
     memberCount: 280,
     slug: "huntingtons-disease-support",
     color: "bg-indigo-100 text-indigo-800",
+    region: "Europe",
   },
   {
     id: "10",
@@ -102,6 +127,8 @@ export const mockCommunities: Community[] = [
     memberCount: 400,
     slug: "sma-support",
     color: "bg-lime-100 text-lime-800",
+    region: "United States",
+    state: "Arizona",
   },
   {
     id: "11",
@@ -110,6 +137,8 @@ export const mockCommunities: Community[] = [
     memberCount: 180,
     slug: "batten-disease-support",
     color: "bg-rose-100 text-rose-800",
+    region: "United States",
+    state: "Ohio",
   },
   {
     id: "12",
@@ -118,6 +147,7 @@ export const mockCommunities: Community[] = [
     memberCount: 120,
     slug: "tay-sachs-support",
     color: "bg-cyan-100 text-cyan-800",
+    region: "South America",
   },
   {
     id: "13",
@@ -126,6 +156,8 @@ export const mockCommunities: Community[] = [
     memberCount: 200,
     slug: "gaucher-disease-support",
     color: "bg-amber-100 text-amber-800",
+    region: "United States",
+    state: "Washington",
   },
   {
     id: "14",
@@ -134,6 +166,8 @@ export const mockCommunities: Community[] = [
     memberCount: 90,
     slug: "msud-support",
     color: "bg-fuchsia-100 text-fuchsia-800",
+    region: "United States",
+    state: "Michigan",
   },
   {
     id: "15",
@@ -142,6 +176,7 @@ export const mockCommunities: Community[] = [
     memberCount: 300,
     slug: "pku-support",
     color: "bg-emerald-100 text-emerald-800",
+    region: "Europe",
   },
   {
     id: "16",
@@ -150,6 +185,65 @@ export const mockCommunities: Community[] = [
     memberCount: 2500,
     slug: "general-genetic-conditions",
     color: "bg-gray-100 text-gray-800",
+    region: "United States",
+    state: "Colorado",
+  },
+  {
+    id: "17",
+    name: "Turner Syndrome Support NY",
+    description: "New York-based support for Turner Syndrome families",
+    memberCount: 340,
+    slug: "turner-syndrome-ny",
+    color: "bg-violet-100 text-violet-800",
+    region: "United States",
+    state: "New York",
+  },
+  {
+    id: "18",
+    name: "Autism Spectrum Texas",
+    description: "Texas community for Autism Spectrum Disorder support",
+    memberCount: 1200,
+    slug: "autism-spectrum-texas",
+    color: "bg-blue-100 text-blue-800",
+    region: "United States",
+    state: "Texas",
+  },
+  {
+    id: "19",
+    name: "Cerebral Palsy UK",
+    description: "United Kingdom support network for Cerebral Palsy",
+    memberCount: 680,
+    slug: "cerebral-palsy-uk",
+    color: "bg-green-100 text-green-800",
+    region: "Europe",
+  },
+  {
+    id: "20",
+    name: "Muscular Dystrophy Brazil",
+    description: "Brazilian community for Muscular Dystrophy awareness",
+    memberCount: 420,
+    slug: "muscular-dystrophy-brazil",
+    color: "bg-yellow-100 text-yellow-800",
+    region: "South America",
+  },
+  {
+    id: "21",
+    name: "Thalassemia Support Asia",
+    description: "Asian network for Thalassemia patients and families",
+    memberCount: 750,
+    slug: "thalassemia-asia",
+    color: "bg-red-100 text-red-800",
+    region: "Asia",
+  },
+  {
+    id: "22",
+    name: "Klinefelter Syndrome Florida",
+    description: "Florida-based support for Klinefelter Syndrome",
+    memberCount: 180,
+    slug: "klinefelter-florida",
+    color: "bg-cyan-100 text-cyan-800",
+    region: "United States",
+    state: "Florida",
   },
 ];
 
@@ -159,7 +253,7 @@ export const basePosts: Post[] = [
     caption: "It's been a challenging road since our daughter's Phelan-McDermid Syndrome diagnosis. Looking for others who have been through similar experiences.",
     author: "ParentOfWarrior",
     timestamp: "2 hours ago",
-    reactions: { heart: 12, thumbsUp: 8, thinking: 2, eyes: 15 },
+    reactions: { heart: 12, thumbsUp: 8, thinking: 2, eyes: 15, hope: 5, hug: 8, grateful: 3 },
     commentCount: 7,
     anonymous: false,
     images: ["/placeholder.svg?height=200&width=300"],
@@ -172,7 +266,7 @@ export const basePosts: Post[] = [
     caption: "My son was diagnosed with Fragile X Syndrome at 2 years old. We've been learning so much about this condition and how to best support him.",
     author: "FragileXMom",
     timestamp: "1 day ago",
-    reactions: { heart: 5, thumbsUp: 3, thinking: 1, eyes: 8 },
+    reactions: { heart: 5, thumbsUp: 3, thinking: 1, eyes: 8, hope: 2, hug: 4, grateful: 6 },
     commentCount: 2,
     anonymous: false,
     images: [],

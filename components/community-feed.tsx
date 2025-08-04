@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, MessageSquare, User, Heart, ThumbsUp, Eye, Clock, Flag, Video, Plus, TrendingUp, Users, Activity, Bookmark, Share2, MoreHorizontal, Filter, Search } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
+import { ArrowLeft, MessageSquare, User, Heart, ThumbsUp, Eye, Clock, Flag, Video, Plus, TrendingUp, Users, Activity, Bookmark, Share2, MoreHorizontal, Filter, Search, Copy, Check, Twitter, Facebook, Linkedin, X } from "lucide-react"
 import { CreatePostModal } from "./create-post-modal"
 import { logUserActivity } from "@/lib/utils"
 
@@ -31,7 +32,7 @@ const initialMockPosts = [
     comments: [
       {
         id: "c1",
-        body: "So sorry to hear that. My son was diagnosed last year. It gets easier, I promise. Reach out if you need to talk.",
+        content: "So sorry to hear that. My son was diagnosed last year. It gets easier, I promise. Reach out if you need to talk.",
         author: "SupportiveMom",
         timestamp: "1 hour ago",
         replies: [],
@@ -54,11 +55,9 @@ const initialMockPosts = [
   },
   {
     id: "3",
-    title: "New research on Fragile X treatments",
-    body: "Exciting news from the latest conference! Sharing a summary of promising new research directions for Fragile X Syndrome.",
+    caption: "New research on Fragile X treatments - Exciting news from the latest conference! Sharing a summary of promising new research directions for Fragile X Syndrome.",
     author: "ScienceGeek",
     timestamp: "6 hours ago",
-    type: "discussion",
     tags: ["Fragile X", "research", "treatment"],
     reactions: { heart: 34, thumbsUp: 28, thinking: 1, eyes: 67 },
     commentCount: 18,
@@ -70,11 +69,9 @@ const initialMockPosts = [
   },
   {
     id: "4",
-    title: "Managing sleep issues with Angelman Syndrome",
-    body: "Our child with Angelman Syndrome struggles with sleep. Any tips or strategies that have worked for your family?",
+    caption: "Managing sleep issues with Angelman Syndrome - Our child with Angelman Syndrome struggles with sleep. Any tips or strategies that have worked for your family?",
     author: "SleepyParent",
     timestamp: "8 hours ago",
-    type: "advice",
     tags: ["Angelman Syndrome", "sleep", "parenting"],
     reactions: { heart: 18, thumbsUp: 12, thinking: 8, eyes: 32 },
     commentCount: 24,
@@ -86,11 +83,9 @@ const initialMockPosts = [
   },
   {
     id: "5",
-    title: "Celebrating a milestone: First independent steps!",
-    body: "After years of therapy, our son with Prader-Willi Syndrome took his first independent steps today! So proud! 🎉",
+    caption: "Celebrating a milestone: First independent steps! After years of therapy, our son with Prader-Willi Syndrome took his first independent steps today! So proud! 🎉",
     author: "ProudPWParent",
     timestamp: "12 hours ago",
-    type: "support",
     tags: ["Prader-Willi", "milestone", "progress"],
     reactions: { heart: 89, thumbsUp: 67, thinking: 2, eyes: 134 },
     commentCount: 45,
@@ -102,11 +97,9 @@ const initialMockPosts = [
   },
   {
     id: "6",
-    title: "Inclusive activities for kids with Down Syndrome",
-    body: "Looking for ideas for inclusive summer activities in our area for children with Down Syndrome. Any recommendations?",
+    caption: "Inclusive activities for kids with Down Syndrome - Looking for ideas for inclusive summer activities in our area for children with Down Syndrome. Any recommendations?",
     author: "InclusiveMom",
     timestamp: "1 day ago",
-    type: "advice",
     tags: ["Down Syndrome", "activities", "inclusion"],
     reactions: { heart: 15, thumbsUp: 22, thinking: 12, eyes: 38 },
     commentCount: 16,
@@ -118,11 +111,9 @@ const initialMockPosts = [
   },
   {
     id: "7",
-    title: "Cystic Fibrosis diet tips and recipes",
-    body: "Sharing some high-calorie, nutrient-dense recipes that have been great for managing CF. What are your go-to meals?",
+    caption: "Cystic Fibrosis diet tips and recipes - Sharing some high-calorie, nutrient-dense recipes that have been great for managing CF. What are your go-to meals?",
     author: "CFChef",
     timestamp: "1 day ago",
-    type: "discussion",
     tags: ["Cystic Fibrosis", "diet", "nutrition"],
     reactions: { heart: 20, thumbsUp: 18, thinking: 5, eyes: 50 },
     commentCount: 10,
@@ -134,11 +125,9 @@ const initialMockPosts = [
   },
   {
     id: "8",
-    title: "Living with Sickle Cell: Managing pain crises",
-    body: "For those with Sickle Cell Anemia, what are your most effective strategies for managing pain crises at home?",
+    caption: "Living with Sickle Cell: Managing pain crises - For those with Sickle Cell Anemia, what are your most effective strategies for managing pain crises at home?",
     author: "SickleCellStrong",
     timestamp: "2 days ago",
-    type: "advice",
     tags: ["Sickle Cell Anemia", "pain management", "coping"],
     reactions: { heart: 25, thumbsUp: 30, thinking: 10, eyes: 60 },
     commentCount: 20,
@@ -150,11 +139,9 @@ const initialMockPosts = [
   },
   {
     id: "9",
-    title: "Huntington's Disease research updates",
-    body: "Attended a webinar on the latest breakthroughs in Huntington's Disease research. Feeling hopeful about the future!",
+    caption: "Huntington's Disease research updates - Attended a webinar on the latest breakthroughs in Huntington's Disease research. Feeling hopeful about the future!",
     author: "HDHope",
     timestamp: "3 days ago",
-    type: "discussion",
     tags: ["Huntington's Disease", "research", "hope"],
     reactions: { heart: 40, thumbsUp: 35, thinking: 3, eyes: 80 },
     commentCount: 15,
@@ -166,11 +153,9 @@ const initialMockPosts = [
   },
   {
     id: "10",
-    title: "SMA treatment journey: Zolgensma experience",
-    body: "Sharing our family's experience with Zolgensma for SMA Type 1. It's been a long road but seeing progress.",
+    caption: "SMA treatment journey: Zolgensma experience - Sharing our family's experience with Zolgensma for SMA Type 1. It's been a long road but seeing progress.",
     author: "SMAFamily",
     timestamp: "1 day ago",
-    type: "support",
     tags: ["SMA", "Zolgensma", "treatment"],
     reactions: { heart: 30, thumbsUp: 25, thinking: 7, eyes: 70 },
     commentCount: 11,
@@ -182,11 +167,9 @@ const initialMockPosts = [
   },
   {
     id: "11",
-    title: "Batten Disease: Early symptoms and diagnosis",
-    body: "Concerned about potential early symptoms of Batten Disease in our child. What were your experiences with diagnosis?",
+    caption: "Batten Disease: Early symptoms and diagnosis - Concerned about potential early symptoms of Batten Disease in our child. What were your experiences with diagnosis?",
     author: "WorriedParent",
     timestamp: "2 days ago",
-    type: "advice",
     tags: ["Batten Disease", "symptoms", "diagnosis"],
     reactions: { heart: 15, thumbsUp: 10, thinking: 5, eyes: 25 },
     commentCount: 8,
@@ -198,11 +181,9 @@ const initialMockPosts = [
   },
   {
     id: "12",
-    title: "Tay-Sachs: Navigating genetic testing results",
-    body: "Just received our genetic testing results for Tay-Sachs. Feeling overwhelmed. Any advice on next steps?",
+    caption: "Tay-Sachs: Navigating genetic testing results - Just received our genetic testing results for Tay-Sachs. Feeling overwhelmed. Any advice on next steps?",
     author: "NewParent",
     timestamp: "1 day ago",
-    type: "support",
     tags: ["Tay-Sachs", "genetic testing", "diagnosis"],
     reactions: { heart: 22, thumbsUp: 18, thinking: 6, eyes: 40 },
     commentCount: 9,
@@ -214,11 +195,9 @@ const initialMockPosts = [
   },
   {
     id: "13",
-    title: "Enzyme replacement therapy for Gaucher Disease",
-    body: "Sharing my experience with enzyme replacement therapy for Type 1 Gaucher Disease. It's made a huge difference.",
+    caption: "Enzyme replacement therapy for Gaucher Disease - Sharing my experience with enzyme replacement therapy for Type 1 Gaucher Disease. It's made a huge difference.",
     author: "GaucherWarrior",
     timestamp: "3 days ago",
-    type: "discussion",
     tags: ["Gaucher Disease", "treatment", "ERT"],
     reactions: { heart: 28, thumbsUp: 20, thinking: 4, eyes: 55 },
     commentCount: 14,
@@ -230,11 +209,9 @@ const initialMockPosts = [
   },
   {
     id: "14",
-    title: "MSUD diet management: low-leucine recipes",
-    body: "Looking for creative and tasty low-leucine recipes for Maple Syrup Urine Disease. Share your favorites!",
+    caption: "MSUD diet management: low-leucine recipes - Looking for creative and tasty low-leucine recipes for Maple Syrup Urine Disease. Share your favorites!",
     author: "MSUDChef",
     timestamp: "1 day ago",
-    type: "advice",
     tags: ["MSUD", "diet", "recipes"],
     reactions: { heart: 18, thumbsUp: 15, thinking: 3, eyes: 30 },
     commentCount: 10,
@@ -246,11 +223,9 @@ const initialMockPosts = [
   },
   {
     id: "15",
-    title: "PKU formula challenges for toddlers",
-    body: "My toddler with PKU is refusing their formula. Any tips or tricks to make it more palatable?",
+    caption: "PKU formula challenges for toddlers - My toddler with PKU is refusing their formula. Any tips or tricks to make it more palatable?",
     author: "PKUMom",
     timestamp: "2 days ago",
-    type: "support",
     tags: ["PKU", "toddler", "formula"],
     reactions: { heart: 20, thumbsUp: 12, thinking: 8, eyes: 35 },
     commentCount: 16,
@@ -262,11 +237,9 @@ const initialMockPosts = [
   },
   {
     id: "16",
-    title: "General discussion: Advocating for rare diseases",
-    body: "What are effective ways to advocate for rare genetic conditions in your local community or at a national level?",
+    caption: "General discussion: Advocating for rare diseases - What are effective ways to advocate for rare genetic conditions in your local community or at a national level?",
     author: "RareDiseaseVoice",
     timestamp: "4 days ago",
-    type: "discussion",
     tags: ["advocacy", "rare disease", "genetic conditions"],
     reactions: { heart: 30, thumbsUp: 25, thinking: 7, eyes: 70 },
     commentCount: 11,
@@ -278,11 +251,9 @@ const initialMockPosts = [
   },
   {
     id: "17",
-    title: "Coping with a new diagnosis of a rare genetic condition",
-    body: "Just received a diagnosis for a very rare genetic condition. Feeling lost and overwhelmed. How do you cope with the emotional toll?",
+    caption: "Coping with a new diagnosis of a rare genetic condition - Just received a diagnosis for a very rare genetic condition. Feeling lost and overwhelmed. How do you cope with the emotional toll?",
     author: "SeekingSupport",
     timestamp: "5 hours ago",
-    type: "support",
     tags: ["new diagnosis", "emotional support", "rare disease"],
     reactions: { heart: 45, thumbsUp: 30, thinking: 10, eyes: 80 },
     commentCount: 25,
@@ -294,11 +265,9 @@ const initialMockPosts = [
   },
   {
     id: "18",
-    title: "Sharing resources for undiagnosed genetic conditions",
-    body: "For those still on the diagnostic journey, I've compiled a list of resources that helped us. Happy to share!",
+    caption: "Sharing resources for undiagnosed genetic conditions - For those still on the diagnostic journey, I've compiled a list of resources that helped us. Happy to share!",
     author: "DiagnosticJourney",
     timestamp: "1 day ago",
-    type: "advice",
     tags: ["undiagnosed", "resources", "genetic testing"],
     reactions: { heart: 38, thumbsUp: 28, thinking: 5, eyes: 60 },
     commentCount: 15,
@@ -321,6 +290,12 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   const [showCreatePostModal, setShowCreatePostModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "trending">("recent")
+  const [isJoined, setIsJoined] = useState(false)
+  const [shareModal, setShareModal] = useState<{ open: boolean; post: any | null }>({ open: false, post: null })
+  const [copiedLink, setCopiedLink] = useState(false)
+
+  // Debug shareModal state
+  console.log('Share modal state:', shareModal)
 
   // Community info mock (could be fetched in real app)
   const communityInfo = useMemo(() => {
@@ -345,6 +320,40 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     return map[communitySlug] || { name: communitySlug, description: "A rare disease community", memberCount: 0, color: "bg-gray-100 text-gray-800" }
   }, [communitySlug])
 
+  // Check if user is already in the community
+  useEffect(() => {
+    try {
+      const userCommunities = JSON.parse(localStorage.getItem('user_communities') || '[]')
+      const isAlreadyMember = userCommunities.includes(communitySlug)
+      setIsJoined(isAlreadyMember)
+    } catch (error) {
+      console.error('Error checking community membership:', error)
+      // Default to not joined if there's an error
+      setIsJoined(false)
+    }
+  }, [communitySlug, user])
+
+  // Handle joining the community
+  const handleJoinCommunity = () => {
+    try {
+      const userCommunities = JSON.parse(localStorage.getItem('user_communities') || '[]')
+      
+      // Check if already joined to prevent duplicates
+      if (!userCommunities.includes(communitySlug)) {
+        const updatedCommunities = [...userCommunities, communitySlug]
+        localStorage.setItem('user_communities', JSON.stringify(updatedCommunities))
+        logUserActivity(`Joined community: ${communityInfo.name}`)
+      }
+      
+      // Always set joined state to true when button is clicked
+      setIsJoined(true)
+    } catch (error) {
+      console.error('Error joining community:', error)
+      // Still set as joined in UI even if localStorage fails
+      setIsJoined(true)
+    }
+  }
+
   useEffect(() => {
     // Filter mock posts and user posts based on the communitySlug
     const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
@@ -355,9 +364,10 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     
     // Apply search filter
     if (searchTerm) {
-      allPosts = allPosts.filter(post => 
-        post.caption.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      allPosts = allPosts.filter(post => {
+        const searchText = (post.caption || '').toLowerCase()
+        return searchText.includes(searchTerm.toLowerCase())
+      })
     }
     
     // Apply sorting
@@ -388,9 +398,10 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
       
       // Apply current filters
       if (searchTerm) {
-        allPosts = allPosts.filter(post => 
-          post.caption.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+        allPosts = allPosts.filter(post => {
+          const searchText = (post.caption || '').toLowerCase()
+          return searchText.includes(searchTerm.toLowerCase())
+        })
       }
       
       // Apply current sorting
@@ -454,9 +465,66 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     setUserReactions((prev) => ({ ...prev, [postId]: reactionType }))
     const post = posts.find((p) => p.id === postId)
     if (post) {
-      logUserActivity(`Reacted with ${reactionType} to post: "${post.caption || 'Untitled post'}"`)
+      const content = post.caption || 'Untitled post'
+      logUserActivity(`Reacted with ${reactionType} to post: "${content}"`)
     }
     // You can add your existing reaction logic here if needed
+  }
+
+  // Share handler
+  const handleShare = (post: any) => {
+    console.log('Share button clicked for post:', post.id)
+    setShareModal({ open: true, post })
+    const content = post.caption || 'Untitled post'
+    logUserActivity(`Opened share modal for post: "${content}"`)
+  }
+
+  // Copy link to clipboard
+  const handleCopyLink = async (postId: string) => {
+    const postLink = `${window.location.origin}/community/${communitySlug}/post/${postId}`
+    try {
+      await navigator.clipboard.writeText(postLink)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2000)
+      logUserActivity(`Copied link for post: ${postId}`)
+    } catch (err) {
+      console.error('Failed to copy link:', err)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = postLink
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2000)
+    }
+  }
+
+  // Social media share handlers
+  const handleSocialShare = (platform: string, post: any) => {
+    const postLink = `${window.location.origin}/community/${communitySlug}/post/${post.id}`
+    const content = post.caption || ''
+    const text = `Check out this post from ${communityInfo.name}: "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`
+    
+    let shareUrl = ''
+    
+    switch (platform) {
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(postLink)}`
+        break
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postLink)}`
+        break
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postLink)}`
+        break
+    }
+    
+    if (shareUrl) {
+      window.open(shareUrl, '_blank', 'width=600,height=400')
+      logUserActivity(`Shared post to ${platform}: ${post.id}`)
+    }
   }
 
   return (
@@ -469,15 +537,29 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
               <ArrowLeft className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Back to Home</span>
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setShowCreatePostModal(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg px-3 md:px-4"
-            >
-              <Plus className="h-4 w-4 md:mr-2" />
-              <span className="hidden sm:inline">Create Post</span>
-            </Button>
+            <div className="flex items-center gap-2 md:gap-3">
+              {!isJoined && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleJoinCommunity}
+                  className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white transition-colors px-3 md:px-4"
+                >
+                  <Plus className="h-4 w-4 md:mr-2" />
+                  <span className="hidden sm:inline">Join Community</span>
+                  <span className="sm:hidden">Join</span>
+                </Button>
+              )}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowCreatePostModal(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg px-3 md:px-4"
+              >
+                <Plus className="h-4 w-4 md:mr-2" />
+                <span className="hidden sm:inline">Create Post</span>
+              </Button>
+            </div>
           </div>
           
           {/* Search and Filters */}
@@ -678,7 +760,12 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
                   <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
                     <Bookmark className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-gray-600 hover:text-gray-800 p-1 md:p-2"
+                    onClick={() => handleShare(featuredPost)}
+                  >
                     <Share2 className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
                   <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
@@ -824,7 +911,12 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
                       <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
                         <Bookmark className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-600 hover:text-gray-800 p-1 md:p-2"
+                        onClick={() => handleShare(post)}
+                      >
                         <Share2 className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                       <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
@@ -838,6 +930,115 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
           </div>
         )}
       </div>
+      
+      {/* Share Modal */}
+      <Dialog open={shareModal.open} onOpenChange={(open) => setShareModal({ open, post: open ? shareModal.post : null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Share2 className="h-5 w-5" />
+              <span>Share Post</span>
+            </DialogTitle>
+            <DialogDescription>
+              Share this post with others in the community
+            </DialogDescription>
+          </DialogHeader>
+          
+          {shareModal.post && (
+            <div className="space-y-4">
+              {/* Post Preview */}
+              <div className="p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center space-x-2 mb-2">
+                  <User className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {shareModal.post.anonymous ? "Anonymous" : shareModal.post.author}
+                  </span>
+                  <span className="text-xs text-gray-500">•</span>
+                  <span className="text-xs text-gray-500">{shareModal.post.timestamp}</span>
+                </div>
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  {shareModal.post.caption?.length > 100 
+                    ? `${shareModal.post.caption.slice(0, 100)}...` 
+                    : shareModal.post.caption}
+                </p>
+              </div>
+
+              {/* Copy Link Section */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Copy Link</label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    readOnly
+                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/community/${communitySlug}/post/${shareModal.post.id}`}
+                    className="flex-1 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => handleCopyLink(shareModal.post.id)}
+                    className="px-3"
+                  >
+                    {copiedLink ? (
+                      <>
+                        <Check className="h-4 w-4 mr-1" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-1" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Social Media Share Buttons */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Share on Social Media</label>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSocialShare('twitter', shareModal.post)}
+                    className="flex-1"
+                  >
+                    <Twitter className="h-4 w-4 mr-2" />
+                    Twitter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSocialShare('facebook', shareModal.post)}
+                    className="flex-1"
+                  >
+                    <Facebook className="h-4 w-4 mr-2" />
+                    Facebook
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSocialShare('linkedin', shareModal.post)}
+                    className="flex-1"
+                  >
+                    <Linkedin className="h-4 w-4 mr-2" />
+                    LinkedIn
+                  </Button>
+                </div>
+              </div>
+
+              {/* Additional Share Options */}
+              <div className="pt-2 border-t">
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>• Link will direct to the post in {communityInfo.name}</p>
+                  <p>• Recipients can view the post and join the community</p>
+                  <p>• Your privacy settings will be respected</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {showCreatePostModal && (
         <CreatePostModal
            open={showCreatePostModal}
