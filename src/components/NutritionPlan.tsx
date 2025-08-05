@@ -215,16 +215,9 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
             >
               <BackArrowIcon />
             </button>
-            <div className="flex items-center space-x-2">
-              <PlateIcon />
-              <h1 className="text-lg font-semibold text-gray-900">Today's Nutrition Plan for Jamie</h1>
+            <div className="flex items-center">
+              <h1 className="text-lg font-semibold text-gray-900">Nutrition & Medication Tracker</h1>
             </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <AvatarIcon />
-            <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-              Switch Child
-            </button>
           </div>
         </div>
       </header>
