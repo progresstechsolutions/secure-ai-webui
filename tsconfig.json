@@ -4,7 +4,8 @@
     "lib": [
       "dom",
       "dom.iterable",
-      "es6"
+      "es6",
+      "esnext"
     ],
     "allowJs": true,
     "skipLibCheck": true,
@@ -18,9 +19,16 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
   },
-  "include": [
-    "src"
-  ]
+  "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src"],
+    "exclude": ["node_modules"]
 } 

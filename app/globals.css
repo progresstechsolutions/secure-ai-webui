@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+<<<<<<< HEAD
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
@@ -62,5 +63,204 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+=======
+@layer base {
+  :root {
+    /* Color Palette */
+    --primary: 346 77% 56%; /* rose-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 96% 62%; /* orange-400 */
+    --secondary-foreground: 0 0% 100%;
+    --accent: 217 91% 60%; /* blue-500 */
+    --accent-foreground: 0 0% 100%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
+    /* Spacing scale */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+    --space-24: 6rem;
+    --space-32: 8rem;
+    --space-40: 10rem;
+    --space-48: 12rem;
+    --space-56: 14rem;
+    --space-64: 16rem;
+  }
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 1rem;
+    font-weight: 400;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+    margin-top: var(--space-8);
+    margin-bottom: var(--space-4);
+  }
+  h1 { font-size: 2.25rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.5rem; }
+  h4 { font-size: 1.25rem; }
+  h5 { font-size: 1.125rem; }
+  h6 { font-size: 1rem; }
+  p {
+    margin-top: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+  a:hover {
+    color: hsl(var(--secondary));
+  }
+  /* Utility classes for consistent UI */
+  .shadow-base {
+    box-shadow: 0 2px 8px 0 rgba(16, 30, 54, 0.08);
+  }
+  .card-base {
+    border-radius: var(--radius);
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 2px 8px 0 rgba(16, 30, 54, 0.08);
+    border: 1px solid hsl(var(--border));
+  }
+  .button-base {
+    border-radius: calc(var(--radius) - 2px);
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.5rem 1.25rem;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    outline: none;
+    border: none;
+    cursor: pointer;
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(to right, #f43f5e, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.prose {
+  color: var(--foreground);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  max-width: 65ch;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  color: var(--foreground);
+  font-weight: 700;
+}
+.prose a {
+  color: #f43f5e;
+  text-decoration: underline;
+}
+.prose a:hover {
+  color: #fb923c;
+}
+.prose code {
+  background-color: var(--muted);
+  color: var(--foreground);
+  padding: 0.2em 0.4em;
+  border-radius: 0.3em;
+}
+.prose blockquote {
+  border-left-color: #f43f5e;
+  padding-left: 1em;
+  font-style: italic;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 0.5em;
+}
+.prose th {
+  background-color: var(--secondary);
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.5em;
+}
+.prose li {
+  margin-bottom: 0.5em;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+>>>>>>> origin/Bishwas
   }
 }
