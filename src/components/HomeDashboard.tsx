@@ -1,15 +1,6 @@
 import React, { useState } from 'react';
 
 // Icon components
-const SmileyIcon = ({ mood }: { mood: 'happy' | 'neutral' | 'sad' }) => {
-  const icons = {
-    happy: '😊',
-    neutral: '😐',
-    sad: '😔'
-  };
-  return <span className="text-2xl">{icons[mood]}</span>;
-};
-
 const PlateIcon = () => <span className="text-2xl">🍽️</span>;
 const BellIcon = () => <span className="text-2xl">🔔</span>;
 const GrowthIcon = () => <span className="text-2xl">📈</span>;
@@ -90,15 +81,6 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         {/* Today's Snapshot Cards */}
         <div className="space-y-4">
-          <SnapshotCard
-            icon={<SmileyIcon mood="happy" />}
-            title="Symptom Status"
-            summary="No new symptoms logged"
-            actionText="Log Symptom"
-            actionVariant="primary"
-            onClick={onNavigateToLog}
-          />
-
           <SnapshotCard
             icon={<PlateIcon />}
             title="Nutrition Plan"

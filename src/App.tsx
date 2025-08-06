@@ -8,10 +8,11 @@ import CareTeamScreen from './components/CareTeamScreen';
 import ProfileSettingsScreen from './components/ProfileSettingsScreen';
 import GrowthDevelopmentScreen from './components/GrowthDevelopmentScreen';
 import LogAndTrackScreen from './components/LogAndTrackScreen';
+import TrackersDashboard from './components/TrackersDashboard';
 import AppLayout from './components/AppLayout';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log' | 'trackersDashboard'>('home');
   const [recipeLibraryMealType, setRecipeLibraryMealType] = useState<string | undefined>();
   const [insightData, setInsightData] = useState<{
     symptomName: string;
@@ -79,6 +80,29 @@ function App() {
     setCurrentView('home');
   };
 
+  // New navigation handlers for trackers
+  const handleNavigateToTrackersDashboard = () => {
+    setCurrentView('trackersDashboard');
+  };
+
+  const handleNavigateBackFromTrackersDashboard = () => {
+    setCurrentView('home');
+  };
+
+  const handleNavigateToSymptomTracker = () => {
+    setCurrentView('log');
+  };
+
+  const handleNavigateToNutritionTracker = () => {
+    setCurrentView('nutrition');
+  };
+
+  const handleNavigateToMedicationTracker = () => {
+    // For now, navigate to nutrition since medication tracking is part of the nutrition page
+    // In a full implementation, this would go to a dedicated medication tracker
+    setCurrentView('nutrition');
+  };
+
   const handleNavigateToLog = () => {
     setCurrentView('log');
   };
@@ -94,17 +118,17 @@ function App() {
       onNavigateToNutrition={handleNavigateToNutrition}
       onNavigateToCareTeam={handleNavigateToCareTeam}
       onNavigateToProfile={handleNavigateToProfile}
-      onLogSymptom={handleNavigateToLog}
+      onLogSymptom={handleNavigateToTrackersDashboard}
     >
-                   {currentView === 'home' && (
-               <HomeDashboard
-                 onNavigateToSymptomInsights={handleNavigateToSymptomInsights}
-                 onNavigateToAlerts={handleNavigateToAlerts}
-                 onNavigateToGrowthDevelopment={handleNavigateToGrowthDevelopment}
-                 onNavigateToNutrition={handleNavigateToNutrition}
-                 onNavigateToLog={handleNavigateToLog}
-               />
-             )}
+      {currentView === 'home' && (
+        <HomeDashboard
+          onNavigateToSymptomInsights={handleNavigateToSymptomInsights}
+          onNavigateToAlerts={handleNavigateToAlerts}
+          onNavigateToGrowthDevelopment={handleNavigateToGrowthDevelopment}
+          onNavigateToNutrition={handleNavigateToNutrition}
+          onNavigateToLog={handleNavigateToLog}
+        />
+      )}
       {currentView === 'nutrition' && (
         <NutritionPlan 
           onBack={handleNavigateToHome} 
@@ -131,32 +155,40 @@ function App() {
           onBack={handleNavigateBackFromAlerts}
         />
       )}
-                   {currentView === 'careTeam' && (
-               <CareTeamScreen
-                 onBack={handleNavigateBackFromCareTeam}
-               />
-             )}
-             {currentView === 'profile' && (
-               <ProfileSettingsScreen
-                 onBack={handleNavigateBackFromProfile}
-               />
-             )}
-             {currentView === 'growthDevelopment' && (
-               <GrowthDevelopmentScreen
-                 onBack={handleNavigateBackFromGrowthDevelopment}
-                 onNavigateToNutrition={handleNavigateToNutrition}
-                 onNavigateToSymptomLogs={() => {
-                   // For now, navigate to home where symptoms can be logged
-                   // In a full implementation, this would go to a symptom logs screen
-                   setCurrentView('home');
-                 }}
-               />
-             )}
-             {currentView === 'log' && (
-               <LogAndTrackScreen
-                 onBack={handleNavigateBackFromLog}
-               />
-             )}
+      {currentView === 'careTeam' && (
+        <CareTeamScreen
+          onBack={handleNavigateBackFromCareTeam}
+        />
+      )}
+      {currentView === 'profile' && (
+        <ProfileSettingsScreen
+          onBack={handleNavigateBackFromProfile}
+        />
+      )}
+      {currentView === 'growthDevelopment' && (
+        <GrowthDevelopmentScreen
+          onBack={handleNavigateBackFromGrowthDevelopment}
+          onNavigateToNutrition={handleNavigateToNutrition}
+          onNavigateToSymptomLogs={() => {
+            // For now, navigate to home where symptoms can be logged
+            // In a full implementation, this would go to a symptom logs screen
+            setCurrentView('home');
+          }}
+        />
+      )}
+      {currentView === 'log' && (
+        <LogAndTrackScreen
+          onBack={handleNavigateBackFromLog}
+        />
+      )}
+      {currentView === 'trackersDashboard' && (
+        <TrackersDashboard
+          onNavigateToSymptomTracker={handleNavigateToSymptomTracker}
+          onNavigateToNutritionTracker={handleNavigateToNutritionTracker}
+          onNavigateToMedicationTracker={handleNavigateToMedicationTracker}
+          onBack={handleNavigateBackFromTrackersDashboard}
+        />
+      )}
     </AppLayout>
   );
 }

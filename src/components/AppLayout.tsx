@@ -32,6 +32,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
       case 'profile':
         return 'profile';
       case 'log':
+      case 'trackersDashboard':
         return 'log';
       default:
         return 'home';
