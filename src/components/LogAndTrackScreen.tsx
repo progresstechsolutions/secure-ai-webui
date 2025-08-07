@@ -397,24 +397,7 @@ const LogAndTrackScreen: React.FC<LogAndTrackScreenProps> = ({ onBack }) => {
          {/* Step 1: Select Symptom */}
          {currentStep === 1 && (
            <div className="space-y-12">
-                          {/* Personalized Care Snapshot */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4 shadow-sm" role="region" aria-label="Personalized care insights">
-               <div className="flex items-start space-x-3">
-                 <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center" aria-hidden="true">
-                   <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                   </svg>
-                 </div>
-                 <div className="flex-1 min-w-0">
-                   <h3 className="text-sm font-semibold text-indigo-900 mb-2">Jamie's Care Snapshot</h3>
-                   <div className="space-y-2 text-sm text-indigo-800">
-                                           <p>• Jamie has logged <span className="font-semibold text-indigo-900">headaches</span> 4 times in the last 2 months</p>
-                      <p>• <span className="font-semibold text-indigo-900">Fatigue</span> has been more frequent this week</p>
-                      <p>• <span className="font-semibold text-indigo-900">Irritability</span> shows improvement since last month</p>
-                   </div>
-                 </div>
-               </div>
-             </div>
+
                          <div className="text-center">
                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">What symptom would you like to log today?</h2>
              </div>

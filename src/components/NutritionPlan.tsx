@@ -639,26 +639,32 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={onBack}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <BackArrowIcon />
-            </button>
-            <div className="flex items-center">
-              <h1 className="text-lg font-semibold text-gray-900">Nutrition</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Persistent Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-center">
+            {/* Back button and title */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={onBack}
+                className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                aria-label="Go back to previous screen"
+              >
+                <BackArrowIcon />
+              </button>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">Nutrition</h1>
+              </div>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="px-4 py-6">
+      {/* Main Content Area */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -790,107 +796,11 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
           </button>
         </div>
 
-        {/* Nutrition History Section */}
-        <div className="mb-6">
-          <div 
-            className="flex items-center justify-between mb-3 cursor-pointer"
-            onClick={handleToggleHistorySection}
-          >
-            <h2 className="text-lg font-semibold text-gray-900">History</h2>
-            <div className="flex items-center space-x-3">
-              <select
-                value={historyTimeFilter}
-                onChange={(e) => handleHistoryTimeFilterChange(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                className="text-sm border border-gray-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="7days">Past 7 days</option>
-                <option value="30days">Past 30 days</option>
-                <option value="6months">Past 6 months</option>
-                <option value="1year">Past 1 year</option>
-                <option value="custom">Custom</option>
-              </select>
-              <svg 
-                className={`w-5 h-5 text-gray-400 transition-transform ${showHistorySection ? 'rotate-180' : ''}`}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
 
-          {showHistorySection && (
-            <div className="space-y-2">
-              {(() => {
-                const filteredHistory = getFilteredHistory();
-                if (filteredHistory.length === 0) {
-                  return (
-                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 text-center">
-                      <p className="text-sm text-gray-500">No nutrition entries found for this period.</p>
-                    </div>
-                  );
-                }
-                
-                // Group entries by date
-                const groupedHistory = filteredHistory.reduce((groups, entry) => {
-                  const date = entry.date;
-                  if (!groups[date]) {
-                    groups[date] = [];
-                  }
-                  groups[date].push(entry);
-                  return groups;
-                }, {} as Record<string, typeof filteredHistory>);
-                
-                return Object.entries(groupedHistory).map(([date, entries]) => (
-                  <div key={date} className="space-y-2">
-                    <h3 className="text-sm font-medium text-gray-700 px-1">{formatDate(date)}</h3>
-                    {entries.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="bg-white rounded-lg p-3 shadow-sm border border-gray-200"
-                      >
-                        <div className="flex items-start space-x-3">
-                          <span className="text-xl">{entry.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm font-medium text-gray-900">{entry.itemName}</p>
-                              <span className="text-xs text-gray-500">{entry.timeTaken}</span>
-                            </div>
-                            <div className="flex items-center space-x-2 text-xs text-gray-500">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                entry.mealType === 'Breakfast' ? 'bg-yellow-100 text-yellow-700' :
-                                entry.mealType === 'Lunch' ? 'bg-orange-100 text-orange-700' :
-                                entry.mealType === 'Dinner' ? 'bg-purple-100 text-purple-700' :
-                                entry.mealType === 'Snack' ? 'bg-green-100 text-green-700' :
-                                'bg-gray-100 text-gray-700'
-                              }`}>
-                                {entry.mealType}
-                              </span>
-                              <span>•</span>
-                              <span>{entry.amount}</span>
-                              {entry.dose && (
-                                <>
-                                  <span>•</span>
-                                  <span>{entry.dose}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
 
         {/* AI-Powered Suggestion/Tip Banner */}
         {showAISuggestion && (
-          <div className="mb-6">
+          <div className="mb-8">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100 relative">
               <button
                 onClick={() => setShowAISuggestion(false)}
@@ -930,7 +840,113 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
             </div>
           </div>
         )}
-      </main>
+      </div>
+
+      {/* Recent Entries Section - Always visible below main content */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-lg">
+          {/* Section Header */}
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg font-semibold text-gray-900">Recent Entries</span>
+                <span className="text-sm text-gray-500">({nutritionHistory.length} entries)</span>
+              </div>
+              <div className="relative">
+                <select 
+                  value={historyTimeFilter}
+                  onChange={(e) => handleHistoryTimeFilterChange(e.target.value)}
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-3 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-gray-400 transition-colors min-h-[44px]"
+                  aria-label="Filter entries by time period"
+                >
+                  <option value="7days">Past 7 days</option>
+                  <option value="30days">Past 30 days</option>
+                  <option value="6months">Past 6 months</option>
+                  <option value="1year">Past 1 year</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Entries Timeline */}
+          <div className="divide-y divide-gray-100">
+            {getFilteredHistory().slice(0, 4).map((entry) => (
+              <div key={entry.id} className="px-6 py-4 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                <div className="flex items-start space-x-3">
+                  {/* Item Icon */}
+                  <div className="flex-shrink-0 mt-1">
+                    <span className="text-xl">{entry.icon}</span>
+                  </div>
+                  
+                  {/* Entry Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center space-x-2">
+                        <h5 className="text-sm font-medium text-gray-900">
+                          {entry.itemName}
+                        </h5>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          entry.mealType === 'Breakfast' ? 'bg-yellow-100 text-yellow-700' :
+                          entry.mealType === 'Lunch' ? 'bg-orange-100 text-orange-700' :
+                          entry.mealType === 'Dinner' ? 'bg-purple-100 text-purple-700' :
+                          entry.mealType === 'Snack' ? 'bg-green-100 text-green-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {entry.mealType}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        {entry.timeTaken}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                      <span>{entry.amount}</span>
+                      {entry.dose && (
+                        <>
+                          <span>•</span>
+                          <span>{entry.dose}</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* Actions Row */}
+                    <div className="flex items-center justify-end mt-2">
+                      <button 
+                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 min-h-[32px] min-w-[32px]"
+                        aria-label={`Edit ${entry.itemName} entry`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {getFilteredHistory().length === 0 && (
+            <div className="px-6 py-8 text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3" aria-hidden="true">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h4 className="text-sm font-medium text-gray-900 mb-1">No entries yet</h4>
+              <p className="text-sm text-gray-500">Start logging nutrition to see your history here - every entry helps your care team</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Nutrition Logging Modal/Drawer */}
       {showLoggingModal && (

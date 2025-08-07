@@ -5,7 +5,7 @@ interface AppLayoutProps {
   children: React.ReactNode;
   currentView: string;
   onNavigateToHome: () => void;
-  onNavigateToNutrition: () => void;
+  onNavigateToGrowthDevelopment: () => void;
   onNavigateToCareTeam: () => void;
   onNavigateToProfile: () => void;
   onLogSymptom?: () => void;
@@ -15,18 +15,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   children,
   currentView,
   onNavigateToHome,
-  onNavigateToNutrition,
+  onNavigateToGrowthDevelopment,
   onNavigateToCareTeam,
   onNavigateToProfile,
   onLogSymptom
 }) => {
-  const getActiveTab = (): 'home' | 'nutrition' | 'careTeam' | 'profile' | 'log' => {
+  const getActiveTab = (): 'home' | 'growthDevelopment' | 'careTeam' | 'profile' | 'log' => {
     switch (currentView) {
       case 'home':
         return 'home';
-      case 'nutrition':
-      case 'recipeLibrary':
-        return 'nutrition';
+      case 'growthDevelopment':
+        return 'growthDevelopment';
       case 'careTeam':
         return 'careTeam';
       case 'profile':
@@ -87,14 +86,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           
           <button 
             className={`flex flex-col items-center py-2 px-3 transition-colors ${
-              activeTab === 'nutrition' ? 'text-indigo-600' : 'text-gray-400'
+              activeTab === 'growthDevelopment' ? 'text-indigo-600' : 'text-gray-400'
             }`}
-            onClick={onNavigateToNutrition}
+            onClick={onNavigateToGrowthDevelopment}
           >
             <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v16a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 2v2h6V2H9z" />
             </svg>
-                            <span className="text-xs">NutriMed</span>
+            <span className="text-xs">Growth & Dev</span>
           </button>
           
           <button 

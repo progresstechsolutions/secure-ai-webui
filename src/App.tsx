@@ -9,10 +9,12 @@ import ProfileSettingsScreen from './components/ProfileSettingsScreen';
 import GrowthDevelopmentScreen from './components/GrowthDevelopmentScreen';
 import LogAndTrackScreen from './components/LogAndTrackScreen';
 import TrackersDashboard from './components/TrackersDashboard';
+import MedicationTracker from './components/MedicationTracker';
 import AppLayout from './components/AppLayout';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log' | 'trackersDashboard'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log' | 'trackersDashboard' | 'medicationTracker'>('home');
+  const [previousView, setPreviousView] = useState<'home' | 'trackersDashboard'>('home');
   const [recipeLibraryMealType, setRecipeLibraryMealType] = useState<string | undefined>();
   const [insightData, setInsightData] = useState<{
     symptomName: string;
@@ -21,6 +23,7 @@ function App() {
   } | null>(null);
 
   const handleNavigateToNutrition = () => {
+    setPreviousView('home');
     setCurrentView('nutrition');
   };
 
@@ -94,13 +97,16 @@ function App() {
   };
 
   const handleNavigateToNutritionTracker = () => {
+    setPreviousView('trackersDashboard');
     setCurrentView('nutrition');
   };
 
+  const handleNavigateBackFromNutritionTracker = () => {
+    setCurrentView(previousView);
+  };
+
   const handleNavigateToMedicationTracker = () => {
-    // For now, navigate to nutrition since medication tracking is part of the nutrition page
-    // In a full implementation, this would go to a dedicated medication tracker
-    setCurrentView('nutrition');
+    setCurrentView('medicationTracker');
   };
 
   const handleNavigateToLog = () => {
@@ -108,14 +114,18 @@ function App() {
   };
 
   const handleNavigateBackFromLog = () => {
-    setCurrentView('home');
+    setCurrentView('trackersDashboard');
+  };
+
+  const handleNavigateBackFromMedicationTracker = () => {
+    setCurrentView('trackersDashboard');
   };
 
   return (
     <AppLayout
       currentView={currentView}
       onNavigateToHome={handleNavigateToHome}
-      onNavigateToNutrition={handleNavigateToNutrition}
+      onNavigateToGrowthDevelopment={handleNavigateToGrowthDevelopment}
       onNavigateToCareTeam={handleNavigateToCareTeam}
       onNavigateToProfile={handleNavigateToProfile}
       onLogSymptom={handleNavigateToTrackersDashboard}
@@ -124,14 +134,12 @@ function App() {
         <HomeDashboard
           onNavigateToSymptomInsights={handleNavigateToSymptomInsights}
           onNavigateToAlerts={handleNavigateToAlerts}
-          onNavigateToGrowthDevelopment={handleNavigateToGrowthDevelopment}
-          onNavigateToNutrition={handleNavigateToNutrition}
           onNavigateToLog={handleNavigateToLog}
         />
       )}
       {currentView === 'nutrition' && (
         <NutritionPlan 
-          onBack={handleNavigateToHome} 
+          onBack={handleNavigateBackFromNutritionTracker} 
           onNavigateToRecipeLibrary={handleNavigateToRecipeLibrary}
           onNavigateToSymptomInsights={handleNavigateToSymptomInsights}
         />
@@ -187,6 +195,11 @@ function App() {
           onNavigateToNutritionTracker={handleNavigateToNutritionTracker}
           onNavigateToMedicationTracker={handleNavigateToMedicationTracker}
           onBack={handleNavigateBackFromTrackersDashboard}
+        />
+      )}
+      {currentView === 'medicationTracker' && (
+        <MedicationTracker
+          onBack={handleNavigateBackFromMedicationTracker}
         />
       )}
     </AppLayout>
