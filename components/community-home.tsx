@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { AnimatePresence } from "framer-motion"
+import Link from "next/link"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserAvatar } from "@/components/ui/user-avatar"
+import { Badge } from "@/components/ui/badge"
+import { Settings } from "lucide-react"
 
 // Icons
 import {
@@ -35,13 +38,14 @@ import { PostDetail } from "./post-detail"
 import { CreatePostModal } from "./create-post-modal"
 import { GlobalHeader } from "./global-header"
 import { CreateCommunityModal } from "@/components/create-community-modal"
+import { apiClient } from "@/lib/api-client"
 
 // Hooks
 import { useProfilePicture } from "@/hooks/use-profile-picture"
+import { useToast } from "@/hooks/use-toast"
 
-// Types and Data
-import type { Community as CommunityType, Post as PostType } from "@/components/mock-community-data"
-import { mockCommunities, basePosts } from "@/components/mock-community-data"
+// Types
+import type { Community, Post } from "@/lib/api-client"
 
 /**
  * CommunityHome - Main community hub and feed for the app.
@@ -95,6 +99,7 @@ const communityMap: { [key: string]: string } = {
 
 const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
   const { profilePicture } = useProfilePicture()
+  const { toast } = useToast()
 
   // Helper function to format relative time
   const formatRelativeTime = (timestamp: string): string => {
@@ -123,19 +128,19 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
   }
 
   // Helper function to safely calculate reaction score
-  const getReactionScore = (post: PostType): number => {
-    if (!post || !post.reactions || typeof post.reactions !== 'object') {
+  const getReactionScore = (post: Post): number => {
+    if (!post || !post.reactions || !Array.isArray(post.reactions)) {
       return 0
     }
-    return Object.values(post.reactions).reduce((sum: number, count: number) => sum + (count || 0), 0)
+    return post.reactions.length
   }
 
   // Core state
   const [selectedPost, setSelectedPost] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<{
-    posts: PostType[]
-    communities: CommunityType[]
+    posts: Post[]
+    communities: Community[]
   }>({ posts: [], communities: [] })
   const [showSearchResults, setShowSearchResults] = useState(false)
 
@@ -148,19 +153,24 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
   })
 
   // Post data
-  const [personalizedPosts, setPersonalizedPosts] = useState<PostType[]>([])
-  const [discoverPosts, setDiscoverPosts] = useState<PostType[]>([])
+  const [personalizedPosts, setPersonalizedPosts] = useState<Post[]>([])
+  const [discoverPosts, setDiscoverPosts] = useState<Post[]>([])
+  const [allCommunities, setAllCommunities] = useState<Community[]>([])
 
   // UI state  
   const [showCreatePostModal, setShowCreatePostModal] = useState(false)
   const [showCreateCommunityModal, setShowCreateCommunityModal] = useState(false)
   const [activeTab, setActiveTab] = useState("home")
-  const [userReactions, setUserReactions] = useState<Record<string, keyof PostType['reactions'] | "">>({})
+  const [userReactions, setUserReactions] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   // User data
-  const [userCommunities, setUserCommunities] = useState<CommunityType[]>([])
+  const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [userConditions, setUserConditions] = useState<string[]>([])
   const router = useRouter()
+  const pathname = usePathname()
 
   // Filter options data
   const conditionOptions = [
@@ -183,133 +193,152 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     "Wisconsin", "Wyoming", "District of Columbia"
   ]
 
-  // Initialize both userCommunities and userConditions from localStorage on mount
-  useEffect(() => {
-    const storedCommunities = localStorage.getItem("user_communities");
-    if (storedCommunities) {
+  // Initialize data from API
+  const initializeData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      // Load user communities and conditions from localStorage first
+      const storedCommunities = localStorage.getItem("user_communities")
+      if (storedCommunities) {
+        try {
+          const parsed = JSON.parse(storedCommunities)
+          if (Array.isArray(parsed)) {
+            setUserCommunities(parsed)
+          }
+        } catch (error) {
+          console.error("Error parsing user_communities from localStorage:", error)
+          setError("Failed to load saved communities")
+        }
+      }
+
+      const userData = JSON.parse(localStorage.getItem("user_data") || "{}")
+      setUserConditions(userData.conditions || user.conditions || [])
+
+      // Fetch communities from API
       try {
-        const parsed = JSON.parse(storedCommunities);
-        if (Array.isArray(parsed)) {
-          setUserCommunities(parsed);
+        const communitiesResponse = await apiClient.getCommunities()
+        if (communitiesResponse.error) {
+          console.warn("API Error fetching communities:", communitiesResponse.error)
+          toast({
+            title: "Connection Issue",
+            description: "Unable to fetch latest communities. Using cached data.",
+            variant: "destructive",
+          })
+        } else if (communitiesResponse.data) {
+          setAllCommunities(communitiesResponse.data.communities || [])
         }
       } catch (error) {
-        console.error("Error parsing user_communities from localStorage:", error);
-        setUserCommunities([]);
+        console.error("Network error fetching communities:", error)
+        toast({
+          title: "Connection Issue", 
+          description: "Backend server may not be running. Please check the server status.",
+          variant: "destructive",
+        })
+        // Set empty communities array as fallback
+        setAllCommunities([])
       }
-    }
 
-    const userData = JSON.parse(localStorage.getItem("user_data") || "{}")
-    setUserConditions(userData.conditions || user.conditions || []);
-  }, []); // Empty dependency array ensures this runs only once on mount
+      // Fetch posts from API
+      try {
+        const postsResponse = await apiClient.getPosts()
+        if (postsResponse.error) {
+          console.warn("API Error fetching posts:", postsResponse.error)
+          toast({
+            title: "Connection Issue",
+            description: "Unable to fetch latest posts. Using cached data.", 
+            variant: "destructive",
+          })
+        } else if (postsResponse.data) {
+          setPersonalizedPosts(postsResponse.data.posts || [])
+          setDiscoverPosts(postsResponse.data.posts || [])
+        }
+      } catch (error) {
+        console.error("Network error fetching posts:", error)
+        toast({
+          title: "Connection Issue",
+          description: "Backend server may not be running. Using offline mode.",
+          variant: "destructive", 
+        })
+        // Set empty posts arrays as fallback
+        setPersonalizedPosts([])
+        setDiscoverPosts([])
+      }
+    } catch (error) {
+      console.error("Error initializing data:", error)
+      // Don't set error state for API connection issues - handle them gracefully above
+      if (!(error instanceof Error && error.message.includes('fetch'))) {
+        setError(error instanceof Error ? error.message : "Failed to load data")
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [user.conditions, toast])
+
+  useEffect(() => {
+    initializeData()
+  }, [initializeData])
 
   // Save user-created communities to localStorage whenever userCommunities changes
   useEffect(() => {
     if (userCommunities.length > 0) {
-      localStorage.setItem("user_communities", JSON.stringify(userCommunities));
+      localStorage.setItem("user_communities", JSON.stringify(userCommunities))
     }
-  }, [userCommunities]);
+  }, [userCommunities])
 
-  // Data: Personalized and global posts
-  const getPersonalizedFeedPosts = (userConditions: string[]): PostType[] => {
-    // Get user data for region filtering
-    const userData = JSON.parse(localStorage.getItem("user_data") || "{}")
-    const userRegion = userData.region || "United States"
-    
-    // Get communities from conditions (mapped)
-    const conditionCommunities = userConditions.map((condition) => communityMap[condition] || condition).filter(Boolean)
-    
-    // Get all user's communities (joined + created)
-    const allUserCommunitySlugs = [
-      ...userCommunities.map(c => c.slug),
-      ...joinedCommunities.filter((jc: CommunityType) => !userCommunities.some((uc: CommunityType) => uc.slug === jc.slug)).map(c => c.slug),
-      ...conditionCommunities
-    ]
-    
-    // Remove duplicates
-    const uniqueCommunitySlugs = [...new Set(allUserCommunitySlugs)]
-    
-    let userPosts: PostType[] = []
+  // Retry function for API connections
+  const retryConnection = useCallback(async () => {
+    setRefreshing(true)
     try {
-      const raw = localStorage.getItem('user_posts')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        userPosts = Array.isArray(parsed) ? parsed as PostType[] : []
+      // Test connection with a simple API call
+      const healthCheck = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'}/health`)
+      if (healthCheck.ok) {
+        toast({
+          title: "Connection Restored",
+          description: "Successfully reconnected to the server.",
+          variant: "default",
+        })
+        // Reinitialize data
+        await initializeData()
+      } else {
+        throw new Error('Health check failed')
       }
-    } catch {
-      userPosts = []
+    } catch (error) {
+      toast({
+        title: "Connection Failed", 
+        description: "Still unable to connect to the server. Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setRefreshing(false)
     }
+  }, [])
+
+  // Get personalized posts based on user's communities
+  const getPersonalizedFeedPosts = useMemo(() => {
+    if (!personalizedPosts.length) return []
     
-    // Filter posts by user's communities and prioritize by region/relevance
-    const relevantPosts = [
-      ...basePosts.filter((post: PostType) => uniqueCommunitySlugs.includes(post.community)),
-      ...userPosts.filter((post: PostType) => uniqueCommunitySlugs.includes(post.community)),
-    ]
+    const userCommunitySlugs = userCommunities.map(c => c.slug)
     
-    // Sort by relevance - posts from same region first, then by engagement
-    return relevantPosts.sort((a: PostType, b: PostType) => {
-      // Prioritize user's own posts
-      if (a.author === (userData.username || user?.username) && b.author !== (userData.username || user?.username)) return -1
-      if (b.author === (userData.username || user?.username) && a.author !== (userData.username || user?.username)) return 1
-      
-      // Then prioritize by engagement
+    return personalizedPosts.filter(post => 
+      userCommunitySlugs.includes(post.community.slug)
+    ).sort((a, b) => {
       const aScore = getReactionScore(a)
       const bScore = getReactionScore(b)
       return bScore - aScore
     })
-  }
-  
-  const getDiscoverPosts = (): PostType[] => {
-    // Get user data
-    const userData = JSON.parse(localStorage.getItem("user_data") || "{}")
-    const userConditions = userData.conditions || []
-    const userRegion = userData.region || "United States"
+  }, [personalizedPosts, userCommunities])
+
+  // Get discover posts from communities user hasn't joined
+  const getDiscoverPosts = useMemo(() => {
+    if (!discoverPosts.length) return []
     
-    // Get communities user is NOT part of
-    const userCommunitySlugs = [
-      ...userCommunities.map(c => c.slug),
-      ...joinedCommunities.map(c => c.slug),
-      ...userConditions.map((condition: string) => communityMap[condition]).filter(Boolean)
-    ]
+    const userCommunitySlugs = userCommunities.map(c => c.slug)
     
-    let userPosts: PostType[] = []
-    try {
-      const raw = localStorage.getItem('user_posts')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        userPosts = Array.isArray(parsed) ? parsed as PostType[] : []
-      }
-    } catch {
-      userPosts = []
-    }
-    
-    // Get posts from communities user hasn't joined, prioritizing similar conditions
-    const discoverPosts = [
-      ...basePosts.filter((post: PostType) => !userCommunitySlugs.includes(post.community)),
-      ...userPosts.filter((post: PostType) => !userCommunitySlugs.includes(post.community)),
-    ]
-    
-    return discoverPosts
-      .sort((a: PostType, b: PostType) => {
-        // Prioritize posts from similar condition communities
-        const aSimilar = userConditions.some((condition: string) => {
-          const relatedConditions = getRelatedConditions(condition)
-          return relatedConditions.some((related: string) => communityMap[related] === a.community)
-        })
-        const bSimilar = userConditions.some((condition: string) => {
-          const relatedConditions = getRelatedConditions(condition)
-          return relatedConditions.some((related: string) => communityMap[related] === b.community)
-        })
-        
-        if (aSimilar && !bSimilar) return -1
-        if (bSimilar && !aSimilar) return 1
-        
-        // Then by engagement
-        const aScore = getReactionScore(a)
-        const bScore = getReactionScore(b)
-        return bScore - aScore
-      })
-      .slice(0, 15)
-  }
+    return discoverPosts.filter(post => 
+      !userCommunitySlugs.includes(post.community.slug)
+    ).slice(0, 15)
+  }, [discoverPosts, userCommunities])
   
   // Helper function to get related conditions for discovery
   const getRelatedConditions = (condition: string): string[] => {
@@ -325,33 +354,35 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     return relatedMap[condition] || ["Other Genetic Condition"]
   }
 
-  // Effects for updating posts when conditions or communities change
+  // Memoize event handlers
+  const handlePostCreated = useCallback(async () => {
+    try {
+      const postsResponse = await apiClient.getPosts()
+      if (postsResponse.data) {
+        setPersonalizedPosts(postsResponse.data.posts || [])
+        setDiscoverPosts(postsResponse.data.posts || [])
+      }
+    } catch (error) {
+      console.error("Error refreshing posts:", error)
+    }
+  }, [])
+
+  // Update feeds when user conditions or communities change
   useEffect(() => {
-    console.log("Refreshing feeds due to userConditions or userCommunities change")
-    console.log("Current userConditions:", userConditions)
-    console.log("Current userCommunities:", userCommunities.map(c => c.name))
-    setPersonalizedPosts(getPersonalizedFeedPosts(userConditions))
-    setDiscoverPosts(getDiscoverPosts())
+    // Posts are already updated in the main initialization effect
   }, [userConditions, userCommunities])
 
   // Listen for post creation events
   useEffect(() => {
-    const handlePostCreated = () => {
-      console.log("Post created event received, refreshing feeds...")
-      setPersonalizedPosts(getPersonalizedFeedPosts(userConditions))
-      setDiscoverPosts(getDiscoverPosts())
-    }
-
     window.addEventListener("post-created", handlePostCreated)
-    
     return () => {
       window.removeEventListener("post-created", handlePostCreated)
     }
-  }, [userConditions])
-  
-  // Listen for storage changes from other tabs/windows
+  }, [handlePostCreated])
+
+  // Listen for storage changes from other tabs/windows (only relevant keys)
   useEffect(() => {
-    const storageHandler = (e: StorageEvent) => {
+    const storageHandler = async (e: StorageEvent) => {
       if (e.key === "user_communities") {
         const stored = e.newValue;
         if (stored) {
@@ -360,31 +391,32 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
             if (Array.isArray(parsed)) {
               setUserCommunities(parsed);
             }
-          } catch (error) {
-            console.error("Error parsing user_communities from storage event:", error);
-          }
+          } catch {}
         } else {
           setUserCommunities([]);
         }
       } else if (e.key === "user_posts") {
-        // Refresh posts when posts are updated in other tabs
-        console.log("Posts updated in another tab, refreshing feeds...")
-        setPersonalizedPosts(getPersonalizedFeedPosts(userConditions))
-        setDiscoverPosts(getDiscoverPosts())
+        try {
+          const postsResponse = await apiClient.getPosts()
+          if (postsResponse.data) {
+            setPersonalizedPosts(postsResponse.data.posts || [])
+            setDiscoverPosts(postsResponse.data.posts || [])
+          }
+        } catch (error) {
+          console.error("Error refreshing posts:", error)
+        }
       }
-    };
-    window.addEventListener("storage", storageHandler);
+    }
+    window.addEventListener("storage", storageHandler)
     return () => {
-      window.removeEventListener("storage", storageHandler);
-    };
-  }, [userConditions]);
-
- 
+      window.removeEventListener("storage", storageHandler)
+    }
+  }, [])
 
   // Community lists - memoized to prevent infinite re-renders
-  const joinedCommunities: CommunityType[] = useMemo(() => {
-    // Get communities based on user's health conditions from the mock data
-    const conditionBasedCommunities = mockCommunities.filter((community: CommunityType) =>
+  const joinedCommunities: Community[] = useMemo(() => {
+    // Get communities based on user's health conditions from API data
+    const conditionBasedCommunities = allCommunities.filter((community: Community) =>
       userConditions
         .map((condition: string) => communityMap[condition])
         .filter(Boolean)
@@ -394,22 +426,22 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     console.log('=== Joined Communities Debug ===');
     console.log('User Conditions:', userConditions);
     console.log('Mapped Community Slugs:', userConditions.map(c => communityMap[c]).filter(Boolean));
-    console.log('Found Mock Communities:', conditionBasedCommunities.map(c => ({ name: c.name, slug: c.slug, id: c.id })));
+    console.log('Found Communities:', conditionBasedCommunities.map(c => ({ name: c.name, slug: c.slug })));
     console.log('=== End Debug ===');
     
     return conditionBasedCommunities;
-  }, [userConditions])
+  }, [userConditions, allCommunities])
 
   // Combined communities for Select component - memoized with robust duplicate prevention
   const allUserCommunities = useMemo(() => {
     // Use a Set to track slugs we've already seen for simpler deduplication
     const seenSlugs = new Set<string>();
-    const result: CommunityType[] = [];
+    const result: Community[] = [];
     
     // Debug logging
     console.log('=== Community Deduplication Debug ===');
-    console.log('User Communities:', userCommunities.map(c => ({ name: c.name, slug: c.slug, id: c.id })));
-    console.log('Joined Communities:', joinedCommunities.map(c => ({ name: c.name, slug: c.slug, id: c.id })));
+    console.log('User Communities:', userCommunities.map(c => ({ name: c.name, slug: c.slug })));
+    console.log('Joined Communities:', joinedCommunities.map(c => ({ name: c.name, slug: c.slug })));
     
     // Add user communities first (they have priority)
     userCommunities.forEach(community => {
@@ -433,64 +465,53 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       }
     });
     
-    console.log('Final Combined Communities:', result.map(c => ({ name: c.name, slug: c.slug, id: c.id })));
+    console.log('Final Combined Communities:', result.map(c => ({ name: c.name, slug: c.slug })));
     console.log('=== End Debug ===');
     
     return result;
   }, [userCommunities, joinedCommunities])
 
   // Post reactions/comments
-  const handleReaction = (postId: string, reactionType: keyof PostType['reactions'] | 'hope' | 'hug' | 'grateful') => {
-    const updatePosts = (prevPosts: PostType[]) =>
+  const handleReaction = (postId: string, reactionType: string) => {
+    const updatePosts = (prevPosts: Post[]) =>
       prevPosts.map((post) => {
-        if (post.id === postId) {
-          // Ensure reactions object exists
-          const newReactions = { ...((post.reactions) || { heart: 0, thumbsUp: 0 }) }
-          const currentUserReaction = userReactions[postId] as keyof PostType['reactions'] | 'hope' | 'hug' | 'grateful' | undefined
-          
-          // Remove previous reaction if exists
-          if (currentUserReaction && newReactions[currentUserReaction as keyof PostType['reactions']] !== undefined && newReactions[currentUserReaction as keyof PostType['reactions']]! > 0) {
-            newReactions[currentUserReaction as keyof PostType['reactions']] = newReactions[currentUserReaction as keyof PostType['reactions']]! - 1
-          }
-          
-          // If clicking same reaction, remove it (toggle off)
-          if (currentUserReaction === reactionType) {
-            setUserReactions((prev) => ({ ...prev, [postId]: "" }))
-          } else {
-            // Add new reaction
-            if (reactionType in newReactions) {
-              newReactions[reactionType as keyof PostType['reactions']] = (newReactions[reactionType as keyof PostType['reactions']] || 0) + 1
-            } else {
-              // Handle new reaction types
-              (newReactions as any)[reactionType] = ((newReactions as any)[reactionType] || 0) + 1
+        if (post._id === postId) {
+          // For now, just update the stats since reactions is an array in API
+          return { 
+            ...post, 
+            stats: {
+              ...post.stats,
+              totalReactions: post.stats.totalReactions + 1
             }
-            setUserReactions((prev) => ({ ...prev, [postId]: reactionType }))
           }
-          
-          return { ...post, reactions: newReactions }
         }
         return post
       })
     setPersonalizedPosts(updatePosts(personalizedPosts))
   }
+  
   const addComment = (postId: string, comment: any) => {
-    const updatePosts = (prevPosts: PostType[]) =>
+    const updatePosts = (prevPosts: Post[]) =>
       prevPosts.map((post) => {
-        if (post.id === postId) {
+        if (post._id === postId) {
           return {
             ...post,
-            comments: [...post.comments, comment],
-            commentCount: post.commentCount + 1,
+            comments: [...(post.comments || []), comment],
+            stats: {
+              ...post.stats,
+              totalComments: post.stats.totalComments + 1
+            }
           }
         }
         return post
       })
     setPersonalizedPosts(updatePosts(personalizedPosts))
   }
+  
   const addReply = (postId: string, commentId: string, reply: any) => {
-    const updatePosts = (prevPosts: PostType[]) =>
+    const updatePosts = (prevPosts: Post[]) =>
       prevPosts.map((post) => {
-        if (post.id === postId) {
+        if (post._id === postId) {
           const updateComments = (comments: any[]): any[] => {
             return comments.map((comment) => {
               if (comment.id === commentId) {
@@ -510,8 +531,11 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           }
           return {
             ...post,
-            comments: updateComments(post.comments),
-            commentCount: post.commentCount + 1,
+            comments: updateComments(post.comments || []),
+            stats: {
+              ...post.stats,
+              totalComments: post.stats.totalComments + 1
+            }
           }
         }
         return post
@@ -529,7 +553,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       const posts = activeTab === "suggested" ? discoverPosts : personalizedPosts
       
       // Search ALL communities with enhanced filters (including user's own communities)
-      const searchedCommunities = mockCommunities.filter(community => {
+      const searchedCommunities = allCommunities.filter((community: Community) => {
         // Text search - check name and description
         const matchesQuery = !searchQuery.trim() || (
           community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -544,25 +568,11 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           (communityMap[searchFilters.condition] === community.slug)
         )
         
-        // Region filter - enhanced matching using the new region field
-        const matchesRegion = !searchFilters.region || (
-          community.region === searchFilters.region ||
-          community.name.toLowerCase().includes(searchFilters.region.toLowerCase()) ||
-          community.description?.toLowerCase().includes(searchFilters.region.toLowerCase())
-        )
-        
-        // State filter - enhanced matching using the new state field
-        const matchesState = !searchFilters.state || (
-          community.state === searchFilters.state ||
-          community.name.toLowerCase().includes(searchFilters.state.toLowerCase()) ||
-          community.description?.toLowerCase().includes(searchFilters.state.toLowerCase())
-        )
-        
-        return matchesQuery && matchesCondition && matchesRegion && matchesState
+        return matchesQuery && matchesCondition
       })
       
       // Sort communities: user's communities first, then joined communities, then others
-      const sortedCommunities = searchedCommunities.sort((a, b) => {
+      const sortedCommunities = searchedCommunities.sort((a: Community, b: Community) => {
         const aIsUserCommunity = userCommunities.some(uc => uc.slug === a.slug)
         const bIsUserCommunity = userCommunities.some(uc => uc.slug === b.slug)
         const aIsJoined = joinedCommunities.some(jc => jc.slug === a.slug)
@@ -578,11 +588,12 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       })
 
       // Enhanced post search with community context
-      const searchedPosts = searchQuery.trim() ? posts.filter((post: PostType) => {
-        const community = mockCommunities.find((c: CommunityType) => c.slug === post.community)
+      const searchedPosts = searchQuery.trim() ? posts.filter((post: Post) => {
+        const community = allCommunities.find((c: Community) => c.slug === post.community.slug)
         const matchesSearch =
-          (post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (post.author && post.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (post.content && post.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (post.title && post.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (post.author && post.author.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
           (community && community.name.toLowerCase().includes(searchQuery.toLowerCase()))
         return matchesSearch
       }) : []
@@ -596,7 +607,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       setShowSearchResults(false)
       setSearchResults({ posts: [], communities: [] })
     }
-  }, [searchQuery, searchFilters, activeTab, discoverPosts, personalizedPosts, userCommunities, joinedCommunities, mockCommunities])
+  }, [searchQuery, searchFilters, activeTab, discoverPosts, personalizedPosts, userCommunities, joinedCommunities, allCommunities])
 
   // Close search results when clicking outside
   useEffect(() => {
@@ -620,7 +631,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
   }, [showSearchResults])
 
   // Handle joining a community from search
-  const handleJoinCommunityFromSearch = (community: CommunityType) => {
+  const handleJoinCommunityFromSearch = async (community: Community) => {
     // Prevent duplicate join
     if (userCommunities.some((c) => c.slug === community.slug)) return;
     const updated = [community, ...userCommunities];
@@ -642,8 +653,16 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     }
     
     // Refresh feeds immediately after joining
-    setPersonalizedPosts(getPersonalizedFeedPosts(userConditions))
-    setDiscoverPosts(getDiscoverPosts())
+    // Refresh posts from API after joining
+    try {
+      const postsResponse = await apiClient.getPosts()
+      if (postsResponse.data) {
+        setPersonalizedPosts(postsResponse.data.posts || [])
+        setDiscoverPosts(postsResponse.data.posts || [])
+      }
+    } catch (error) {
+      console.error("Error refreshing posts:", error)
+    }
     
     // Dispatch event to notify other components
     window.dispatchEvent(new CustomEvent('community-updated', { detail: { action: 'joined', community } }));
@@ -657,14 +676,15 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
   
   const sortedPosts = useMemo(() => {
     const currentPosts = activeTab === "suggested" ? discoverPosts : personalizedPosts
-    const filteredPosts = currentPosts.filter((post: PostType) => {
+    const filteredPosts = currentPosts.filter((post: Post) => {
       const matchesSearch =
         searchQuery === "" ||
-        (post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase()))
+        (post.content && post.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (post.title && post.title.toLowerCase().includes(searchQuery.toLowerCase()))
       return matchesSearch
     })
     
-    return [...filteredPosts].sort((a: PostType, b: PostType) => {
+    return [...filteredPosts].sort((a: Post, b: Post) => {
       if (activeTab === "popular" || activeTab === "suggested") {
         const aScore = getReactionScore(a)
         const bScore = getReactionScore(b)
@@ -676,7 +696,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
 
   if (selectedPost) {
     const posts = activeTab === "suggested" ? discoverPosts : personalizedPosts
-    const post = posts.find((p: PostType) => p.id === selectedPost)
+    const post = posts.find((p: Post) => p._id === selectedPost)
     return (
       <PostDetail
         post={post}
@@ -684,13 +704,64 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         user={user}
         onAddComment={addComment}
         onAddReply={addReply}
-        onReaction={(postId, reactionType) => handleReaction(postId, reactionType as keyof PostType['reactions'])}
+        onReaction={(postId, reactionType) => handleReaction(postId, String(reactionType))}
         userReaction={userReactions[selectedPost]}
       />
     )
   }
 
   // Main render
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <GlobalHeader 
+          user={user} 
+          currentPage="dashboard" 
+          showSearch={false}
+          showOnMobile={true}
+        />
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading your communities and stories...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <GlobalHeader 
+          user={user} 
+          currentPage="dashboard" 
+          showSearch={false}
+          showOnMobile={true}
+        />
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center max-w-md">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <X className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Global Header */}
@@ -701,6 +772,36 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         onSearchToggle={() => setShowExpandedSearch(!showExpandedSearch)}
         showOnMobile={true}
       />
+
+      {/* Connection Status Banner */}
+      {(allCommunities.length === 0 && personalizedPosts.length === 0 && discoverPosts.length === 0) && !loading && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mx-4 mt-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-5 w-5 rounded-full bg-yellow-400 flex items-center justify-center">
+                  <span className="text-yellow-800 text-xs">!</span>
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  <strong>Limited functionality:</strong> Backend server connection unavailable. 
+                  Running in offline mode with cached data only.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={retryConnection}
+              disabled={refreshing}
+              className="text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+            >
+              {refreshing ? "Connecting..." : "Retry"}
+            </Button>
+          </div>
+        </div>
+      )}
        
       {/* Mobile-Optimized Main Content */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
@@ -740,7 +841,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                       <div className="max-h-64 overflow-y-auto space-y-1">
                         {allUserCommunities.slice(0, 8).map((community, index) => (
                           <button
-                            key={`${community.slug}-${community.id || index}`}
+                            key={`${community.slug}-${index}`}
                             onClick={() => {
                               router.push(`/community/${community.slug}`)
                             }}
@@ -749,9 +850,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                             <div 
                               className="w-6 h-6 rounded-full flex-shrink-0"
                               style={{ 
-                                background: community.color?.includes('bg-') 
-                                  ? '#3b82f6' 
-                                  : community.color || "#3b82f6" 
+                                background: "#3b82f6"
                               }}
                             />
                             <div className="flex-1 min-w-0">
@@ -1036,7 +1135,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           
           {/* Desktop Search - Keep existing */}
           <div id="search-container" className="hidden md:block mb-6 relative">
-            <div className="flex gap-2">
+            <div className="flex gap-2 relative">
               {/* Main Search Input */}
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1122,31 +1221,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                 )}
               </div>
             </div>
-          </div>
-            
-            {/* Active Filters Indicator */}
-            {(searchFilters.condition || searchFilters.region || searchFilters.state) && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
-                <Filter className="h-3 w-3" />
-                <span>Filters active:</span>
-                {searchFilters.condition && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md">
-                    {searchFilters.condition}
-                  </span>
-                )}
-                {searchFilters.region && (
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-md">
-                    {searchFilters.region}
-                  </span>
-                )}
-                {searchFilters.state && (
-                  <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md">
-                    {searchFilters.state}
-                  </span>
-                )}
-              </div>
-            )}
-            
+
             {/* Enhanced Search Results */}
             {showSearchResults && (searchResults.communities.length > 0 || searchResults.posts.length > 0) && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
@@ -1163,7 +1238,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                       
                       return (
                         <div
-                          key={`search-${community.slug}-${community.id || index}`}
+                          key={`search-${community.slug}-${community._id || index}`}
                           className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group border border-transparent hover:border-gray-200"
                           onClick={() => {
                             router.push(`/community/${community.slug}`)
@@ -1174,7 +1249,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                           <div className="flex items-center space-x-3 flex-1">
                             <div 
                               className="w-8 h-8 rounded-full flex-shrink-0"
-                              style={{ background: community.color?.includes('bg-') ? '#3b82f6' : community.color || "#3b82f6" }} 
+                              style={{ background: "#3b82f6" }} 
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center space-x-2">
@@ -1182,23 +1257,17 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                   {community.name}
                                 </span>
                                 {isMember && (
-                                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
-                                    {isUserCommunity ? "Admin" : "Member"}
-                                  </span>
+                                  <Badge variant="secondary" className="text-xs">Joined</Badge>
                                 )}
                               </div>
                               <div className="flex items-center space-x-3 text-xs text-gray-500 mt-0.5">
-                                <span>{community.memberCount || 0} members</span>
+                                <span>{community.memberCount} members</span>
                                 <span className="text-gray-400">•</span>
-                                <span>{community.region}{community.state ? `, ${community.state}` : ''}</span>
+                                <span>{community.category || "General"}</span>
                                 {community.description && (
                                   <>
                                     <span className="text-gray-400">•</span>
-                                    <span className="truncate max-w-32">
-                                      {community.description.length > 30 
-                                        ? `${community.description.slice(0, 30)}...` 
-                                        : community.description}
-                                    </span>
+                                    <span className="truncate">{community.description.slice(0, 30)}...</span>
                                   </>
                                 )}
                               </div>
@@ -1249,13 +1318,13 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                       Stories ({searchResults.posts.length})
                     </h4>
                     {searchResults.posts.slice(0, 4).map((post) => {
-                      const community = mockCommunities.find((c: CommunityType) => c.slug === post.community)
+                      const community = allCommunities.find((c) => c.slug === post.community.slug)
                       return (
                         <div
-                          key={post.id}
+                          key={post._id}
                           className="p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors group border border-transparent hover:border-gray-200"
                           onClick={() => {
-                            setSelectedPost(post.id)
+                            setSelectedPost(post._id)
                             setShowSearchResults(false)
                             setSearchQuery("")
                           }}
@@ -1265,16 +1334,16 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                               {community?.name || "Community"}
                             </span>
                             <span className="text-xs text-gray-500">
-                              by {post.author}
+                              by {post.author.name}
                             </span>
                             <span className="text-xs text-gray-400">
-                              {formatRelativeTime(post.timestamp)}
+                              {formatRelativeTime(post.createdAt)}
                             </span>
                           </div>
                           <p className="text-sm text-gray-900 line-clamp-2 group-hover:text-gray-700">
-                            {post.caption && post.caption.length > 80 
-                              ? `${post.caption.slice(0, 80)}...` 
-                              : post.caption || "View story"}
+                            {post.content && post.content.length > 80 
+                              ? `${post.content.slice(0, 80)}...` 
+                              : post.content || "View story"}
                           </p>
                           {post.images && post.images.length > 0 && (
                             <div className="mt-2">
@@ -1310,7 +1379,31 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
               </div>
             )}
           </div>
-
+            
+            {/* Active Filters Indicator */}
+            {(searchFilters.condition || searchFilters.region || searchFilters.state) && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                <Filter className="h-3 w-3" />
+                <span>Filters active:</span>
+                {searchFilters.condition && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md">
+                    {searchFilters.condition}
+                  </span>
+                )}
+                {searchFilters.region && (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-md">
+                    {searchFilters.region}
+                  </span>
+                )}
+                {searchFilters.state && (
+                  <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md">
+                    {searchFilters.state}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+            
           {/* Mobile-Optimized Content */}
           {sortedPosts.length === 0 && !showSearchResults ? (
             <div className="text-center py-12 sm:py-20">
@@ -1361,10 +1454,10 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           ) : (
             <div className="space-y-3 sm:space-y-4">
               {sortedPosts.map((post) => {
-                const community = mockCommunities.find((communityItem: CommunityType) => communityItem.slug === post.community)
+                const community = allCommunities.find((communityItem: Community) => communityItem.slug === post.community.slug)
                 return (
                   <article
-                    key={post.id}
+                    key={post._id}
                     className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
                     onClick={(e) => {
                       // Prevent opening modal if clicking on interactive elements
@@ -1372,7 +1465,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                       if (target.tagName === 'BUTTON' || target.closest('button') || target.tagName === 'A' || target.closest('a')) {
                         return;
                       }
-                      setSelectedPost(post.id);
+                      setSelectedPost(post._id);
                     }}
                   >
                     {/* Mobile-Optimized Post Header */}
@@ -1380,24 +1473,18 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                       <div className="flex items-center space-x-3">
                         {/* Avatar - Slightly smaller on mobile */}
                         <div className="flex-shrink-0">
-                          {!post.anonymous ? (
-                            <UserAvatar 
-                              profilePicture={post.author === (user?.username || 'User') ? profilePicture : ''}
-                              username={post.author}
-                              size="md"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                              <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                            </div>
-                          )}
+                          <UserAvatar 
+                            profilePicture={post.author.name === (user?.username || 'User') ? profilePicture : ''}
+                            username={post.author.name}
+                            size="md"
+                          />
                         </div>
                         
                         {/* User Info - Responsive text */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
                             <h3 className="font-semibold text-gray-900 text-sm truncate">
-                              {post.anonymous ? "Anonymous" : post.author}
+                              {post.author.name}
                             </h3>
                             {community && (
                               <>
@@ -1413,7 +1500,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                           </div>
                           <div className="flex items-center space-x-1 text-xs text-gray-500 mt-0.5">
                             <Clock className="h-3 w-3" />
-                            <time>{formatRelativeTime(post.timestamp)}</time>
+                            <time>{formatRelativeTime(post.createdAt)}</time>
                           </div>
                         </div>
                         
@@ -1425,69 +1512,57 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                     </div>
 
                     {/* Post Content - Better mobile spacing */}
-                    {post.caption && post.caption.trim() && (
+                    {post.content && post.content.trim() && (
                       <div className="px-3 sm:px-4 py-3">
                         <p className="text-gray-900 text-sm leading-relaxed">
-                          {post.caption.length > 200 ? (
+                          {post.content.length > 200 ? (
                             <>
-                              {post.caption.slice(0, 200)}
+                              {post.content.slice(0, 200)}
                               <span className="text-gray-500">... </span>
                               <span className="text-blue-600 hover:text-blue-700 font-medium">
                                 See more
                               </span>
                             </>
                           ) : (
-                            post.caption
+                            post.content
                           )}
                         </p>
                       </div>
                     )}
 
                     {/* Media */}
-                    {((post.images && post.images.length > 0) || (post.videos && post.videos.length > 0)) && (
+                    {post.images && post.images.length > 0 && (
                       <div className="relative">
-                        {post.images && post.images.length > 0 && (
-                          <div className={`${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
-                            {post.images.slice(0, 4).map((image, index) => (
-                              <div 
-                                key={index} 
-                                className="relative overflow-hidden"
-                              >
-                                <img
-                                  src={image}
-                                  alt={`Post image ${index + 1}`}
-                                  className="w-full h-auto object-cover hover:opacity-95 transition-opacity"
-                                  style={{ 
-                                    maxHeight: post.images.length === 1 ? '400px' : '160px',
-                                    aspectRatio: post.images.length === 1 ? 'auto' : '1'
-                                  }}
-                                />
-                                {index === 3 && post.images.length > 4 && (
-                                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                    <span className="text-white text-lg font-semibold">+{post.images.length - 4}</span>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {post.videos && post.videos.length > 0 && (
-                          <video
-                            src={post.videos[0]}
-                            className="w-full h-auto object-cover"
-                            controls
-                            preload="metadata"
-                            style={{ maxHeight: '350px' }}
-                          />
-                        )}
+                        <div className={`${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
+                          {post.images.slice(0, 4).map((image, index) => (
+                            <div 
+                              key={index} 
+                              className="relative overflow-hidden"
+                            >
+                              <img
+                                src={image}
+                                alt={`Post image ${index + 1}`}
+                                className="w-full h-auto object-cover hover:opacity-95 transition-opacity"
+                                style={{ 
+                                  maxHeight: post.images && post.images.length === 1 ? '400px' : '160px',
+                                  aspectRatio: post.images && post.images.length === 1 ? 'auto' : '1'
+                                }}
+                              />
+                              {index === 3 && post.images && post.images.length > 4 && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                  <span className="text-white text-lg font-semibold">+{post.images.length - 4}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {/* Engagement Stats */}
                     {(() => {
                       const totalReactions = getReactionScore(post)
-                      const hasEngagement = totalReactions > 0 || post.commentCount > 0
+                      const hasEngagement = totalReactions > 0 || (post.stats?.totalComments || 0) > 0
                       
                       return hasEngagement ? (
                         <div className="px-4 py-2 border-b border-gray-50">
@@ -1495,28 +1570,19 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                             {totalReactions > 0 && (
                               <div className="flex items-center space-x-1">
                                 <div className="flex items-center -space-x-0.5">
-                                  {(post.reactions?.heart || 0) > 0 && (
-                                    <div className="w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
-                                      <span className="text-[8px]">❤️</span>
-                                    </div>
-                                  )}
-                                  {(post.reactions?.thumbsUp || 0) > 0 && (
-                                    <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                                      <span className="text-[8px]">💪</span>
-                                    </div>
-                                  )}
-                                  {((post.reactions as any)?.hope || 0) > 0 && (
-                                    <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                                      <span className="text-[8px]">🌟</span>
-                                    </div>
-                                  )}
+                                  <div className="w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
+                                    <span className="text-[8px]">❤️</span>
+                                  </div>
+                                  <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <span className="text-[8px]">💪</span>
+                                  </div>
                                 </div>
                                 <span className="ml-1">{totalReactions}</span>
                               </div>
                             )}
-                            {post.commentCount > 0 && (
+                            {(post.stats?.totalComments || 0) > 0 && (
                               <span className="hover:underline cursor-pointer">
-                                {post.commentCount} comment{post.commentCount !== 1 ? 's' : ''}
+                                {post.stats?.totalComments} comment{post.stats?.totalComments !== 1 ? 's' : ''}
                               </span>
                             )}
                           </div>
@@ -1531,26 +1597,26 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                         <div className="relative">
                           <button
                             className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 touch-manipulation ${
-                              userReactions[post.id] 
-                                ? userReactions[post.id] === "heart" ? 'text-pink-600 bg-pink-50' :
-                                  userReactions[post.id] === "thumbsUp" ? 'text-blue-600 bg-blue-50' :
-                                  userReactions[post.id] === "hope" ? 'text-yellow-600 bg-yellow-50' :
-                                  userReactions[post.id] === "hug" ? 'text-purple-600 bg-purple-50' :
-                                  userReactions[post.id] === "grateful" ? 'text-green-600 bg-green-50' : 'text-pink-600 bg-pink-50'
+                              userReactions[post._id] 
+                                ? userReactions[post._id] === "heart" ? 'text-pink-600 bg-pink-50' :
+                                  userReactions[post._id] === "thumbsUp" ? 'text-blue-600 bg-blue-50' :
+                                  userReactions[post._id] === "hope" ? 'text-yellow-600 bg-yellow-50' :
+                                  userReactions[post._id] === "hug" ? 'text-purple-600 bg-purple-50' :
+                                  userReactions[post._id] === "grateful" ? 'text-green-600 bg-green-50' : 'text-pink-600 bg-pink-50'
                                 : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100'
                             }`}
                             onClick={() => {
-                              if (!userReactions[post.id]) {
-                                handleReaction(post.id, "heart" as keyof PostType['reactions'])
+                              if (!userReactions[post._id]) {
+                                handleReaction(post._id, "heart")
                               } else {
-                                handleReaction(post.id, userReactions[post.id] as keyof PostType['reactions'])
+                                handleReaction(post._id, userReactions[post._id])
                               }
                             }}
                             onTouchStart={(e) => {
                               // Show reaction picker on mobile long press
                               const button = e.currentTarget;
                               const touchTimer = setTimeout(() => {
-                                const picker = document.getElementById(`reaction-picker-${post.id}`)
+                                const picker = document.getElementById(`reaction-picker-${post._id}`)
                                 if (picker) picker.classList.remove('hidden')
                               }, 500);
                               (button as any)._touchTimer = touchTimer;
@@ -1567,7 +1633,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                 const button = e.currentTarget;
                                 const hoverTimer = setTimeout(() => {
                                   if (button.matches(':hover')) {
-                                    const picker = document.getElementById(`reaction-picker-${post.id}`)
+                                    const picker = document.getElementById(`reaction-picker-${post._id}`)
                                     if (picker) picker.classList.remove('hidden')
                                   }
                                 }, 800);
@@ -1582,7 +1648,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                   (button as any)._hoverTimer = null;
                                 }
                                 setTimeout(() => {
-                                  const picker = document.getElementById(`reaction-picker-${post.id}`)
+                                  const picker = document.getElementById(`reaction-picker-${post._id}`)
                                   if (picker && !picker.matches(':hover')) {
                                     picker.classList.add('hidden')
                                   }
@@ -1591,19 +1657,19 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                             }}
                           >
                             <span className="text-base sm:text-lg">
-                              {userReactions[post.id] === "heart" ? "❤️" : 
-                               userReactions[post.id] === "thumbsUp" ? "💪" :
-                               userReactions[post.id] === "hope" ? "🌟" :
-                               userReactions[post.id] === "hug" ? "🤗" :
-                               userReactions[post.id] === "grateful" ? "🙏" : "🤍"}
+                              {userReactions[post._id] === "heart" ? "❤️" : 
+                               userReactions[post._id] === "thumbsUp" ? "💪" :
+                               userReactions[post._id] === "hope" ? "🌟" :
+                               userReactions[post._id] === "hug" ? "🤗" :
+                               userReactions[post._id] === "grateful" ? "🙏" : "🤍"}
                             </span>
                             <span className="hidden sm:inline">
-                              {userReactions[post.id] ? 
-                                (userReactions[post.id] === "heart" ? "Love" :
-                                 userReactions[post.id] === "thumbsUp" ? "Strength" :
-                                 userReactions[post.id] === "hope" ? "Hope" :
-                                 userReactions[post.id] === "hug" ? "Hug" :
-                                 userReactions[post.id] === "grateful" ? "Grateful" : "Love") 
+                              {userReactions[post._id] ? 
+                                (userReactions[post._id] === "heart" ? "Love" :
+                                 userReactions[post._id] === "thumbsUp" ? "Strength" :
+                                 userReactions[post._id] === "hope" ? "Hope" :
+                                 userReactions[post._id] === "hug" ? "Hug" :
+                                 userReactions[post._id] === "grateful" ? "Grateful" : "Love") 
                                 : "Love"
                               }
                             </span>
@@ -1611,14 +1677,14 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                           
                           {/* Mobile-Optimized Reaction Picker */}
                           <div 
-                            id={`reaction-picker-${post.id}`}
+                            id={`reaction-picker-${post._id}`}
                             className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 p-2"
                             onMouseEnter={() => {
-                              const picker = document.getElementById(`reaction-picker-${post.id}`)
+                              const picker = document.getElementById(`reaction-picker-${post._id}`)
                               if (picker) picker.classList.remove('hidden')
                             }}
                             onMouseLeave={() => {
-                              const picker = document.getElementById(`reaction-picker-${post.id}`)
+                              const picker = document.getElementById(`reaction-picker-${post._id}`)
                               if (picker) picker.classList.add('hidden')
                             }}
                             onTouchStart={(e) => e.stopPropagation()}
@@ -1637,8 +1703,8 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    handleReaction(post.id, type as keyof PostType['reactions'])
-                                    document.getElementById(`reaction-picker-${post.id}`)?.classList.add('hidden')
+                                    handleReaction(post._id, type as string)
+                                    document.getElementById(`reaction-picker-${post._id}`)?.classList.add('hidden')
                                   }}
                                   title={label}
                                 >
@@ -1652,7 +1718,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                         {/* Comment Button - Mobile optimized */}
                         <button
                           className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-manipulation"
-                          onClick={() => setSelectedPost(post.id)}
+                          onClick={() => setSelectedPost(post._id)}
                         >
                           <MessageSquare className="h-4 w-4" />
                           <span className="hidden sm:inline">Comment</span>
@@ -1690,7 +1756,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
             {/* Modal Content */}
             <div className="max-h-[90vh] overflow-y-auto">
               <PostDetail
-                post={sortedPosts.find((p: PostType) => p.id === selectedPost) || sortedPosts[0]}
+                post={sortedPosts.find((p) => p._id === selectedPost) || sortedPosts[0]}
                 onBack={() => setSelectedPost(null)}
                 user={user}
                 onAddComment={(postId: string, comment: any) => {
@@ -1702,76 +1768,53 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                   console.log('Add reply:', postId, commentId, reply);
                 }}
                 onReaction={(postId: string, reactionType: string) => {
-                  handleReaction(postId, reactionType as keyof PostType['reactions'])
+                  handleReaction(postId, reactionType as string)
                 }}
-                userReaction={userReactions[selectedPost] || ""}
+                userReaction={userReactions[selectedPost] ? String(userReactions[selectedPost]) : ""}
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* Enhanced Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-lg z-50 safe-area-pb">
-          <div className="flex items-center justify-around py-1 px-2">
+      {/* Modern Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95vw] max-w-md rounded-2xl bg-white/80 backdrop-blur-lg border border-gray-200 shadow-2xl flex items-center justify-between px-4 py-2 safe-area-pb transition-all duration-300 animate-fade-in-up">
             {/* Home */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex flex-col items-center space-y-1 py-2 px-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all touch-manipulation min-h-12"
-            >
-              <Home className="h-5 w-5" />
-              <span className="text-xs font-medium">Home</span>
-            </Button>
-
+        <Link href="/dashboard" prefetch className="flex flex-col items-center text-gray-500 hover:text-blue-600 transition-all rounded-xl px-2 py-1 data-[active=true]:text-blue-600 data-[active=true]:bg-blue-50" data-active={pathname === "/dashboard"}>
+          <Home className="h-6 w-6 mb-0.5" />
+          <span className="text-[11px] font-medium">Home</span>
+        </Link>
             {/* Messages */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex flex-col items-center space-y-1 py-2 px-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all touch-manipulation min-h-12"
-              onClick={() => router.push("/messages")}
-            >
-              <MessageSquare className="h-5 w-5" />
-              <span className="text-xs font-medium">Messages</span>
-            </Button>
-
-            {/* Create Post - Enhanced for mobile */}
+        <Link href="/messages" prefetch className="flex flex-col items-center text-gray-500 hover:text-blue-600 transition-all rounded-xl px-2 py-1 data-[active=true]:text-blue-600 data-[active=true]:bg-blue-50" data-active={pathname === "/messages"}>
+          <MessageSquare className="h-6 w-6 mb-0.5" />
+          <span className="text-[11px] font-medium">Messages</span>
+        </Link>
+        {/* Create Post (center floating action) */}
+        <div className="relative -mt-8 z-10">
             <Button
               variant="default"
-              size="sm"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 active:from-blue-800 active:to-purple-800 text-white shadow-lg rounded-full p-3 transform -translate-y-1 touch-manipulation min-h-14 min-w-14 disabled:opacity-50 disabled:cursor-not-allowed"
+            size="icon"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl rounded-full p-4 border-4 border-white/80 focus:ring-4 focus:ring-blue-200 min-h-16 min-w-16 flex items-center justify-center"
               disabled={allUserCommunities.length === 0}
               title={allUserCommunities.length === 0 ? 'Join a community to create a post' : 'Share your story'}
               onClick={() => setShowCreatePostModal(true)}
             >
-              <Plus className="h-6 w-6" />
-            </Button>
-
-            {/* Communities */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex flex-col items-center space-y-1 py-2 px-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all touch-manipulation min-h-12"
-              onClick={() => router.push("/communities")}
-            >
-              <Users className="h-5 w-5" />
-              <span className="text-xs font-medium">Communities</span>
-            </Button>
-
-            {/* Profile */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex flex-col items-center space-y-1 py-2 px-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all touch-manipulation min-h-12"
-              onClick={() => router.push("/profile")}
-            >
-              <User className="h-5 w-5" />
-              <span className="text-xs font-medium">Profile</span>
+            <Plus className="h-7 w-7" />
             </Button>
           </div>
+        {/* Communities */}
+        <Link href="/communities" prefetch className="flex flex-col items-center text-gray-500 hover:text-blue-600 transition-all rounded-xl px-2 py-1 data-[active=true]:text-blue-600 data-[active=true]:bg-blue-50" data-active={pathname === "/communities"}>
+          <Users className="h-6 w-6 mb-0.5" />
+          <span className="text-[11px] font-medium">Communities</span>
+        </Link>
+        {/* Settings */}
+        <Link href="/settings" prefetch className="flex flex-col items-center text-gray-500 hover:text-blue-600 transition-all rounded-xl px-2 py-1 data-[active=true]:text-blue-600 data-[active=true]:bg-blue-50" data-active={pathname === "/settings"}>
+          <Settings className="h-6 w-6 mb-0.5" />
+          <span className="text-[11px] font-medium">Settings</span>
+        </Link>
+      </nav>
           {/* Safe area padding for devices with home indicator */}
-          <div className="h-safe-area-inset-bottom"></div>
-        </div>
+      <div className="md:hidden h-safe-area-inset-bottom"></div>
 
       {/* Post Creation Modal */}
       <AnimatePresence>
@@ -1779,29 +1822,25 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         <CreatePostModal
           open={showCreatePostModal}
           onOpenChange={setShowCreatePostModal}
-          user={user}
-          availableCommunities={Array.from(
-            new Map(allUserCommunities.map(community => [community.slug, community])).values()
-          )}
           onPostCreated={(newPost) => {
             // Save the post to localStorage
             try {
               const existingPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
               const updatedPosts = [newPost, ...existingPosts]
               localStorage.setItem('user_posts', JSON.stringify(updatedPosts))
-              
-              // Refresh the feeds immediately
-              setPersonalizedPosts(getPersonalizedFeedPosts(userConditions))
-              setDiscoverPosts(getDiscoverPosts())
-              
+              // Refresh the feeds immediately  
+              apiClient.getPosts().then(response => {
+                if (response.data) {
+                  setPersonalizedPosts(response.data.posts.slice(0, 10))
+                  setDiscoverPosts(response.data.posts.slice(10, 20))
+                }
+              })
               // Dispatch event to notify other components/tabs
               window.dispatchEvent(new CustomEvent('post-created', { detail: newPost }))
-              
               console.log("Post created and saved:", newPost)
             } catch (error) {
               console.error("Error saving post:", error)
             }
-            
             setShowCreatePostModal(false)
           }}
         />
@@ -1811,45 +1850,46 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       <CreateCommunityModal
         open={showCreateCommunityModal}
         onClose={() => setShowCreateCommunityModal(false)}
-        onCreate={(data) => {
-          // Get the current username from localStorage to ensure we have the right one
-          const userData = JSON.parse(localStorage.getItem("user_data") || "{}")
-          const currentUsername = userData.username || user?.username || ""
-          
-          console.log("Creating community - user object:", user)
-          console.log("Creating community - userData from localStorage:", userData)
-          console.log("Creating community - selected username:", currentUsername)
-          
-          const newCommunity = {
-            ...data,
-            id: `user-${Date.now()}`,
-            slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
-            color: "bg-gray-100 text-gray-800",
-            memberCount: 1,
-            admin: currentUsername,
-            region: "United States", // Default region for new communities
-            state: "California", // Default state for new US communities
-          };
-          
-          console.log("Creating community - newCommunity object:", newCommunity)
-          
-          // Check for duplicate in current state
-          if (userCommunities.some(c => c.slug === newCommunity.slug || c.id === newCommunity.id)) {
-            alert('A community with this name already exists.');
-            return;
+        onSuccess={async (data: {
+          title: string;
+          description: string;
+          category?: string;
+          isPrivate?: boolean;
+          coverImage?: string;
+          rules?: string[];
+          tags?: string[];
+        }) => {
+          try {
+            const response = await apiClient.createCommunity({
+              name: data.title,
+              description: data.description,
+              category: data.category || "general",
+              isPrivate: !!data.isPrivate,
+              coverImage: data.coverImage,
+              rules: data.rules,
+              tags: data.tags,
+            });
+            if (response && response.data) {
+              setUserCommunities([response.data, ...userCommunities]);
+              toast({
+                title: "Community created!",
+              });
+              setShowCreateCommunityModal(false);
+              window.dispatchEvent(new CustomEvent('community-updated', { 
+                detail: { action: 'created', community: response.data } 
+              }));
+            } else {
+              toast({
+                title: "Failed to create community. Please try again.",
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            toast({
+              title: "Failed to create community. Please try again.",
+              variant: "destructive",
+            });
           }
-          
-          // Update state first
-          const updatedCommunities = [newCommunity, ...userCommunities];
-          setUserCommunities(updatedCommunities);
-          
-          // Then save to localStorage
-          localStorage.setItem('user_communities', JSON.stringify(updatedCommunities));
-          
-          // Dispatch custom event to notify other components
-          window.dispatchEvent(new CustomEvent('community-updated', { 
-            detail: { action: 'created', community: newCommunity } 
-          }));
         }}
         availableConditions={availableConditions}
       />
@@ -1890,11 +1930,11 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         
         /* Enhanced animations for mobile */
         @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
+          0% { opacity: 0; transform: translateY(40px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in-up {
-          animation: fade-in-up 0.5s cubic-bezier(.36,.07,.19,.97) both;
+          animation: fade-in-up 0.5s cubic-bezier(0.4,0,0.2,1);
         }
         
         @keyframes gradient-x {

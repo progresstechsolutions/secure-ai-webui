@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
@@ -19,12 +18,11 @@ import {
   Eye,
   Lock,
   Globe,
-  Smartphone,
-  Mail,
   UserCheck,
   AlertTriangle,
   LogOut
 } from "lucide-react"
+import Link from "next/link"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -71,9 +69,7 @@ export default function SettingsPage() {
     sessionTimeout: 30
   })
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: "/auth/signin" })
-  }
+
 
   const handleSaveSettings = () => {
     // In a real app, this would save to the database
@@ -87,13 +83,7 @@ export default function SettingsPage() {
     alert("Settings saved successfully!")
   }
 
-  const handleDeleteAccount = () => {
-    if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-      // In a real app, this would delete the account
-      console.log("Deleting account...")
-      signOut({ callbackUrl: "/auth/signin" })
-    }
-  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -105,7 +95,7 @@ export default function SettingsPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.back()}
+                onClick={() => window.history.back()}
                 className="mr-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -119,18 +109,7 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Button onClick={handleSaveSettings}>
-                Save Changes
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push("/profile")}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Profile
-              </Button>
-            </div>
+           
           </div>
         </div>
       </header>
@@ -345,63 +324,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Security Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Lock className="h-5 w-5 mr-2" />
-              Security Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Two-Factor Authentication</Label>
-                <p className="text-xs text-gray-500">Add an extra layer of security to your account</p>
-              </div>
-              <Switch
-                checked={accountSettings.twoFactorAuth}
-                onCheckedChange={(checked) => setAccountSettings(prev => ({ 
-                  ...prev, 
-                  twoFactorAuth: checked 
-                }))}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Login Alerts</Label>
-                <p className="text-xs text-gray-500">Get notified of new sign-ins</p>
-              </div>
-              <Switch
-                checked={accountSettings.loginAlerts}
-                onCheckedChange={(checked) => setAccountSettings(prev => ({ 
-                  ...prev, 
-                  loginAlerts: checked 
-                }))}
-              />
-            </div>
-            
-            <div>
-              <Label className="text-sm font-medium">Session Timeout</Label>
-              <p className="text-xs text-gray-500 mb-2">Automatically sign out after period of inactivity</p>
-              <select 
-                className="text-sm border rounded px-2 py-1"
-                value={accountSettings.sessionTimeout}
-                onChange={(e) => setAccountSettings(prev => ({ 
-                  ...prev, 
-                  sessionTimeout: parseInt(e.target.value) 
-                }))}
-              >
-                <option value={15}>15 minutes</option>
-                <option value={30}>30 minutes</option>
-                <option value={60}>1 hour</option>
-                <option value={240}>4 hours</option>
-                <option value={0}>Never</option>
-              </select>
-            </div>
-          </CardContent>
-        </Card>
+        
 
         {/* Data & Privacy */}
         <Card>
@@ -455,38 +378,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Danger Zone */}
-        <Card className="border-red-200">
-          <CardHeader>
-            <CardTitle className="flex items-center text-red-600">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Danger Zone
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-                className="w-full justify-start border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out of All Devices
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleDeleteAccount}
-                className="w-full justify-start border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Delete Account
-              </Button>
-            </div>
-            <p className="text-xs text-gray-500">
-              Deleting your account will permanently remove all your data, posts, and community memberships. This action cannot be undone.
-            </p>
-          </CardContent>
-        </Card>
+        
       </div>
     </div>
   )

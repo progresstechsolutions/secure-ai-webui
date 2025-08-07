@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,24 +78,17 @@ export default function CommunityAdminPage() {
     const storedUser = localStorage.getItem("user");
     let userObj = storedUser ? JSON.parse(storedUser) : null;
     const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
-    console.log("Loading admin page - userData:", userData);
-    console.log("Loading admin page - storedUser:", userObj);
-    
-    // Merge userKey from user_data if available
+    // Merge userKey and username from user_data if available
     if (userData.userKey && userObj) userObj.userKey = userData.userKey;
-    // Also ensure we have the username from user_data
     if (userData.username && userObj) userObj.username = userData.username;
     if (storedUser) setUser(userObj);
-    
+
     const stored = localStorage.getItem("user_communities");
     if (stored) {
       const all = JSON.parse(stored);
       const found = all.find((c: any) => c.id === communityId);
-      console.log("Found community:", found);
-      
       // Auto-fix empty admin field if user created this community
       if (found && (!found.admin || found.admin === "") && userData.username) {
-        console.log("Auto-fixing empty admin field for community:", found.name);
         const fixedCommunity = { ...found, admin: userData.username };
         const updatedAll = all.map((c: any) => c.id === communityId ? fixedCommunity : c);
         localStorage.setItem("user_communities", JSON.stringify(updatedAll));
@@ -108,7 +102,6 @@ export default function CommunityAdminPage() {
         setMembers(found?.members || [found?.admin].filter(Boolean));
         setIsAdmin(isUserAdminOfCommunity(userObj, found));
       }
-      
       // Calculate metrics (mock data for demo)
       calculateMetrics(found);
     }
@@ -133,19 +126,13 @@ export default function CommunityAdminPage() {
     setMetrics(mockMetrics);
   };
 
-  if (!community) {
+  if (!community || !user) {
     return (
-      <div className="p-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Community Not Found</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.back()}>Back</Button>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
+        <span className="text-sm text-gray-500">Loading admin dashboard...</span>
       </div>
-    );
+    )
   }
 
   if (!isAdmin) {
@@ -254,13 +241,11 @@ export default function CommunityAdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.push("/")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                ← Back to Home
-              </Button>
+              <Link href="/dashboard" prefetch legacyBehavior>
+                <Button variant="ghost" className="text-gray-600 hover:text-gray-900" asChild>
+                  <a>← Back to Home</a>
+                </Button>
+              </Link>
               <div className="h-6 w-px bg-gray-300" />
               <div className="flex items-center space-x-3">
                 <Crown className="h-6 w-6 text-amber-500" />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -294,9 +294,6 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   const [shareModal, setShareModal] = useState<{ open: boolean; post: any | null }>({ open: false, post: null })
   const [copiedLink, setCopiedLink] = useState(false)
 
-  // Debug shareModal state
-  console.log('Share modal state:', shareModal)
-
   // Community info mock (could be fetched in real app)
   const communityInfo = useMemo(() => {
     const map: Record<string, { name: string; description: string; memberCount: number; color: string }> = {
@@ -354,23 +351,19 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     }
   }
 
-  useEffect(() => {
-    // Filter mock posts and user posts based on the communitySlug
+  // Memoize post creation handler
+  const handlePostCreated = useCallback(() => {
+    // Force refresh by re-running the post filtering logic
     const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
     const filteredMock = initialMockPosts.filter((post) => post.community === communitySlug)
     const filteredUser = userPosts.filter((post: any) => post.community === communitySlug)
-    
     let allPosts = [...filteredUser, ...filteredMock]
-    
-    // Apply search filter
     if (searchTerm) {
       allPosts = allPosts.filter(post => {
         const searchText = (post.caption || '').toLowerCase()
         return searchText.includes(searchTerm.toLowerCase())
       })
     }
-    
-    // Apply sorting
     if (sortBy === "popular") {
       allPosts.sort((a, b) => {
         const aScore = Object.values(a.reactions).reduce((sum: number, val: any) => sum + val, 0)
@@ -380,50 +373,22 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     } else if (sortBy === "trending") {
       allPosts.sort((a, b) => b.commentCount - a.commentCount)
     }
-    // "recent" is default order
-    
-    setPosts(allPosts)
+    // Only update if posts actually changed
+    setPosts(prev => JSON.stringify(prev) !== JSON.stringify(allPosts) ? allPosts : prev)
   }, [communitySlug, searchTerm, sortBy])
+
+  // Filter and sort posts when dependencies change
+  useEffect(() => {
+    handlePostCreated()
+  }, [handlePostCreated])
 
   // Listen for post creation events to refresh the feed
   useEffect(() => {
-    const handlePostCreated = () => {
-      console.log("Post created event received in community feed, refreshing...")
-      // Force refresh by re-running the post filtering logic
-      const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
-      const filteredMock = initialMockPosts.filter((post) => post.community === communitySlug)
-      const filteredUser = userPosts.filter((post: any) => post.community === communitySlug)
-      
-      let allPosts = [...filteredUser, ...filteredMock]
-      
-      // Apply current filters
-      if (searchTerm) {
-        allPosts = allPosts.filter(post => {
-          const searchText = (post.caption || '').toLowerCase()
-          return searchText.includes(searchTerm.toLowerCase())
-        })
-      }
-      
-      // Apply current sorting
-      if (sortBy === "popular") {
-        allPosts.sort((a, b) => {
-          const aScore = Object.values(a.reactions).reduce((sum: number, val: any) => sum + val, 0)
-          const bScore = Object.values(b.reactions).reduce((sum: number, val: any) => sum + val, 0)
-          return bScore - aScore
-        })
-      } else if (sortBy === "trending") {
-        allPosts.sort((a, b) => b.commentCount - a.commentCount)
-      }
-      
-      setPosts(allPosts)
-    }
-
     window.addEventListener("post-created", handlePostCreated)
-    
     return () => {
       window.removeEventListener("post-created", handlePostCreated)
     }
-  }, [communitySlug, searchTerm, sortBy])
+  }, [handlePostCreated])
 
   // Top contributors (by post count)
   const topContributors = useMemo(() => {
@@ -525,6 +490,15 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
       window.open(shareUrl, '_blank', 'width=600,height=400')
       logUserActivity(`Shared post to ${platform}: ${post.id}`)
     }
+  }
+
+  if (!posts || posts.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
+        <span className="text-sm text-gray-500">Loading posts...</span>
+      </div>
+    )
   }
 
   return (
@@ -1039,16 +1013,13 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
         </DialogContent>
       </Dialog>
 
-      {showCreatePostModal && (
-        <CreatePostModal
-           open={showCreatePostModal}
-          onOpenChange={setShowCreatePostModal}
-          availableCommunities={[{ name: communityInfo.name, slug: communitySlug }]}
-          communitySlug={communitySlug}
-          user={user}
-          onPostCreated={handleAddPost}
-        />
-      )}
+      <CreatePostModal
+        open={showCreatePostModal}
+        onOpenChange={setShowCreatePostModal}
+        communityId={communitySlug}
+        communityName={communityInfo.name}
+        onPostCreated={handleAddPost}
+      />
     </div>
   )
 }

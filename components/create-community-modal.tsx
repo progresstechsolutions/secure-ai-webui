@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -5,53 +7,106 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, ArrowRight, ArrowLeft, Check, X, Search } from "lucide-react";
+import { Users, ArrowRight, ArrowLeft, Check, X, Search, MapPin, Loader2 } from "lucide-react";
+import { useCreateCommunity } from "@/hooks/use-api";
+import { toast } from "@/hooks/use-toast";
 
 interface CreateCommunityModalProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (data: { name: string; bio: string; description: string; conditions: string[] }) => void;
+  onSuccess?: (community: any) => void;
   availableConditions: string[];
 }
 
 const steps = [
-  { title: "Name", description: "Choose a memorable name for your community" },
-  { title: "Bio", description: "Write a short, engaging summary" },
+  { title: "Title", description: "Choose a memorable title for your community" },
   { title: "Description", description: "Describe your community's purpose and goals" },
+  { title: "Location", description: "Set your community's location" },
   { title: "Conditions", description: "Select related health conditions" }
 ];
 
-export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open, onClose, onCreate, availableConditions }) => {
+export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open, onClose, onSuccess, availableConditions }) => {
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [bio, setBio] = useState("");
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [region, setRegion] = useState("");
+  const [state, setState] = useState("");
   const [conditions, setConditions] = useState<string[]>([]);
   const [conditionSearch, setConditionSearch] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
 
-  const handleNext = () => {
+  // Use the API hook
+  const { createCommunity, loading } = useCreateCommunity();
+
+  // Region and state options
+  const regionOptions = ["United States", "Europe", "Asia", "South America", "Africa", "Australia", "Other"];
+  const stateOptions = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", 
+    "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", 
+    "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", 
+    "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", 
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", 
+    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", 
+    "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", 
+    "Wisconsin", "Wyoming", "District of Columbia"
+  ];
+
+  const handleNext = async () => {
     setError("");
-    if (step === 0 && !name.trim()) return setError("Community name is required.");
-    if (step === 1 && !bio.trim()) return setError("Bio is required.");
-    if (step === 2 && !description.trim()) return setError("Description is required.");
+    if (step === 0 && !title.trim()) return setError("Community title is required.");
+    if (step === 1 && !description.trim()) return setError("Description is required.");
+    if (step === 2 && !region.trim()) return setError("Region is required.");
+    if (step === 2 && region === "United States" && !state.trim()) return setError("State is required for US communities.");
     if (step === 3 && conditions.length === 0) return setError("Select at least one condition.");
-    if (step < steps.length - 1) setStep(step + 1);
-    else {
-      setSuccess(true);
-      setTimeout(() => {
-        const newCommunity = { name, bio, description, conditions };
-        // Do NOT write to localStorage here. Let parent handle it.
-        onCreate(newCommunity);
-        setSuccess(false);
-        setStep(0);
-        setName("");
-        setBio("");
-        setDescription("");
-        setConditions([]);
-        onClose();
-      }, 1000);
+    
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+    } else {
+      // Final step - create community
+      try {
+        const communityData = {
+          name: title,
+          description,
+          category: "Health", // Default category
+          isPrivate,
+          tags: conditions,
+          rules: [`Located in ${region}${state ? `, ${state}` : ''}`],
+        };
+
+        const result = await createCommunity(communityData);
+        
+        if (result?.data) {
+          toast({
+            title: "Success!",
+            description: "Community created successfully!",
+          });
+
+          setSuccess(true);
+          setTimeout(() => {
+            // Reset form
+            setStep(0);
+            setTitle("");
+            setDescription("");
+            setRegion("");
+            setState("");
+            setConditions([]);
+            setSuccess(false);
+            onClose();
+            onSuccess?.(result.data); // Call success callback with created community
+          }, 1000);
+        } else {
+          throw new Error("Failed to create community");
+        }
+      } catch (error) {
+        setError("Failed to create community. Please try again.");
+        toast({
+          title: "Error",
+          description: "Failed to create community. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
   const handleBack = () => {
@@ -63,9 +118,10 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
   };
   const handleClose = () => {
     setStep(0);
-    setName("");
-    setBio("");
+    setTitle("");
     setDescription("");
+    setRegion("");
+    setState("");
     setConditions([]);
     setConditionSearch("");
     setError("");
@@ -119,12 +175,12 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
                 <Input
                   autoFocus
                   placeholder="e.g., Autism Support Network"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
                   maxLength={60}
                   className="border-gray-200 focus:border-blue-300 focus:ring-blue-200 text-sm md:text-base"
                 />
-                <p className="text-xs text-gray-500 mt-1">{name.length}/60 characters</p>
+                <p className="text-xs text-gray-500 mt-1">{title.length}/60 characters</p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 md:p-3">
                 <p className="text-xs md:text-sm text-blue-800">💡 Use a clear, descriptive name that includes your focus area</p>
@@ -133,27 +189,6 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
           )}
 
           {step === 1 && (
-            <div className="space-y-3 md:space-y-4">
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-                  Short Bio <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g., A supportive space for families and individuals"
-                  value={bio}
-                  onChange={e => setBio(e.target.value)}
-                  maxLength={100}
-                  className="border-gray-200 focus:border-blue-300 focus:ring-blue-200 text-sm md:text-base"
-                />
-                <p className="text-xs text-gray-500 mt-1">{bio.length}/100 characters</p>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-2 md:p-3">
-                <p className="text-xs md:text-sm text-green-800">✨ Summarize your community's purpose in one welcoming sentence</p>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
             <div className="space-y-3 md:space-y-4">
               <div>
                 <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
@@ -170,6 +205,58 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 md:p-3">
                 <p className="text-xs md:text-sm text-purple-800">📝 Include your goals, who should join, and what support you'll provide</p>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-3 md:space-y-4">
+              <div>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  <MapPin className="inline h-3 w-3 md:h-4 md:w-4 mr-1" />
+                  Region <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={region}
+                  onChange={e => {
+                    setRegion(e.target.value);
+                    if (e.target.value !== "United States") {
+                      setState(""); // Clear state if not US
+                    }
+                  }}
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm md:text-base focus:border-blue-300 focus:ring-blue-200 focus:outline-none bg-white"
+                >
+                  <option value="">Select a region</option>
+                  {regionOptions.map(regionOption => (
+                    <option key={regionOption} value={regionOption}>
+                      {regionOption}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {region === "United States" && (
+                <div className="animate-in slide-in-from-top-2 duration-200">
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                    State <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={state}
+                    onChange={e => setState(e.target.value)}
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm md:text-base focus:border-blue-300 focus:ring-blue-200 focus:outline-none bg-white"
+                  >
+                    <option value="">Select a state</option>
+                    {stateOptions.map(stateOption => (
+                      <option key={stateOption} value={stateOption}>
+                        {stateOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2 md:p-3">
+                <p className="text-xs md:text-sm text-indigo-800">📍 This helps members find local communities and resources</p>
               </div>
             </div>
           )}
@@ -216,6 +303,27 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
                 <p className="text-xs text-gray-500 mt-2">
                   Selected: {conditions.length} condition{conditions.length !== 1 ? 's' : ''}
                 </p>
+              </div>
+              
+              {/* Privacy Setting */}
+              <div className="border border-gray-200 rounded-lg p-3">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPrivate}
+                    onChange={(e) => setIsPrivate(e.target.checked)}
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Private Community</div>
+                    <div className="text-xs text-gray-500">
+                      {isPrivate 
+                        ? "Only invited members can join and see content" 
+                        : "Anyone can discover and join your community"
+                      }
+                    </div>
+                  </div>
+                </label>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 md:p-3">
                 <p className="text-xs md:text-sm text-amber-800">🎯 Choose conditions your community will focus on to help members find you</p>
@@ -264,11 +372,16 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
             )}
             <Button 
               onClick={handleNext}
-              disabled={success}
+              disabled={success || loading}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg flex-1 sm:flex-none"
               size="sm"
             >
-              {step === steps.length - 1 ? (
+              {loading ? (
+                <>
+                  <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 animate-spin" />
+                  Creating...
+                </>
+              ) : step === steps.length - 1 ? (
                 <>
                   <Check className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                   Create

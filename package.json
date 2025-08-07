@@ -41,7 +41,6 @@
     "@radix-ui/react-tooltip": "latest",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-query-devtools": "^5.83.0",
-    "@types/bcryptjs": "^2.4.6",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
@@ -52,6 +51,7 @@
     "framer-motion": "^12.23.6",
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
+    "mongodb": "^6.18.0",
     "next": "15.2.4",
     "next-auth": "^5.0.0-beta.29",
     "next-themes": "latest",
@@ -62,6 +62,7 @@
     "react-hook-form": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
+    "socket.io-client": "^4.8.1",
     "sonner": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
@@ -70,11 +71,24 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/joi": "^17.2.2",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "ts-jest": "^29.4.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
   }
 }

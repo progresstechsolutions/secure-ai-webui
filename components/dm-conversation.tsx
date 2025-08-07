@@ -7,7 +7,27 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Send, Paperclip, Smile, MoreVertical, ArrowLeft, MessageCircle, Phone, Video, Search, Plus, Edit, X, Users, UserPlus, Check, UserMinus, Bell, LogOut, User } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useNotifications } from "@/contexts/notification-context"
+import { useConversations, useMessages, useSendMessage } from "@/hooks/use-api"
+import { useSocket } from "@/hooks/use-socket"
+import { toast } from "@/hooks/use-toast"
+import { Conversation as ApiConversation, Message as ApiMessage } from "@/lib/api-client"
 
+/**
+ * Enhanced DM Conversation component with real API integration
+ * 
+ * Features:
+ * - ✅ Real-time messaging with Socket.IO
+ * - ✅ API-integrated message sending and receiving
+ * - ✅ Mobile-responsive design
+ * - ✅ Rich UI with emoji picker, file uploads, etc.
+ * - 🔄 Group creation, invitations (marked as TODO for backend implementation)
+ * - 🔄 File uploads (basic implementation, needs backend support)
+ * - 🔄 User blocking, muting (marked as TODO)
+ * 
+ * Replaces the previous messaging-interface.tsx component
+ */
+
+// Legacy interfaces for backwards compatibility with existing UI code
 interface Message {
   id: string
   sender: "me" | "other" | string
@@ -40,162 +60,43 @@ interface Conversation {
   groupInvitations?: GroupInvitation[]
 }
 
-const mockMessages: Record<string, Message[]> = {
-  conv1: [
-    { id: "m1", sender: "other", text: "Hi there! How are you doing today?", timestamp: "10:00 AM" },
-    { id: "m2", sender: "me", text: "I'm doing well, thanks! Just navigating through the day.", timestamp: "10:05 AM" },
-    {
-      id: "m3",
-      sender: "other",
-      text: "That's great to hear! I saw your post about managing sleep issues with Angelman Syndrome. My child also struggles with that.",
-      timestamp: "10:10 AM",
-    },
-    {
-      id: "m4",
-      sender: "me",
-      text: "Oh, I'm so sorry to hear that, but it's good to connect with someone who understands. It's been a real challenge for us.",
-      timestamp: "10:15 AM",
-    },
-    {
-      id: "m5",
-      sender: "other",
-      text: "Absolutely. We've tried a few things that have helped a bit. Have you looked into weighted blankets or specific bedtime routines?",
-      timestamp: "10:20 AM",
-    },
-    {
-      id: "m6",
-      sender: "me",
-      text: "We've tried a weighted blanket, but maybe our routine needs tweaking. What does your routine look like?",
-      timestamp: "10:25 AM",
-    },
-    {
-      id: "m7",
-      sender: "other",
-      text: "We start with a warm bath, then quiet reading time, and a specific lullaby. Consistency is key for us.",
-      timestamp: "10:30 AM",
-    },
-    {
-      id: "m8",
-      sender: "me",
-      text: "That sounds lovely. We'll try to incorporate more quiet reading. Thanks for the tip!",
-      timestamp: "10:35 AM",
-    },
-  ],
-  conv2: [
-    {
-      id: "m9",
-      sender: "other",
-      text: "Hey, I saw you're in the Cystic Fibrosis community. Do you have any good high-calorie recipes?",
-      timestamp: "Yesterday 3:00 PM",
-    },
-    {
-      id: "m10",
-      sender: "me",
-      text: "Yes! I'm always experimenting. I can share a few of my favorites. Do you have any dietary restrictions?",
-      timestamp: "Yesterday 3:10 PM",
-    },
-  ],
-  conv3: [
-    {
-      id: "m11",
-      sender: "other",
-      text: "That new research on Fragile X is really promising.",
-      timestamp: "2 days ago",
-    },
-  ],
-  conv4: [
-    {
-      id: "m12",
-      sender: "other",
-      text: "So happy for your son's milestone!",
-      timestamp: "3 days ago",
-    },
-  ],
-  group1: [
-    {
-      id: "g1",
-      sender: "SleepyParent",
-      text: "Welcome everyone to our sleep support group! Feel free to share any tips or questions.",
-      timestamp: "2 hours ago",
-      type: "system",
-    },
-    {
-      id: "g2",
-      sender: "RestlessNights",
-      text: "Thanks for creating this group! We really needed a space to discuss sleep challenges.",
-      timestamp: "1 hour 30 min ago",
-    },
-    {
-      id: "g3",
-      sender: "MidnightMom",
-      text: "Agreed! Has anyone tried melatonin alternatives? My doctor suggested some natural options.",
-      timestamp: "1 hour ago",
-    },
-  ],
-}
-
-const mockConversations: Conversation[] = [
-  {
-    id: "conv1",
-    participantName: "SleepyParent",
-    lastMessage: "We'll try to incorporate more quiet reading. Thanks for the tip!",
-    timestamp: "10:35 AM",
-    unreadCount: 0,
-    avatarUrl: "/placeholder-user.jpg",
-    isOnline: true,
-    type: "direct",
-  },
-  {
-    id: "conv2",
-    participantName: "CFChef",
-    lastMessage: "Yes! I'm always experimenting. I can share a few of my favorites.",
-    timestamp: "Yesterday 3:10 PM",
-    unreadCount: 2,
-    avatarUrl: "/placeholder-user.jpg",
-    isOnline: true,
-    type: "direct",
-  },
-  {
-    id: "conv3",
-    participantName: "ScienceGeek",
-    lastMessage: "That new research on Fragile X is really promising.",
-    timestamp: "2 days ago",
-    unreadCount: 0,
-    avatarUrl: "/placeholder-user.jpg",
-    isOnline: false,
-    type: "direct",
-  },
-  {
-    id: "conv4",
-    participantName: "ProudPWParent",
-    lastMessage: "So happy for your son's milestone!",
-    timestamp: "3 days ago",
-    unreadCount: 1,
-    avatarUrl: "/placeholder-user.jpg",
-    isOnline: false,
-    type: "direct",
-  },
-  {
-    id: "group1",
-    participantName: "Sleep Support Group",
-    lastMessage: "Anyone tried melatonin alternatives?",
-    timestamp: "1 hour ago",
-    unreadCount: 3,
-    avatarUrl: "/placeholder-user.jpg",
-    isOnline: true,
-    type: "group",
-    participants: ["SleepyParent", "RestlessNights", "MidnightMom", "You"],
-    createdBy: "SleepyParent",
-  },
-]
-
 interface DMInboxProps {
   onBack: () => void
   onConversationChange?: (hasConversation: boolean) => void
   showSidebarHeaderOnMobile?: boolean
 }
 
-// Mock available users for group invitations
+// Helper functions to convert API data to UI format
+// These functions bridge the gap between the backend API structure and the existing UI components
+const convertApiMessageToUIMessage = (apiMessage: ApiMessage, currentUserId: string): Message => ({
+  id: apiMessage._id,
+  sender: apiMessage.sender.id === currentUserId ? "me" : apiMessage.sender.name,
+  text: apiMessage.content,
+  timestamp: new Date(apiMessage.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  type: apiMessage.type === "text" ? "text" : "text",
+})
+
+const convertApiConversationToUIConversation = (apiConversation: ApiConversation, currentUserId: string): Conversation => {
+  const isGroup = apiConversation.type === "group"
+  const otherParticipant = isGroup ? null : apiConversation.participants.find(p => p.id !== currentUserId)
+  
+  return {
+    id: apiConversation._id,
+    participantName: isGroup ? (apiConversation.name || "Group Chat") : (otherParticipant?.name || "Unknown"),
+    lastMessage: apiConversation.lastMessage?.content || "No messages yet",
+    timestamp: apiConversation.lastMessage 
+      ? new Date(apiConversation.lastMessage.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "now",
+    unreadCount: 0, // TODO: Calculate from readBy array
+    avatarUrl: isGroup ? "/placeholder-user.jpg" : (otherParticipant?.avatar || "/placeholder-user.jpg"),
+    isOnline: !isGroup, // TODO: Add real online status
+    type: apiConversation.type,
+    participants: isGroup ? apiConversation.participants.map(p => p.name) : undefined,
+    createdBy: isGroup ? apiConversation.createdBy.name : undefined,
+  }
+}
+
+// Mock available users for group invitations (TODO: Replace with real user search API)
 const availableUsers = [
   { id: "user1", name: "SleepyParent", avatarUrl: "/placeholder-user.jpg", isOnline: true },
   { id: "user2", name: "CFChef", avatarUrl: "/placeholder-user.jpg", isOnline: true },
@@ -208,9 +109,15 @@ const availableUsers = [
 
 export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobile = true }: DMInboxProps) {
   const { addGroupInvitation, updateInvitationStatus } = useNotifications()
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations)
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null) // Start with no conversation selected for mobile
-  const [messages, setMessages] = useState<Message[]>(mockMessages[selectedConversation || ""] || [])
+  
+  // API hooks
+  const { conversations: apiConversations, loading: loadingConversations, refetch: refetchConversations } = useConversations()
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const { messages: apiMessages, loading: loadingMessages, refetch: refetchMessages } = useMessages(selectedConversation || '')
+  const { sendMessage, loading: sendingMessage } = useSendMessage()
+  const { connected, emit, on } = useSocket()
+  
+  // UI state
   const [newMessage, setNewMessage] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [showCreateGroup, setShowCreateGroup] = useState(false)
@@ -224,15 +131,40 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Convert API data to UI format
+  const currentUserId = "66b1e5c8f1d2a3b4c5d6e7f8" // TODO: Get from auth context
+  const conversations: Conversation[] = apiConversations.map(conv => convertApiConversationToUIConversation(conv, currentUserId))
+  const messages: Message[] = apiMessages.map(msg => convertApiMessageToUIMessage(msg, currentUserId))
+
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Socket.IO real-time listeners
   useEffect(() => {
-    if (selectedConversation) {
-      setMessages(mockMessages[selectedConversation] || [])
+    if (!connected) return
+
+    const handleNewMessage = (data: any) => {
+      if (data.conversationId === selectedConversation) {
+        refetchMessages()
+      }
+      refetchConversations() // Update conversation list
     }
-  }, [selectedConversation])
+
+    const handleMessageUpdate = (data: any) => {
+      if (data.conversationId === selectedConversation) {
+        refetchMessages()
+      }
+    }
+
+    on('message:new', handleNewMessage)
+    on('message:updated', handleMessageUpdate)
+
+    return () => {
+      // Socket.IO listeners are automatically cleaned up
+    }
+  }, [connected, selectedConversation, refetchMessages, refetchConversations, on])
 
   // Notify parent about conversation selection changes
   useEffect(() => {
@@ -241,129 +173,83 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
     }
   }, [selectedConversation, onConversationChange])
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() && selectedConversation) {
-      const message: Message = {
-        id: `m${Date.now()}`,
-        sender: "me",
-        text: newMessage.trim(),
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || sendingMessage) return
+
+    try {
+      // Send via API
+      await sendMessage(selectedConversation, {
+        content: newMessage.trim(),
+        type: 'text',
+      })
+
+      // Send via Socket.IO for real-time delivery
+      if (connected) {
+        emit('message:new', {
+          conversationId: selectedConversation,
+          content: newMessage.trim(),
+          type: 'text',
+        })
       }
-      setMessages((prevMessages) => [...prevMessages, message])
+
       setNewMessage("")
       
-      // Update last message in conversations list
-      setConversations(prev => prev.map(conv => 
-        conv.id === selectedConversation 
-          ? { ...conv, lastMessage: newMessage.trim(), timestamp: "now" }
-          : conv
-      ))
+      // Refresh messages and conversations
+      await refetchMessages()
+      await refetchConversations()
+    } catch (error) {
+      toast({
+        title: "Failed to send message",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
     }
   }
 
   const handleCreateGroup = () => {
+    // TODO: Implement group creation via API
     if (groupName.trim() && selectedUsers.length > 0) {
-      const newGroupId = `group${Date.now()}`
-      const newGroup: Conversation = {
-        id: newGroupId,
-        participantName: groupName.trim(),
-        lastMessage: "Group created",
-        timestamp: "now",
-        unreadCount: 0,
-        avatarUrl: "/placeholder-user.jpg",
-        isOnline: true,
-        type: "group",
-        participants: ["You", ...selectedUsers],
-        createdBy: "You",
-      }
-
-      // Add system message for group creation
-      const systemMessage: Message = {
-        id: `sys${Date.now()}`,
-        sender: "system",
-        text: `Group "${groupName.trim()}" has been created. Invitations sent to ${selectedUsers.join(", ")}.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        type: "system",
-      }
-
-      // Create invitations for selected users and add to global notification system
-      selectedUsers.forEach(userName => {
-        const user = availableUsers.find(u => u.name === userName)
-        if (user) {
-          const invitation = {
-            id: `inv${Date.now()}_${user.id}`,
-            groupId: newGroupId,
-            groupName: groupName.trim(),
-            invitedBy: "You",
-            invitedById: "current-user",
-            invitedUser: user.name,
-            invitedUserId: user.id,
-            timestamp: new Date().toISOString(),
-            status: "pending" as const,
-          }
-          addGroupInvitation(invitation)
-        }
+      toast({
+        title: "Group creation",
+        description: "Group creation will be implemented with the backend API.",
       })
-
-      setConversations(prev => [newGroup, ...prev])
-      mockMessages[newGroupId] = [systemMessage]
       setGroupName("")
       setSelectedUsers([])
       setShowCreateGroup(false)
-      setSelectedConversation(newGroupId)
     }
   }
 
   const handleInviteResponse = (invitationId: string, accept: boolean) => {
+    // TODO: Implement invitation response via API
     const response = accept ? "accepted" : "declined"
     updateInvitationStatus(invitationId, response)
-
-    // Add system message to the group chat
-    const responseMessage: Message = {
-      id: `resp${Date.now()}`,
-      sender: "system",
-      text: accept 
-        ? `You joined the group` 
-        : `You declined the group invitation`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      type: "system",
-    }
-
-    if (accept && selectedConversation) {
-      // If accepted and we're in the group chat, add the message
-      if (mockMessages[selectedConversation]) {
-        mockMessages[selectedConversation].push(responseMessage)
-        setMessages(prev => [...prev, responseMessage])
-      }
-
-      // Update conversation to show the user joined
-      setConversations(prev => 
-        prev.map(conv => 
-          conv.id === selectedConversation
-            ? { ...conv, unreadCount: conv.unreadCount + 1 }
-            : conv
-        )
-      )
-    }
+    
+    toast({
+      title: accept ? "Invitation accepted" : "Invitation declined",
+      description: "Real-time invitation handling will be implemented with the backend.",
+    })
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && selectedConversation) {
-      const message: Message = {
-        id: `f${Date.now()}`,
-        sender: "me",
-        text: `📎 Shared file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      }
-      setMessages((prevMessages) => [...prevMessages, message])
-      
-      // Update last message in conversations list
-      setConversations(prev => prev.map(conv => 
-        conv.id === selectedConversation 
-          ? { ...conv, lastMessage: `📎 ${file.name}`, timestamp: "now" }
-          : conv
-      ))
+    if (!file || !selectedConversation) return
+
+    try {
+      // TODO: Implement file upload via API
+      await sendMessage(selectedConversation, {
+        content: `📎 Shared file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
+        type: 'text', // TODO: Change to 'file' when file upload is implemented
+      })
+
+      // Refresh messages
+      await refetchMessages()
+      await refetchConversations()
+    } catch (error) {
+      toast({
+        title: "Failed to share file",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -373,6 +259,7 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   }
 
   const handleNewMessage = (userId: string) => {
+    // TODO: Implement new conversation creation via API
     const user = availableUsers.find(u => u.id === userId)
     if (user) {
       // Check if conversation already exists
@@ -383,56 +270,25 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
       if (existingConv) {
         setSelectedConversation(existingConv.id)
       } else {
-        // Create new conversation
-        const newConvId = `conv${Date.now()}`
-        const newConv: Conversation = {
-          id: newConvId,
-          participantName: user.name,
-          lastMessage: "Start a conversation",
-          timestamp: "now",
-          unreadCount: 0,
-          avatarUrl: user.avatarUrl,
-          isOnline: user.isOnline,
-          type: "direct",
-        }
-        setConversations(prev => [newConv, ...prev])
-        mockMessages[newConvId] = []
-        setSelectedConversation(newConvId)
+        toast({
+          title: "Create conversation",
+          description: "New conversation creation will be implemented with the backend API.",
+        })
       }
       setShowNewMessageModal(false)
     }
   }
 
   const handleInviteToGroup = (userId: string) => {
+    // TODO: Implement group invitation via API
     const user = availableUsers.find(u => u.id === userId)
     const selectedConv = conversations.find(conv => conv.id === selectedConversation)
     
     if (user && selectedConv && selectedConv.type === "group") {
-      // Create invitation and add to global notification system
-      const invitation = {
-        id: `inv${Date.now()}_${user.id}`,
-        groupId: selectedConv.id,
-        groupName: selectedConv.participantName,
-        invitedBy: "You",
-        invitedById: "current-user", 
-        invitedUser: user.name,
-        invitedUserId: user.id,
-        timestamp: new Date().toISOString(),
-        status: "pending" as const,
-      }
-
-      addGroupInvitation(invitation)
-
-      // Add system message
-      const systemMessage: Message = {
-        id: `sys${Date.now()}`,
-        sender: "system",
-        text: `Invitation sent to ${user.name}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        type: "system",
-      }
-
-      setMessages(prev => [...prev, systemMessage])
+      toast({
+        title: "Group invitation",
+        description: "Group invitations will be implemented with the backend API.",
+      })
       setShowInviteModal(false)
     }
   }
@@ -440,20 +296,31 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   const handleToggleMute = () => {
     setIsMuted(!isMuted)
     const action = !isMuted ? "muted" : "unmuted"
-    // Here you would typically make an API call to update the mute status
-    console.log(`Conversation ${action}`)
+    // TODO: Implement mute/unmute via API
+    toast({
+      title: `Conversation ${action}`,
+      description: "Mute settings will be implemented with the backend API.",
+    })
   }
 
   const handleLeaveGroup = () => {
     if (selectedConversation && window.confirm("Are you sure you want to leave this group?")) {
-      setConversations(prev => prev.filter(conv => conv.id !== selectedConversation))
+      // TODO: Implement leave group via API
+      toast({
+        title: "Leave group",
+        description: "Group management will be implemented with the backend API.",
+      })
       setSelectedConversation(null)
     }
   }
 
   const handleBlockUser = () => {
     if (selectedConversation && window.confirm("Are you sure you want to block this user?")) {
-      setConversations(prev => prev.filter(conv => conv.id !== selectedConversation))
+      // TODO: Implement block user via API
+      toast({
+        title: "Block user",
+        description: "User blocking will be implemented with the backend API.",
+      })
       setSelectedConversation(null)
     }
   }
@@ -465,6 +332,15 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   )
 
   const selectedConv = conversations.find(conv => conv.id === selectedConversation)
+
+  if (loadingConversations) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
+        <span className="text-sm text-gray-500">Loading conversations...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">

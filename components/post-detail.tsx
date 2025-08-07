@@ -261,6 +261,15 @@ export function PostDetail({
     ))
   }
 
+  if (!post) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
+        <span className="text-sm text-gray-500">Loading post...</span>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Mobile Overlay Header */}
