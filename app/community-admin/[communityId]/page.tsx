@@ -27,6 +27,7 @@ import {
   Crown,
   AlertTriangle
 } from "lucide-react";
+import { useUserCommunities } from "@/hooks/use-api";
 
 // Utility function for admin check
 function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, community: any): boolean {
@@ -38,16 +39,31 @@ function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, c
     return false;
   }
   
-  if (community.adminKey && user.userKey) {
-    const result = community.adminKey === user.userKey;
-    console.log("Admin check (userKey) - result:", result);
-    return result;
+  // Check if user is in admins array
+  if (community.admins && Array.isArray(community.admins)) {
+    const isAdmin = community.admins.some((admin: any) => 
+      admin.name?.toLowerCase() === user.username?.toLowerCase() ||
+      admin.email?.toLowerCase() === user.username?.toLowerCase()
+    );
+    if (isAdmin) {
+      console.log("Admin check (admins array) - result:", true);
+      return true;
+    }
   }
   
-  if (community.admin && user.username) {
-    const result = community.admin.toLowerCase() === user.username.toLowerCase();
-    console.log("Admin check (username) - community.admin:", community.admin, "user.username:", user.username, "result:", result);
-    return result;
+  // Check if user is the creator
+  if (community.createdBy && user.username) {
+    const isCreator = community.createdBy.name?.toLowerCase() === user.username?.toLowerCase() ||
+                     community.createdBy.email?.toLowerCase() === user.username?.toLowerCase();
+    console.log("Admin check (createdBy) - result:", isCreator);
+    return isCreator;
+  }
+
+  // Check userRole if available
+  if (community.userRole) {
+    const isAdminRole = community.userRole === 'admin' || community.userRole === 'creator';
+    console.log("Admin check (userRole) - result:", isAdminRole);
+    return isAdminRole;
   }
   
   console.log("Admin check failed - no matching admin criteria");
@@ -64,6 +80,8 @@ export default function CommunityAdminPage() {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState({
     totalPosts: 0,
     totalMembers: 0,
@@ -74,51 +92,65 @@ export default function CommunityAdminPage() {
     recentActivity: [] as Array<{action: string, user: string, time: string}>
   });
 
+  // Fetch communities from API
+  const { communities, loading: communitiesLoading, error: communitiesError } = useUserCommunities();
+
   useEffect(() => {
+    // Get user data
     const storedUser = localStorage.getItem("user");
-    let userObj = storedUser ? JSON.parse(storedUser) : null;
     const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+    let userObj = storedUser ? JSON.parse(storedUser) : null;
+    
     // Merge userKey and username from user_data if available
     if (userData.userKey && userObj) userObj.userKey = userData.userKey;
     if (userData.username && userObj) userObj.username = userData.username;
-    if (storedUser) setUser(userObj);
+    
+    if (userObj) {
+      setUser(userObj);
+    } else {
+      setError("User not found. Please log in.");
+      setLoading(false);
+      return;
+    }
 
-    const stored = localStorage.getItem("user_communities");
-    if (stored) {
-      const all = JSON.parse(stored);
-      const found = all.find((c: any) => c.id === communityId);
-      // Auto-fix empty admin field if user created this community
-      if (found && (!found.admin || found.admin === "") && userData.username) {
-        const fixedCommunity = { ...found, admin: userData.username };
-        const updatedAll = all.map((c: any) => c.id === communityId ? fixedCommunity : c);
-        localStorage.setItem("user_communities", JSON.stringify(updatedAll));
-        setCommunity(fixedCommunity);
-        setEditData(fixedCommunity);
-        setMembers(fixedCommunity?.members || [fixedCommunity?.admin].filter(Boolean));
-        setIsAdmin(isUserAdminOfCommunity(userObj, fixedCommunity));
-      } else {
+    // Find community from API data
+    if (communities && communities.length > 0) {
+      const found = communities.find((c: any) => c._id === communityId || c.id === communityId);
+      if (found) {
         setCommunity(found);
         setEditData(found);
-        setMembers(found?.members || [found?.admin].filter(Boolean));
+        // Set members from the community data
+        const memberNames = found.members?.map((m: any) => m.name || m.email) || [];
+        const adminNames = found.admins?.map((a: any) => a.name || a.email) || [];
+        const creatorName = found.createdBy?.name || found.createdBy?.email;
+        const allMembers = [...new Set([...memberNames, ...adminNames, creatorName].filter(Boolean))];
+        setMembers(allMembers);
         setIsAdmin(isUserAdminOfCommunity(userObj, found));
+        calculateMetrics(found);
+        setLoading(false);
+      } else {
+        setError("Community not found or access denied.");
+        setLoading(false);
       }
-      // Calculate metrics (mock data for demo)
-      calculateMetrics(found);
+    } else if (!communitiesLoading && communitiesError) {
+      setError("Failed to load communities. Please try again.");
+      setLoading(false);
     }
-  }, [communityId]);
+  }, [communityId, communities, communitiesLoading, communitiesError]);
 
   const calculateMetrics = (community: any) => {
     // Mock metrics calculation - in real app, this would come from your database
+    const creatorName = community?.createdBy?.name || community?.createdBy?.email || "Admin";
     const mockMetrics = {
-      totalPosts: Math.floor(Math.random() * 50) + 10,
-      totalMembers: members.length + Math.floor(Math.random() * 20),
+      totalPosts: community.posts || Math.floor(Math.random() * 50) + 10,
+      totalMembers: community.memberCount || members.length + Math.floor(Math.random() * 20),
       totalViews: Math.floor(Math.random() * 1000) + 200,
       totalReactions: Math.floor(Math.random() * 200) + 50,
       weeklyGrowth: Math.floor(Math.random() * 20) - 5, // Can be negative
       activeMembers: Math.floor(members.length * 0.7),
       recentActivity: [
         { action: "New member joined", user: "user123", time: "2 hours ago" },
-        { action: "New post created", user: community?.admin, time: "5 hours ago" },
+        { action: "New post created", user: creatorName, time: "5 hours ago" },
         { action: "Comment added", user: "member456", time: "1 day ago" },
         { action: "Post liked", user: "visitor789", time: "2 days ago" },
       ]
@@ -126,7 +158,7 @@ export default function CommunityAdminPage() {
     setMetrics(mockMetrics);
   };
 
-  if (!community || !user) {
+  if (loading || communitiesLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
@@ -135,11 +167,44 @@ export default function CommunityAdminPage() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <span>Error</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-red-600 mb-4">{error}</p>
+            <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!community || !user) {
+    return (
+      <div className="p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Community Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>The community you're looking for doesn't exist or you don't have access to it.</p>
+            <div className="mt-4">
+              <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   if (!isAdmin) {
-    // Check if this might be a community with empty admin that belongs to current user
-    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
-    const canClaimAdmin = community && (!community.admin || community.admin === "") && userData.username;
-    
     return (
       <div className="p-8">
         <Card>
@@ -147,33 +212,9 @@ export default function CommunityAdminPage() {
             <CardTitle>Access Denied</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>You are not the admin of this community.</p>
-            {canClaimAdmin && (
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800 mb-2">
-                  This community appears to have been created by you but has an empty admin field. 
-                  Would you like to claim admin access?
-                </p>
-                <Button 
-                  onClick={() => {
-                    const stored = localStorage.getItem("user_communities");
-                    if (stored) {
-                      const all = JSON.parse(stored);
-                      const updatedAll = all.map((c: any) => 
-                        c.id === communityId ? { ...c, admin: userData.username } : c
-                      );
-                      localStorage.setItem("user_communities", JSON.stringify(updatedAll));
-                      window.location.reload(); // Reload to re-check admin status
-                    }
-                  }}
-                  className="mr-2"
-                >
-                  Claim Admin Access
-                </Button>
-              </div>
-            )}
+            <p>You are not an admin of this community.</p>
             <div className="mt-4">
-              <Button onClick={() => router.push("/")}>Go Home</Button>
+              <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
             </div>
           </CardContent>
         </Card>
@@ -181,56 +222,61 @@ export default function CommunityAdminPage() {
     );
   }
 
-  const handleSave = () => {
-    const stored = localStorage.getItem("user_communities");
-    if (stored) {
-      let all = JSON.parse(stored);
-      all = all.map((c: any) => (c.id === community.id ? { ...c, ...editData } : c));
-      localStorage.setItem("user_communities", JSON.stringify(all));
+  const handleSave = async () => {
+    try {
+      // TODO: Implement community update API call
+      // For now, just update local state
       setCommunity({ ...community, ...editData });
       setEditMode(false);
+      // Show success message
+      console.log("Community updated successfully");
+    } catch (error) {
+      console.error("Failed to update community:", error);
+      setError("Failed to update community. Please try again.");
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this community? This cannot be undone.")) return;
-    const stored = localStorage.getItem("user_communities");
-    if (stored) {
-      const all = JSON.parse(stored);
-      const updated = all.filter((c: any) => c.id !== community.id);
-      localStorage.setItem("user_communities", JSON.stringify(updated));
-      router.push("/");
+    
+    try {
+      // TODO: Implement community delete API call
+      // For now, just redirect
+      console.log("Community would be deleted");
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Failed to delete community:", error);
+      setError("Failed to delete community. Please try again.");
     }
   };
 
-  // Mock member management
-  const handleAddMember = () => {
+  // Mock member management - TODO: Implement proper API calls
+  const handleAddMember = async () => {
     const newMember = prompt("Enter username to add as member:");
     if (newMember && !members.includes(newMember)) {
-      const updatedMembers = [...members, newMember];
-      setMembers(updatedMembers);
-      // Persist to localStorage
-      const stored = localStorage.getItem("user_communities");
-      if (stored) {
-        let all = JSON.parse(stored);
-        all = all.map((c: any) =>
-          c.id === community.id ? { ...c, members: updatedMembers } : c
-        );
-        localStorage.setItem("user_communities", JSON.stringify(all));
+      try {
+        // TODO: Implement add member API call
+        const updatedMembers = [...members, newMember];
+        setMembers(updatedMembers);
+        console.log("Member added successfully");
+      } catch (error) {
+        console.error("Failed to add member:", error);
+        setError("Failed to add member. Please try again.");
       }
     }
   };
-  const handleRemoveMember = (username: string) => {
+
+  const handleRemoveMember = async (username: string) => {
     if (!confirm(`Remove ${username} from community?`)) return;
-    const updatedMembers = members.filter((m) => m !== username);
-    setMembers(updatedMembers);
-    const stored = localStorage.getItem("user_communities");
-    if (stored) {
-      let all = JSON.parse(stored);
-      all = all.map((c: any) =>
-        c.id === community.id ? { ...c, members: updatedMembers } : c
-      );
-      localStorage.setItem("user_communities", JSON.stringify(all));
+    
+    try {
+      // TODO: Implement remove member API call
+      const updatedMembers = members.filter((m) => m !== username);
+      setMembers(updatedMembers);
+      console.log("Member removed successfully");
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+      setError("Failed to remove member. Please try again.");
     }
   };
 
@@ -250,7 +296,7 @@ export default function CommunityAdminPage() {
               <div className="flex items-center space-x-3">
                 <Crown className="h-6 w-6 text-amber-500" />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">{community.name}</h1>
+                  <h1 className="text-xl font-bold text-gray-900">{community.title}</h1>
                   <p className="text-sm text-gray-500">Community Admin Dashboard</p>
                 </div>
               </div>
@@ -354,7 +400,7 @@ export default function CommunityAdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700">Community Name</label>
-                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{community.name}</p>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{community.title}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700">Slug</label>
@@ -365,16 +411,25 @@ export default function CommunityAdminPage() {
                       <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{community.description || "No description available"}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Badge Color</label>
-                      <div className="mt-1 flex items-center space-x-2">
-                        <div className={`w-4 h-4 rounded ${community.color}`}></div>
-                        <span className="text-sm text-gray-900">{community.color}</span>
+                      <label className="text-sm font-medium text-gray-700">Location</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                        {community.location?.region}{community.location?.state ? `, ${community.location.state}` : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Tags</label>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {community.tags?.map((tag: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        )) || <span className="text-sm text-gray-500">No tags</span>}
                       </div>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700">Created</label>
                       <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">
-                        {new Date().toLocaleDateString()} {/* Mock date */}
+                        {new Date(community.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -432,15 +487,17 @@ export default function CommunityAdminPage() {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">{member}</p>
-                          {member === community.admin && (
+                          {(community.createdBy?.name === member || community.createdBy?.email === member || 
+                            community.admins?.some((admin: any) => admin.name === member || admin.email === member)) && (
                             <Badge variant="secondary" className="bg-amber-100 text-amber-800">
                               <Crown className="h-3 w-3 mr-1" />
-                              Admin
+                              {community.createdBy?.name === member || community.createdBy?.email === member ? 'Creator' : 'Admin'}
                             </Badge>
                           )}
                         </div>
                       </div>
-                      {member !== community.admin && (
+                      {!(community.createdBy?.name === member || community.createdBy?.email === member || 
+                          community.admins?.some((admin: any) => admin.name === member || admin.email === member)) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -473,8 +530,8 @@ export default function CommunityAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Community Name</label>
                         <Input
                           placeholder="Community Name"
-                          value={editData.name}
-                          onChange={e => setEditData({ ...editData, name: e.target.value })}
+                          value={editData.title}
+                          onChange={e => setEditData({ ...editData, title: e.target.value })}
                         />
                       </div>
                       <div>
@@ -498,11 +555,36 @@ export default function CommunityAdminPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Badge Color</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Input
+                          placeholder="Region"
+                          value={editData.location?.region || ''}
+                          onChange={e => setEditData({ 
+                            ...editData, 
+                            location: { ...editData.location, region: e.target.value }
+                          })}
+                        />
+                        <Input
+                          placeholder="State (optional)"
+                          value={editData.location?.state || ''}
+                          onChange={e => setEditData({ 
+                            ...editData, 
+                            location: { ...editData.location, state: e.target.value }
+                          })}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
                       <Input
-                        placeholder="bg-blue-500 text-white"
-                        value={editData.color}
-                        onChange={e => setEditData({ ...editData, color: e.target.value })}
+                        placeholder="Comma-separated tags"
+                        value={editData.tags?.join(', ') || ''}
+                        onChange={e => setEditData({ 
+                          ...editData, 
+                          tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
+                        })}
                       />
                     </div>
 
@@ -525,7 +607,7 @@ export default function CommunityAdminPage() {
                         <div className="space-y-3">
                           <div>
                             <label className="text-sm font-medium text-gray-500">Name</label>
-                            <p className="text-sm text-gray-900">{community.name}</p>
+                            <p className="text-sm text-gray-900">{community.title}</p>
                           </div>
                           <div>
                             <label className="text-sm font-medium text-gray-500">Slug</label>
@@ -535,16 +617,31 @@ export default function CommunityAdminPage() {
                             <label className="text-sm font-medium text-gray-500">Description</label>
                             <p className="text-sm text-gray-900">{community.description || "No description"}</p>
                           </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Location</label>
+                            <p className="text-sm text-gray-900">
+                              {community.location?.region}{community.location?.state ? `, ${community.location.state}` : ''}
+                            </p>
+                          </div>
                         </div>
                       </div>
                       
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Appearance</h3>
-                        <div>
-                          <label className="text-sm font-medium text-gray-500">Badge Color</label>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <div className={`w-4 h-4 rounded ${community.color}`}></div>
-                            <p className="text-sm text-gray-900">{community.color}</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Details</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Tags</label>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {community.tags?.map((tag: string, index: number) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              )) || <span className="text-sm text-gray-500">No tags</span>}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Privacy</label>
+                            <p className="text-sm text-gray-900">{community.isPrivate ? 'Private' : 'Public'}</p>
                           </div>
                         </div>
                       </div>

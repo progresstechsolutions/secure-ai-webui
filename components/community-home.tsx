@@ -207,29 +207,49 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
             setUserCommunities(parsed)
           }
         } catch (error) {
-          console.error("Error parsing user_communities from localStorage:", error)
+          console.log("Error parsing user_communities from localStorage:", error)
           setError("Failed to load saved communities")
         }
       }
 
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}")
-      setUserConditions(userData.conditions || user.conditions || [])
+      console.log("🔍 Debug user data loaded:")
+      console.log("📊 userData from localStorage:", userData)
+      console.log("📊 user.conditions prop:", user.conditions)
+      
+      const finalConditions = userData.conditions || user.conditions || []
+      console.log("📊 Final userConditions set to:", finalConditions)
+      setUserConditions(finalConditions)
 
       // Fetch communities from API
       try {
+        console.log("🌐 API Call: Fetching communities from backend...")
         const communitiesResponse = await apiClient.getCommunities()
+        console.log("📊 API Response - Communities:", communitiesResponse)
+        
         if (communitiesResponse.error) {
-          console.warn("API Error fetching communities:", communitiesResponse.error)
+          console.log("❌ API Error fetching communities:", communitiesResponse.error)
           toast({
             title: "Connection Issue",
             description: "Unable to fetch latest communities. Using cached data.",
             variant: "destructive",
           })
         } else if (communitiesResponse.data) {
-          setAllCommunities(communitiesResponse.data.communities || [])
+          console.log("✅ Communities data received:", communitiesResponse.data.communities?.length || 0, "communities")
+          console.log("📊 Raw communities data:", communitiesResponse.data.communities)
+          
+          // Fix any communities with missing titles
+          const fixedCommunities = (communitiesResponse.data.communities || []).map((community: any) => ({
+            ...community,
+            title: community.title || community.name || `Community ${community.slug}`,
+            name: community.name || community.title || `Community ${community.slug}`
+          }))
+          
+          console.log("🔧 Fixed communities:", fixedCommunities)
+          setAllCommunities(fixedCommunities)
         }
       } catch (error) {
-        console.error("Network error fetching communities:", error)
+        console.log("🚫 Network error fetching communities:", error)
         toast({
           title: "Connection Issue", 
           description: "Backend server may not be running. Please check the server status.",
@@ -241,20 +261,24 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
 
       // Fetch posts from API
       try {
+        console.log("🌐 API Call: Fetching posts from backend...")
         const postsResponse = await apiClient.getPosts()
+        console.log("📊 API Response - Posts:", postsResponse)
+        
         if (postsResponse.error) {
-          console.warn("API Error fetching posts:", postsResponse.error)
+          console.log("❌ API Error fetching posts:", postsResponse.error)
           toast({
             title: "Connection Issue",
             description: "Unable to fetch latest posts. Using cached data.", 
             variant: "destructive",
           })
         } else if (postsResponse.data) {
+          console.log("✅ Posts data received:", postsResponse.data.posts?.length || 0, "posts")
           setPersonalizedPosts(postsResponse.data.posts || [])
           setDiscoverPosts(postsResponse.data.posts || [])
         }
       } catch (error) {
-        console.error("Network error fetching posts:", error)
+        console.log("🚫 Network error fetching posts:", error)
         toast({
           title: "Connection Issue",
           description: "Backend server may not be running. Using offline mode.",
@@ -265,11 +289,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         setDiscoverPosts([])
       }
     } catch (error) {
-      console.error("Error initializing data:", error)
-      // Don't set error state for API connection issues - handle them gracefully above
-      if (!(error instanceof Error && error.message.includes('fetch'))) {
-        setError(error instanceof Error ? error.message : "Failed to load data")
-      }
+      setError(error instanceof Error ? error.message : "Failed to load data")
     } finally {
       setLoading(false)
     }
@@ -291,8 +311,12 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     setRefreshing(true)
     try {
       // Test connection with a simple API call
+      console.log("🔄 Retry Connection: Testing API health...")
       const healthCheck = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'}/health`)
+      console.log("📡 Health Check Response:", healthCheck.status, healthCheck.statusText)
+      
       if (healthCheck.ok) {
+        console.log("✅ Connection restored successfully")
         toast({
           title: "Connection Restored",
           description: "Successfully reconnected to the server.",
@@ -304,6 +328,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         throw new Error('Health check failed')
       }
     } catch (error) {
+      console.log("❌ Retry connection failed:", error)
       toast({
         title: "Connection Failed", 
         description: "Still unable to connect to the server. Please try again later.",
@@ -357,13 +382,17 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
   // Memoize event handlers
   const handlePostCreated = useCallback(async () => {
     try {
+      console.log("🌐 API Call: Refreshing posts after post creation...")
       const postsResponse = await apiClient.getPosts()
+      console.log("📊 API Response - Post refresh:", postsResponse)
+      
       if (postsResponse.data) {
+        console.log("✅ Posts refreshed successfully:", postsResponse.data.posts?.length || 0, "posts")
         setPersonalizedPosts(postsResponse.data.posts || [])
         setDiscoverPosts(postsResponse.data.posts || [])
       }
     } catch (error) {
-      console.error("Error refreshing posts:", error)
+      console.log("❌ Error refreshing posts:", error)
     }
   }, [])
 
@@ -397,13 +426,17 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         }
       } else if (e.key === "user_posts") {
         try {
+          console.log("🌐 API Call: Refreshing posts due to storage change...")
           const postsResponse = await apiClient.getPosts()
+          console.log("📊 API Response - Storage triggered refresh:", postsResponse)
+          
           if (postsResponse.data) {
+            console.log("✅ Posts refreshed from storage event:", postsResponse.data.posts?.length || 0, "posts")
             setPersonalizedPosts(postsResponse.data.posts || [])
             setDiscoverPosts(postsResponse.data.posts || [])
           }
         } catch (error) {
-          console.error("Error refreshing posts:", error)
+          console.log("❌ Error refreshing posts from storage event:", error)
         }
       }
     }
@@ -415,33 +448,52 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
 
   // Community lists - memoized to prevent infinite re-renders
   const joinedCommunities: Community[] = useMemo(() => {
-    // Get communities based on user's health conditions from API data
-    const conditionBasedCommunities = allCommunities.filter((community: Community) =>
-      userConditions
+    console.log("🔍 Debug joinedCommunities calculation:")
+    console.log("📊 userConditions:", userConditions)
+    console.log("📊 allCommunities from API:", allCommunities.length, allCommunities.map(c => ({title: c.title, slug: c.slug})))
+    
+    // SOLUTION: Show ALL API communities instead of filtering by user conditions
+    // This allows users to discover and join any community
+    console.log("✅ Showing all API communities for discovery")
+    return allCommunities;
+    
+    // OLD LOGIC (commented out): Only show communities matching user conditions
+    /*
+    const conditionBasedCommunities = allCommunities.filter((community: Community) => {
+      const mappedSlugs = userConditions
         .map((condition: string) => communityMap[condition])
         .filter(Boolean)
-        .includes(community.slug)
-    );
+      
+      console.log(`🔍 Checking community "${community.title}" (slug: ${community.slug})`)
+      console.log("📋 Expected slugs from conditions:", mappedSlugs)
+      console.log("✅ Match?", mappedSlugs.includes(community.slug))
+      
+      return mappedSlugs.includes(community.slug)
+    });
     
-
+    console.log("✅ Final conditionBasedCommunities:", conditionBasedCommunities.length, conditionBasedCommunities.map(c => ({title: c.title, slug: c.slug})))
     return conditionBasedCommunities;
+    */
   }, [userConditions, allCommunities])
 
   // Combined communities for Select component - memoized with robust duplicate prevention
   const allUserCommunities = useMemo(() => {
+    console.log("🔍 Debug allUserCommunities calculation:")
+    console.log("📊 userCommunities from localStorage:", userCommunities.length, userCommunities.map(c => ({title: c.title, slug: c.slug})))
+    console.log("📊 joinedCommunities from conditions:", joinedCommunities.length, joinedCommunities.map(c => ({title: c.title, slug: c.slug})))
+    
     // Use a Set to track slugs we've already seen for simpler deduplication
     const seenSlugs = new Set<string>();
     const result: Community[] = [];
     
-  
     // Add user communities first (they have priority)
     userCommunities.forEach(community => {
       if (!seenSlugs.has(community.slug)) {
         seenSlugs.add(community.slug);
         result.push(community);
-        console.log(`Added user community: ${community.title} (slug: ${community.slug})`);
+        console.log(`➕ Added user community: ${community.title} (slug: ${community.slug})`)
       } else {
-        console.log(`Skipping duplicate user community: ${community.title} (slug: ${community.slug})`);
+        console.log(`⏭️ Skipped duplicate user community: ${community.title} (slug: ${community.slug})`)
       }
     });
     
@@ -450,35 +502,79 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       if (!seenSlugs.has(community.slug)) {
         seenSlugs.add(community.slug);
         result.push(community);
-        console.log(`Added joined community: ${community.title} (slug: ${community.slug})`);
+        console.log(`➕ Added joined community: ${community.title} (slug: ${community.slug})`)
       } else {
-        console.log(`Skipping duplicate joined community: ${community.title} (slug: ${community.slug})`);
+        console.log(`⏭️ Skipped duplicate joined community: ${community.title} (slug: ${community.slug})`)
       }
     });
     
-    console.log('Final Combined Communities:', result.map(c => ({ title: c.title, slug: c.slug })));
-    console.log('=== End Debug ===');
+    console.log("🎯 Final allUserCommunities result:", result.length, result.map(c => ({title: c.title, slug: c.slug})))
     
     return result;
   }, [userCommunities, joinedCommunities])
 
-  // Post reactions/comments
-  const handleReaction = (postId: string, reactionType: string) => {
-    const updatePosts = (prevPosts: Post[]) =>
-      prevPosts.map((post) => {
-        if (post._id === postId) {
-          // For now, just update the stats since reactions is an array in API
-          return { 
-            ...post, 
-            stats: {
-              ...post.stats,
-              totalReactions: post.stats.totalReactions + 1
+  // Post reactions/comments with backend integration
+  const handleReaction = async (postId: string, reactionType: string) => {
+    try {
+      const currentReaction = userReactions[postId]
+      
+      // Determine if we're removing or adding/changing reaction
+      const isRemoving = currentReaction === reactionType
+      const newReactionType = isRemoving ? "" : reactionType
+      
+      // Update local state immediately for better UX
+      setUserReactions(prev => ({
+        ...prev,
+        [postId]: newReactionType
+      }))
+      
+      // Update posts with reaction changes
+      const updatePosts = (prevPosts: Post[]) =>
+        prevPosts.map((post) => {
+          if (post._id === postId) {
+            const currentTotal = post.stats?.totalReactions || 0
+            const newTotal = isRemoving ? Math.max(0, currentTotal - 1) : currentTotal + 1
+            
+            return { 
+              ...post, 
+              stats: {
+                ...post.stats,
+                totalReactions: newTotal
+              }
             }
           }
-        }
-        return post
+          return post
+        })
+      
+      setPersonalizedPosts(updatePosts)
+      setDiscoverPosts(updatePosts)
+      
+      // Show feedback toast
+      toast({
+        title: isRemoving ? "Reaction removed" : "Reaction added",
+        description: isRemoving 
+          ? "You removed your reaction" 
+          : `You reacted with ${reactionType === "heart" ? "❤️" : 
+                                reactionType === "thumbsUp" ? "💪" :
+                                reactionType === "hope" ? "🌟" :
+                                reactionType === "hug" ? "🤗" :
+                                reactionType === "grateful" ? "🙏" : "❤️"}`,
+        duration: 2000,
       })
-    setPersonalizedPosts(updatePosts(personalizedPosts))
+      
+    } catch (error) {
+      // Revert the state change on error
+      setUserReactions(prev => ({
+        ...prev,
+        [postId]: userReactions[postId] || ""
+      }))
+      
+      toast({
+        title: "Failed to update reaction",
+        description: "Please try again later",
+        variant: "destructive",
+      })
+    }
   }
   
   const addComment = (postId: string, comment: any) => {
@@ -629,33 +725,34 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     setUserCommunities(updated);
     localStorage.setItem("user_communities", JSON.stringify(updated));
     
-    // Update user conditions if this community corresponds to a condition they don't have
-    const conditionForCommunity = Object.keys(communityMap).find(condition => communityMap[condition] === community.slug);
-    if (conditionForCommunity && !userConditions.includes(conditionForCommunity)) {
-      const updatedConditions = [...userConditions, conditionForCommunity];
-      setUserConditions(updatedConditions);
       
-      // Update localStorage with new condition
-      const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
-      userData.conditions = updatedConditions;
-      localStorage.setItem("user_data", JSON.stringify(userData));
-      
-      console.log("Added condition for joined community:", conditionForCommunity);
-    }
-    
-    // Refresh feeds immediately after joining
-    // Refresh posts from API after joining
-    try {
-      const postsResponse = await apiClient.getPosts()
-      if (postsResponse.data) {
-        setPersonalizedPosts(postsResponse.data.posts || [])
-        setDiscoverPosts(postsResponse.data.posts || [])
+      // Update user conditions if this community corresponds to a condition they don't have
+      const conditionForCommunity = Object.keys(communityMap).find(condition => communityMap[condition] === community.slug);
+      if (conditionForCommunity && !userConditions.includes(conditionForCommunity)) {
+        const updatedConditions = [...userConditions, conditionForCommunity];
+        setUserConditions(updatedConditions);
+        
+        // Update localStorage with new condition
+        const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
+        userData.conditions = updatedConditions;
+        localStorage.setItem("user_data", JSON.stringify(userData));
       }
-    } catch (error) {
-      console.error("Error refreshing posts:", error)
-    }
-    
-    // Dispatch event to notify other components
+      
+      // Refresh feeds immediately after joining
+      // Refresh posts from API after joining
+      try {
+        console.log("🌐 API Call: Refreshing posts after joining community...")
+        const postsResponse = await apiClient.getPosts()
+        console.log("📊 API Response - Join community refresh:", postsResponse)
+        
+        if (postsResponse.data) {
+          console.log("✅ Posts refreshed after joining community:", postsResponse.data.posts?.length || 0, "posts")
+          setPersonalizedPosts(postsResponse.data.posts || [])
+          setDiscoverPosts(postsResponse.data.posts || [])
+        }
+      } catch (error) {
+        console.log("❌ Error refreshing posts after joining community:", error)
+      }    // Dispatch event to notify other components
     window.dispatchEvent(new CustomEvent('community-updated', { detail: { action: 'joined', community } }));
     
     // Clear search
@@ -696,6 +793,8 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         onAddReply={addReply}
         onReaction={(postId, reactionType) => handleReaction(postId, String(reactionType))}
         userReaction={userReactions[selectedPost]}
+        userReactions={userReactions}
+        onReactionUpdate={(postId: string, reactionType: string) => handleReaction(postId, reactionType)}
       />
     )
   }
@@ -1471,19 +1570,20 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                         
                         {/* User Info - Responsive text */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <h3 className="font-semibold text-gray-900 text-sm truncate">
+                          <div className="flex items-center space-x-1 overflow-hidden">
+                            <h3 className="font-semibold text-gray-900 text-sm flex-shrink-0">
                               {post.author.name}
                             </h3>
                             {community && (
                               <>
-                                <span className="text-gray-400 hidden sm:inline">•</span>
-                                <button 
-                                  className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium hover:underline truncate touch-manipulation"
+                                <span className="text-gray-400 flex-shrink-0">•</span>
+                                <Button 
+                                  variant="link"
+                                  className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium hover:underline truncate touch-manipulation p-0 h-auto min-w-0"
                                   onClick={() => router.push(`/community/${community.slug}`)}
                                 >
                                   {community.title}
-                                </button>
+                                </Button>
                               </>
                             )}
                           </div>
@@ -1595,10 +1695,13 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                 : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100'
                             }`}
                             onClick={() => {
-                              if (!userReactions[post._id]) {
+                              const currentReaction = userReactions[post._id]
+                              if (currentReaction === "heart") {
+                                // If already hearted, remove reaction
                                 handleReaction(post._id, "heart")
                               } else {
-                                handleReaction(post._id, userReactions[post._id])
+                                // Otherwise, add heart reaction
+                                handleReaction(post._id, "heart")
                               }
                             }}
                             onTouchStart={(e) => {
@@ -1750,16 +1853,16 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                 user={user}
                 onAddComment={(postId: string, comment: any) => {
                   // Handle comment addition
-                  console.log('Add comment:', postId, comment);
                 }}
                 onAddReply={(postId: string, commentId: string, reply: any) => {
                   // Handle reply addition
-                  console.log('Add reply:', postId, commentId, reply);
                 }}
                 onReaction={(postId: string, reactionType: string) => {
                   handleReaction(postId, reactionType as string)
                 }}
                 userReaction={userReactions[selectedPost] ? String(userReactions[selectedPost]) : ""}
+                userReactions={userReactions}
+                onReactionUpdate={(postId: string, reactionType: string) => handleReaction(postId, reactionType)}
               />
             </div>
           </div>
@@ -1822,17 +1925,19 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
               const updatedPosts = [newPost, ...existingPosts]
               localStorage.setItem('user_posts', JSON.stringify(updatedPosts))
               // Refresh the feeds immediately  
+              console.log("🌐 API Call: Refreshing posts after creating new post...")
               apiClient.getPosts().then(response => {
+                console.log("📊 API Response - Post creation refresh:", response)
                 if (response.data) {
+                  console.log("✅ Posts refreshed after post creation:", response.data.posts?.length || 0, "posts")
                   setPersonalizedPosts(response.data.posts.slice(0, 10))
                   setDiscoverPosts(response.data.posts.slice(10, 20))
                 }
               })
               // Dispatch event to notify other components/tabs
               window.dispatchEvent(new CustomEvent('post-created', { detail: newPost }))
-              console.log("Post created and saved:", newPost)
             } catch (error) {
-              console.error("Error saving post:", error)
+              console.log("Error saving post:", error)
             }
             setShowCreatePostModal(false)
           }}
@@ -1855,6 +1960,23 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           state?: string;
         }) => {
           try {
+            console.log("🌐 API Call: Creating new community...")
+            console.log("📤 Community creation data:", {
+              title: data.title,
+              description: data.description,
+              tags: data.tags || [],
+              location: { 
+                region: data.region || "", 
+                state: data.state || "" 
+              },
+              isPrivate: data.isPrivate,
+              settings: {
+                allowMemberPosts: true,
+                allowMemberInvites: true,
+                requireApproval: data.isPrivate || false
+              }
+            })
+            
             const response = await apiClient.createCommunity({
               title: data.title,
               description: data.description,
@@ -1870,10 +1992,35 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                 requireApproval: data.isPrivate || false
               }
             });
+            console.log("📊 API Response - Create community:", response)
+            console.log("📊 API Response Error:", response.error)
+            console.log("📊 API Response Data:", response.data)
             
-            if (response && response.data) {
-              // Add to user communities for immediate UI update
-              setUserCommunities([response.data, ...userCommunities]);
+            // Check for success more flexibly - community might be created even with errors
+            if (response && (response.data || !response.error)) {
+              console.log("✅ Community created successfully:", response.data?.title || "Community")
+              
+              // Refresh communities from API to get the latest data
+              console.log("🔄 Refreshing communities list after creation...")
+              try {
+                const refreshResponse = await apiClient.getCommunities()
+                if (refreshResponse.data) {
+                  console.log("✅ Communities refreshed:", refreshResponse.data.communities?.length || 0, "communities")
+                  const fixedCommunities = (refreshResponse.data.communities || []).map((community: any) => ({
+                    ...community,
+                    title: community.title || community.name || `Community ${community.slug}`,
+                    name: community.name || community.title || `Community ${community.slug}`
+                  }))
+                  setAllCommunities(fixedCommunities)
+                }
+              } catch (refreshError) {
+                console.log("❌ Error refreshing communities:", refreshError)
+              }
+              
+              // Add to user communities for immediate UI update (fallback)
+              if (response.data) {
+                setUserCommunities([response.data, ...userCommunities]);
+              }
               
               toast({
                 title: "Community created!",
@@ -1887,12 +2034,40 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                 detail: { action: 'created', community: response.data } 
               }));
             } else {
+              console.log("❌ Failed to create community - response:", response)
+              
+              // Even if response says error, let's check if communities actually increased
+              console.log("🔄 Checking if community was created despite error...")
+              try {
+                const checkResponse = await apiClient.getCommunities()
+                if (checkResponse.data && checkResponse.data.communities.length > allCommunities.length) {
+                  console.log("✅ Community was actually created! Refreshing...")
+                  const fixedCommunities = (checkResponse.data.communities || []).map((community: any) => ({
+                    ...community,
+                    title: community.title || community.name || `Community ${community.slug}`,
+                    name: community.name || community.title || `Community ${community.slug}`
+                  }))
+                  setAllCommunities(fixedCommunities)
+                  
+                  toast({
+                    title: "Community created!",
+                    description: "Your community was created successfully."
+                  });
+                  
+                  setShowCreateCommunityModal(false);
+                  return;
+                }
+              } catch (checkError) {
+                console.log("❌ Error checking community creation:", checkError)
+              }
+              
               toast({
                 title: "Failed to create community. Please try again.",
                 variant: "destructive",
               });
             }
           } catch (error) {
+            console.log("❌ Error creating community:", error)
             toast({
               title: "Failed to create community. Please try again.",
               variant: "destructive",

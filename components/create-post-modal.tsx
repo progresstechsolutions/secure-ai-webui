@@ -101,7 +101,7 @@ export function CreatePostModal({
 
   const handleSubmit = async () => {
     // User must select a community (mandatory)
-    if (!selectedCommunity) {
+    if (!selectedCommunity || selectedCommunity === 'loading' || selectedCommunity === 'no-communities') {
       toast({
         title: "Community required",
         description: "Please select a community for your post.",
@@ -235,14 +235,14 @@ export function CreatePostModal({
                     </SelectTrigger>
                     <SelectContent>
                       {loadingCommunities ? (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="loading" disabled>
                           <div className="flex items-center gap-2">
                             <Loader2 className="h-3 w-3 animate-spin" />
                             Loading communities...
                           </div>
                         </SelectItem>
                       ) : communitiesWithFallback.length === 0 ? (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="no-communities" disabled>
                           No communities available
                         </SelectItem>
                       ) : (
@@ -362,13 +362,13 @@ export function CreatePostModal({
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
-              disabled={isLoading || (!caption.trim() && selectedFiles.length === 0) || !selectedCommunity || loadingCommunities}
+              disabled={isLoading || (!caption.trim() && selectedFiles.length === 0) || !selectedCommunity || selectedCommunity === 'loading' || selectedCommunity === 'no-communities' || loadingCommunities}
               className="w-full h-10 text-white font-semibold"
               style={{ 
-                backgroundColor: isLoading || (!caption.trim() && selectedFiles.length === 0) || !selectedCommunity || loadingCommunities
+                backgroundColor: isLoading || (!caption.trim() && selectedFiles.length === 0) || !selectedCommunity || selectedCommunity === 'loading' || selectedCommunity === 'no-communities' || loadingCommunities
                   ? '#E4E6EA' 
                   : '#1877F2',
-                color: isLoading || (!caption.trim() && selectedFiles.length === 0) || !selectedCommunity || loadingCommunities
+                color: isLoading || (!caption.trim() && selectedFiles.length === 0) || !selectedCommunity || selectedCommunity === 'loading' || selectedCommunity === 'no-communities' || loadingCommunities
                   ? '#BCC0C4' 
                   : 'white'
               }}
