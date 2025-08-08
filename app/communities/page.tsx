@@ -18,16 +18,17 @@ export default function CommunitiesPage() {
   const convertApiCommunity = (apiCommunity: Community): any => ({
     id: apiCommunity._id,
     slug: apiCommunity.slug,
-    name: apiCommunity.name,
+    title: apiCommunity.title || (apiCommunity as any).name || '', // Handle both old and new structure
     description: apiCommunity.description,
-    memberCount: apiCommunity.memberCount,
-    category: apiCommunity.category,
-    color: "#3b82f6", // Default color
-    region: "", // Default empty region
-    isActive: true,
-    lastActivity: apiCommunity.updatedAt,
-    posts: apiCommunity.postCount || 0,
-    totalReactions: 0
+    location: apiCommunity.location || { region: '', state: '' },
+    tags: apiCommunity.tags || [],
+    memberCount: apiCommunity.memberCount || 0,
+    lastActivity: apiCommunity.lastActivity || new Date().toISOString(),
+    posts: apiCommunity.posts || 0,
+    admins: apiCommunity.admins || [],
+    createdBy: apiCommunity.createdBy || { id: '', name: 'Unknown' },
+    createdAt: apiCommunity.createdAt || new Date().toISOString(),
+    isPrivate: apiCommunity.isPrivate || false
   })
 
   // Fetch user communities and all communities from API
@@ -62,6 +63,41 @@ export default function CommunitiesPage() {
     }
 
     fetchCommunities()
+  }, [])
+
+  // Listen for community updates from other components
+  useEffect(() => {
+    const handleCommunityUpdate = async (event: Event) => {
+      const customEvent = event as CustomEvent
+      const { action, community } = customEvent.detail || {}
+      
+      if (action === 'created' && community) {
+        // Add the new community to user communities
+        setUserCommunities(prev => [community, ...prev])
+        
+        // Also add to all communities if not already there
+        setAllCommunities(prev => {
+          const exists = prev.some(c => c._id === community._id)
+          return exists ? prev : [community, ...prev]
+        })
+      } else {
+        // For other actions, refresh the communities
+        try {
+          const userCommunitiesResponse = await apiClient.getUserCommunities()
+          if (userCommunitiesResponse.data) {
+            setUserCommunities(userCommunitiesResponse.data.communities || [])
+          }
+        } catch (err) {
+          console.error('Error refreshing communities:', err)
+        }
+      }
+    }
+
+    window.addEventListener('community-updated', handleCommunityUpdate)
+    
+    return () => {
+      window.removeEventListener('community-updated', handleCommunityUpdate)
+    }
   }, [])
 
   // Mock user data - in a real app, you'd get this from your auth system

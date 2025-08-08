@@ -180,10 +180,15 @@ export interface ApiResponse<T = any> {
 }
 
 // Request types
+// Community creation request - only fields needed during creation
 export interface CreateCommunityRequest {
-  name: string;
+  title: string;
   description: string;
-  tags?: string[];
+  location: {
+    region: string;
+    state?: string;
+  };
+  tags: string[];  // Required for genetic conditions
   isPrivate?: boolean;
   settings?: {
     allowMemberPosts?: boolean;

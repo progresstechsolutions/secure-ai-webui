@@ -1,29 +1,40 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ICommunity extends Document {
-  name: string;
+  title: string;
   description: string;
   slug: string;
-  avatar?: string;
-  banner?: string;
-  createdBy: {
-    id: string;
-    name: string;
-    email?: string;
+  location: {
+    region: string;
+    state?: string;
   };
+  tags: string[];  // Genetic conditions
+  isPrivate: boolean;
+  
+  // Fields added after creation
+  memberCount: number;
+  lastActivity: Date;
+  posts: number;
   admins: Array<{
     id: string;
     name: string;
     email?: string;
   }>;
+  createdBy: {
+    id: string;
+    name: string;
+    email?: string;
+  };
   members: Array<{
     id: string;
     name: string;
     email?: string;
     joinedAt: Date;
   }>;
-  isPrivate: boolean;
-  tags: string[];
+  
+  // Optional fields
+  avatar?: string;
+  banner?: string;
   settings: {
     allowMemberPosts: boolean;
     allowMemberInvites: boolean;
@@ -36,7 +47,8 @@ export interface ICommunity extends Document {
 }
 
 const communitySchema = new Schema<ICommunity>({
-  name: {
+  // Core creation fields
+  title: {
     type: String,
     required: true,
     trim: true,
@@ -53,6 +65,56 @@ const communitySchema = new Schema<ICommunity>({
     unique: true,
     lowercase: true
   },
+  location: {
+    region: {
+      type: String,
+      required: true
+    },
+    state: {
+      type: String,
+      default: ''
+    }
+  },
+  tags: [{
+    type: String,
+    required: true
+  }],
+  
+  // Fields added after creation
+  memberCount: {
+    type: Number,
+    default: 1
+  },
+  lastActivity: {
+    type: Date,
+    default: Date.now
+  },
+  posts: {
+    type: Number,
+    default: 0
+  },
+  admins: [{
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    email: String
+  }],
+  createdBy: {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    email: String
+  },
+  members: [{
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    email: String,
+    joinedAt: { type: Date, default: Date.now }
+  }],
+  
+  // Optional fields
+  isPrivate: {
+    type: Boolean,
+    default: false
+  },
   avatar: {
     type: String,
     default: null
@@ -61,27 +123,6 @@ const communitySchema = new Schema<ICommunity>({
     type: String,
     default: null
   },
-  createdBy: {
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    email: { type: String }
-  },
-  admins: [{
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    email: { type: String }
-  }],
-  members: [{
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    email: { type: String },
-    joinedAt: { type: Date, default: Date.now }
-  }],
-  isPrivate: {
-    type: Boolean,
-    default: false
-  },
-  tags: [String],
   settings: {
     allowMemberPosts: { type: Boolean, default: true },
     allowMemberInvites: { type: Boolean, default: true },
@@ -96,6 +137,6 @@ const communitySchema = new Schema<ICommunity>({
 });
 
 // Index for search
-communitySchema.index({ name: 'text', description: 'text', tags: 'text' });
+communitySchema.index({ title: 'text', description: 'text', tags: 'text' });
 
 export default mongoose.model<ICommunity>('Community', communitySchema);

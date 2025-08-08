@@ -423,12 +423,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         .includes(community.slug)
     );
     
-    console.log('=== Joined Communities Debug ===');
-    console.log('User Conditions:', userConditions);
-    console.log('Mapped Community Slugs:', userConditions.map(c => communityMap[c]).filter(Boolean));
-    console.log('Found Communities:', conditionBasedCommunities.map(c => ({ name: c.name, slug: c.slug })));
-    console.log('=== End Debug ===');
-    
+
     return conditionBasedCommunities;
   }, [userConditions, allCommunities])
 
@@ -438,19 +433,15 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     const seenSlugs = new Set<string>();
     const result: Community[] = [];
     
-    // Debug logging
-    console.log('=== Community Deduplication Debug ===');
-    console.log('User Communities:', userCommunities.map(c => ({ name: c.name, slug: c.slug })));
-    console.log('Joined Communities:', joinedCommunities.map(c => ({ name: c.name, slug: c.slug })));
-    
+  
     // Add user communities first (they have priority)
     userCommunities.forEach(community => {
       if (!seenSlugs.has(community.slug)) {
         seenSlugs.add(community.slug);
         result.push(community);
-        console.log(`Added user community: ${community.name} (slug: ${community.slug})`);
+        console.log(`Added user community: ${community.title} (slug: ${community.slug})`);
       } else {
-        console.log(`Skipping duplicate user community: ${community.name} (slug: ${community.slug})`);
+        console.log(`Skipping duplicate user community: ${community.title} (slug: ${community.slug})`);
       }
     });
     
@@ -459,13 +450,13 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       if (!seenSlugs.has(community.slug)) {
         seenSlugs.add(community.slug);
         result.push(community);
-        console.log(`Added joined community: ${community.name} (slug: ${community.slug})`);
+        console.log(`Added joined community: ${community.title} (slug: ${community.slug})`);
       } else {
-        console.log(`Skipping duplicate joined community: ${community.name} (slug: ${community.slug})`);
+        console.log(`Skipping duplicate joined community: ${community.title} (slug: ${community.slug})`);
       }
     });
     
-    console.log('Final Combined Communities:', result.map(c => ({ name: c.name, slug: c.slug })));
+    console.log('Final Combined Communities:', result.map(c => ({ title: c.title, slug: c.slug })));
     console.log('=== End Debug ===');
     
     return result;
@@ -554,15 +545,15 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
       
       // Search ALL communities with enhanced filters (including user's own communities)
       const searchedCommunities = allCommunities.filter((community: Community) => {
-        // Text search - check name and description
+        // Text search - check title and description
         const matchesQuery = !searchQuery.trim() || (
-          community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          community.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           community.description?.toLowerCase().includes(searchQuery.toLowerCase())
         )
         
         // Condition filter - enhanced matching
         const matchesCondition = !searchFilters.condition || (
-          community.name.toLowerCase().includes(searchFilters.condition.toLowerCase()) ||
+          community.title.toLowerCase().includes(searchFilters.condition.toLowerCase()) ||
           community.description?.toLowerCase().includes(searchFilters.condition.toLowerCase()) ||
           // Also check if the condition maps to this community slug
           (communityMap[searchFilters.condition] === community.slug)
@@ -594,7 +585,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           (post.content && post.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
           (post.title && post.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
           (post.author && post.author.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (community && community.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          (community && community.title.toLowerCase().includes(searchQuery.toLowerCase()))
         return matchesSearch
       }) : []
 
@@ -670,8 +661,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     // Clear search
     setSearchQuery("")
     setShowSearchResults(false)
-    
-    console.log("Joined community from search:", community.name)
+
   }
   
   const sortedPosts = useMemo(() => {
@@ -855,7 +845,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                             />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-sm text-gray-900 truncate group-hover:text-blue-600">
-                                {community.name}
+                                {community.title}
                               </div>
                               <div className="text-xs text-gray-500">
                                 {community.memberCount || 0} members
@@ -1254,7 +1244,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center space-x-2">
                                 <span className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                                  {community.name}
+                                  {community.title}
                                 </span>
                                 {isMember && (
                                   <Badge variant="secondary" className="text-xs">Joined</Badge>
@@ -1263,7 +1253,6 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                               <div className="flex items-center space-x-3 text-xs text-gray-500 mt-0.5">
                                 <span>{community.memberCount} members</span>
                                 <span className="text-gray-400">•</span>
-                                <span>{community.category || "General"}</span>
                                 {community.description && (
                                   <>
                                     <span className="text-gray-400">•</span>
@@ -1331,7 +1320,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                         >
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
-                              {community?.name || "Community"}
+                              {community?.title || "Community"}
                             </span>
                             <span className="text-xs text-gray-500">
                               by {post.author.name}
@@ -1493,7 +1482,7 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                   className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium hover:underline truncate touch-manipulation"
                                   onClick={() => router.push(`/community/${community.slug}`)}
                                 >
-                                  {community.name}
+                                  {community.title}
                                 </button>
                               </>
                             )}
@@ -1822,6 +1811,10 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
         <CreatePostModal
           open={showCreatePostModal}
           onOpenChange={setShowCreatePostModal}
+          currentUser={{
+            name: "You",
+            avatar: "/placeholder-user.jpg"
+          }}
           onPostCreated={(newPost) => {
             // Save the post to localStorage
             try {
@@ -1858,23 +1851,38 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
           coverImage?: string;
           rules?: string[];
           tags?: string[];
+          region?: string;
+          state?: string;
         }) => {
           try {
             const response = await apiClient.createCommunity({
-              name: data.title,
+              title: data.title,
               description: data.description,
-              category: data.category || "general",
-              isPrivate: !!data.isPrivate,
-              coverImage: data.coverImage,
-              rules: data.rules,
-              tags: data.tags,
+              tags: data.tags || [], // Required field for genetic conditions
+              location: { 
+                region: data.region || "", 
+                state: data.state || "" 
+              },
+              isPrivate: data.isPrivate,
+              settings: {
+                allowMemberPosts: true,
+                allowMemberInvites: true,
+                requireApproval: data.isPrivate || false
+              }
             });
+            
             if (response && response.data) {
+              // Add to user communities for immediate UI update
               setUserCommunities([response.data, ...userCommunities]);
+              
               toast({
                 title: "Community created!",
+                description: "Your community is ready and you have admin access."
               });
+              
               setShowCreateCommunityModal(false);
+              
+              // Dispatch event to notify other components
               window.dispatchEvent(new CustomEvent('community-updated', { 
                 detail: { action: 'created', community: response.data } 
               }));

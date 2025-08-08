@@ -1018,6 +1018,10 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
         onOpenChange={setShowCreatePostModal}
         communityId={communitySlug}
         communityName={communityInfo.name}
+        currentUser={{
+          name: "You",
+          avatar: "/placeholder-user.jpg"
+        }}
         onPostCreated={handleAddPost}
       />
     </div>

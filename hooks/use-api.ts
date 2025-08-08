@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient, ApiResponse, Community, Post, Comment, Friendship, Conversation, Message } from '@/lib/api-client';
+import { apiClient, ApiResponse, Community, CreateCommunityData, Post, Comment, Friendship, Conversation, Message } from '@/lib/api-client';
 
 // Custom hook for API calls with loading and error states
 export function useApi<T>() {
@@ -100,15 +100,7 @@ export function useCommunity(slug: string) {
 export function useCreateCommunity() {
   const { loading, error, execute } = useApi<Community>();
 
-  const createCommunity = useCallback(async (data: {
-    name: string;
-    description: string;
-    category: string;
-    isPrivate: boolean;
-    coverImage?: string;
-    rules?: string[];
-    tags?: string[];
-  }) => {
+  const createCommunity = useCallback(async (data: CreateCommunityData) => {
     const result = await execute(() => apiClient.createCommunity(data));
     return result;
   }, [execute]);

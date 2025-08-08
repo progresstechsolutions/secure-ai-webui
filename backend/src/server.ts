@@ -75,12 +75,22 @@ app.use('/api/search', searchRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
 
-// Health check
+// Health check endpoints
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ 
-    status: 'OK', 
+    status: 'OK',
+    message: 'Server is running',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+app.get('/api/health', (req: Request, res: Response) => {
+  res.status(200).json({ 
+    status: 'OK',
+    message: 'API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 

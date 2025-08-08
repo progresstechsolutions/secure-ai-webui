@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,24 +56,38 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
   const handleNext = async () => {
     setError("");
     if (step === 0 && !title.trim()) return setError("Community title is required.");
+    if (step === 0 && title.trim().length < 3) return setError("Community title must be at least 3 characters long.");
+    if (step === 0 && title.trim().length > 100) return setError("Community title must be less than 100 characters.");
     if (step === 1 && !description.trim()) return setError("Description is required.");
+    if (step === 1 && description.trim().length < 10) return setError("Description must be at least 10 characters long.");
+    if (step === 1 && description.trim().length > 500) return setError("Description must be less than 500 characters.");
     if (step === 2 && !region.trim()) return setError("Region is required.");
     if (step === 2 && region === "United States" && !state.trim()) return setError("State is required for US communities.");
     if (step === 3 && conditions.length === 0) return setError("Select at least one condition.");
+    if (step === 3 && conditions.length > 10) return setError("You can select up to 10 conditions maximum.");
     
     if (step < steps.length - 1) {
       setStep(step + 1);
     } else {
       // Final step - create community
       try {
+        // Add location to tags for searchability
+        const locationTags = [region];
+        if (state && region === "United States") {
+          locationTags.push(state);
+        }
+        
         const communityData = {
-          name: title,
+          title,
           description,
-          category: "Health", // Default category
-          isPrivate,
-          tags: conditions,
-          rules: [`Located in ${region}${state ? `, ${state}` : ''}`],
+          tags: [...conditions, ...locationTags], // Include location in tags
+          location: {
+            region,
+            state
+          }
         };
+
+        console.log('Sending community data:', communityData); // Debug log
 
         const result = await createCommunity(communityData);
         
@@ -99,11 +113,28 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
         } else {
           throw new Error("Failed to create community");
         }
-      } catch (error) {
-        setError("Failed to create community. Please try again.");
+      } catch (error: any) {
+        console.error('Community creation error:', error);
+        
+        // More detailed error handling
+        let errorMessage = "Failed to create community. Please try again.";
+        
+        if (error?.response?.status === 400) {
+          // Validation error from backend
+          const errorData = await error.response.json().catch(() => ({}));
+          if (errorData.details && Array.isArray(errorData.details)) {
+            errorMessage = `Validation failed: ${errorData.details.join(', ')}`;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } else if (error?.message) {
+          errorMessage = error.message;
+        }
+        
+        setError(errorMessage);
         toast({
           title: "Error",
-          description: "Failed to create community. Please try again.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -148,6 +179,9 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
               <p className="text-gray-500 text-xs md:text-sm">Step {step + 1} of {steps.length}</p>
             </div>
           </div>
+          <DialogDescription className="sr-only">
+            Create a new health community for support and connection
+          </DialogDescription>
         </DialogHeader>
 
         {/* Compact Progress Bar */}

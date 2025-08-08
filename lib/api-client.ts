@@ -14,19 +14,51 @@ export interface User {
   avatar?: string;
 }
 
+// Community creation interface - only fields needed during creation
+export interface CreateCommunityData {
+  title: string;
+  description: string;
+  location: {
+    region: string;
+    state?: string;
+  };
+  tags: string[];  // Genetic conditions
+  isPrivate?: boolean;
+  settings?: {
+    allowMemberPosts?: boolean;
+    allowMemberInvites?: boolean;
+    requireApproval?: boolean;
+  };
+}
+
+// Full community interface - includes all fields after creation
 export interface Community {
   _id: string;
-  name: string;
+  title: string;
   description: string;
   slug: string;
-  category: string;
+  location: {
+    region: string;
+    state?: string;
+  };
+  tags: string[];  // Genetic conditions
   isPrivate: boolean;
+  
+  // Fields added after creation
   memberCount: number;
-  postCount: number;
+  lastActivity: string;
+  posts: number;
+  admins: User[];
   createdBy: User;
+  members?: User[];
+  
+  // Optional fields
   coverImage?: string;
-  rules?: string[];
-  tags?: string[];
+  settings?: {
+    allowMemberPosts?: boolean;
+    allowMemberInvites?: boolean;
+    requireApproval?: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -203,15 +235,7 @@ class ApiClient {
     return this.request(`/communities/${slug}`);
   }
 
-  async createCommunity(data: {
-    name: string;
-    description: string;
-    category: string;
-    isPrivate: boolean;
-    coverImage?: string;
-    rules?: string[];
-    tags?: string[];
-  }): Promise<ApiResponse<Community>> {
+  async createCommunity(data: CreateCommunityData): Promise<ApiResponse<Community>> {
     return this.request('/communities', {
       method: 'POST',
       body: JSON.stringify(data),

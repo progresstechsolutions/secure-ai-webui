@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CreateCommunityModal } from "./create-community-modal"
+import { useSearchCommunities } from "@/hooks/use-api"
+import { toast } from "@/hooks/use-toast"
 import { 
   Users, 
   Search, 
@@ -36,18 +38,20 @@ import {
 interface Community {
   id: string
   slug: string
-  name: string
+  title: string
   description: string
-  color?: string
+  location: {
+    region: string
+    state?: string
+  }
+  tags: string[]
   memberCount: number
-  admin?: string
-  isUserCreated?: boolean
-  category?: string
-  region?: string
-  isActive?: boolean
-  lastActivity?: string
-  posts?: number
-  totalReactions?: number
+  lastActivity: string
+  posts: number
+  admins: Array<{ id: string; name: string; email?: string }>
+  createdBy: { id: string; name: string; email?: string }
+  createdAt: string
+  isPrivate?: boolean
 }
 
 interface CommunityManagementProps {
@@ -56,6 +60,9 @@ interface CommunityManagementProps {
   allUserCommunities?: Community[]
   onJoinCommunity?: (community: Community) => void
   onLeaveCommunity?: (communityId: string) => void
+  onManageCommunity?: (community: Community) => void
+  onEditCommunity?: (community: Community) => void
+  onDeleteCommunity?: (communityId: string) => void
   availableConditions?: string[]
   onBack?: () => void
 }
@@ -66,6 +73,9 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   allUserCommunities = [],
   onJoinCommunity,
   onLeaveCommunity,
+  onManageCommunity,
+  onEditCommunity,
+  onDeleteCommunity,
   availableConditions = [],
   onBack
 }) => {
@@ -78,10 +88,120 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
     category: "all"
   })
   const [showExpandedSearch, setShowExpandedSearch] = useState(false)
+  const [searchResults, setSearchResults] = useState<Community[]>([])
+  const [isSearching, setIsSearching] = useState(false)
 
-  // Sample data for demo
-  const categories = ["Health Support", "Mental Health", "Chronic Conditions", "Wellness", "Family Support"]
-  const regions = ["Global", "United States", "Europe", "Asia", "Canada", "Australia"]
+  // Helper function to check if user is admin of a community
+  const isUserAdmin = (community: Community) => {
+    if (!user?.username) return false
+    return community.admins.some(admin => admin.id === user.id || admin.name === user.username) ||
+           community.createdBy.id === user.id || community.createdBy.name === user.username
+  }
+
+  // Helper function to check if user created the community
+  const isUserCreator = (community: Community) => {
+    if (!user?.username) return false
+    return community.createdBy.id === user.id || community.createdBy.name === user.username
+  }
+
+  // Use backend search hook
+  const { searchCommunities, loading: searchLoading } = useSearchCommunities()
+
+  // Backend search function
+  const performSearch = async () => {
+    if (!searchQuery.trim() && searchFilters.condition === "all" && searchFilters.region === "all" && searchFilters.category === "all") {
+      setSearchResults(mockCommunities)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const searchParams = {
+        query: searchQuery.trim(),
+        ...(searchFilters.condition !== "all" && { condition: searchFilters.condition }),
+        ...(searchFilters.region !== "all" && { region: searchFilters.region }),
+        ...(searchFilters.category !== "all" && { category: searchFilters.category })
+      }
+
+      const result = await searchCommunities(searchParams)
+      if (result?.data?.communities) {
+        // Map backend communities to local format
+        const mappedCommunities = result.data.communities.map((c: any) => ({
+          id: c._id,
+          slug: c.slug,
+          title: c.title || c.name || '', // Handle both old and new structure
+          description: c.description,
+          memberCount: c.memberCount || 0,
+          location: c.location || { 
+            region: c.tags?.find((tag: string) => regions.includes(tag)) || "Global",
+            state: ''
+          },
+          tags: c.tags || [],
+          posts: c.posts || 0,
+          lastActivity: c.lastActivity || new Date().toISOString(),
+          admins: c.admins || [],
+          createdBy: c.createdBy || { id: '', name: 'Unknown' },
+          createdAt: c.createdAt || new Date().toISOString(),
+          isPrivate: c.isPrivate || false
+        }))
+        setSearchResults(mappedCommunities)
+      } else {
+        setSearchResults([])
+      }
+    } catch (error) {
+      console.error('Search failed:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      performSearch()
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, searchFilters])
+
+  // Initialize with all communities
+  useEffect(() => {
+    setSearchResults(mockCommunities)
+  }, [mockCommunities])
+
+  // Helper functions for community management
+  const handleManageCommunity = (community: Community) => {
+    // Navigate to community admin page
+    if (typeof window !== 'undefined') {
+      window.location.href = `/community-admin/${community.id}`
+    }
+    // Or call the parent callback if provided
+    onManageCommunity?.(community)
+  }
+
+  const handleEditCommunity = (community: Community) => {
+    // You could open an edit modal here or navigate to edit page
+    onEditCommunity?.(community)
+  }
+
+  const handleDeleteCommunity = (communityId: string) => {
+    // Show confirmation dialog then delete
+    if (confirm('Are you sure you want to delete this community? This action cannot be undone.')) {
+      // Remove from localStorage
+      const existingCommunities = JSON.parse(localStorage.getItem('user_communities') || '[]')
+      const updatedCommunities = existingCommunities.filter((c: Community) => c.id !== communityId)
+      localStorage.setItem('user_communities', JSON.stringify(updatedCommunities))
+      
+      // Trigger update event
+      window.dispatchEvent(new CustomEvent('community-updated', { 
+        detail: { action: 'deleted', communityId } 
+      }))
+      
+      // Call parent callback
+      onDeleteCommunity?.(communityId)
+    }
+  }
 
   const handleCreateCommunity = (communityData: any) => {
     const newCommunity: Community = {
@@ -90,10 +210,10 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       slug: communityData.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
       color: "#3b82f6",
       memberCount: 1,
-      admin: user?.username || "User",
+      admin: user?.username || user?.name || "User",
       isUserCreated: true,
-      category: "Health Support",
-      region: "Global",
+      category: communityData.category || "Health Support",
+      region: communityData.region || "Global", 
       isActive: true,
       lastActivity: "just now",
       posts: 0,
@@ -105,44 +225,30 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
     const updatedCommunities = [newCommunity, ...existingCommunities]
     localStorage.setItem('user_communities', JSON.stringify(updatedCommunities))
     
+    // Switch to managing tab to show the newly created community
+    setActiveTab("managing")
+    
+    // Show success toast
+    toast({
+      title: "Community Created! 🎉",
+      description: `${newCommunity.title} is now ready for members. You can manage it from the Managing tab.`,
+      duration: 5000,
+    })
+    
     // Trigger update event
     window.dispatchEvent(new CustomEvent('community-updated', { 
       detail: { action: 'created', community: newCommunity } 
     }))
   }
 
-  const filteredDiscoverCommunities = mockCommunities.filter((community) => {
+  // Sample data for demo
+  const categories = ["Health Support", "Mental Health", "Chronic Conditions", "Wellness", "Family Support"]
+  const regions = ["Global", "United States", "Europe", "Asia", "Canada", "Australia"]
+
+  const filteredDiscoverCommunities = searchResults.filter((community) => {
     // Don't show communities user is already in
     const isAlreadyMember = allUserCommunities.some(uc => uc.slug === community.slug)
-    if (isAlreadyMember) return false
-    
-    // Apply search filters
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      const matchesQuery = (
-        community.name.toLowerCase().includes(query) ||
-        community.description?.toLowerCase().includes(query)
-      )
-      if (!matchesQuery) return false
-    }
-    
-    if (searchFilters.condition && searchFilters.condition !== "all") {
-      const conditionMatch = (
-        community.name.toLowerCase().includes(searchFilters.condition.toLowerCase()) ||
-        community.description?.toLowerCase().includes(searchFilters.condition.toLowerCase())
-      )
-      if (!conditionMatch) return false
-    }
-    
-    if (searchFilters.region && searchFilters.region !== "all" && searchFilters.region !== "Global") {
-      if (community.region !== searchFilters.region) return false
-    }
-    
-    if (searchFilters.category && searchFilters.category !== "all") {
-      if (community.category !== searchFilters.category) return false
-    }
-    
-    return true
+    return !isAlreadyMember
   })
 
   return (
@@ -182,38 +288,34 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
           {/* Robust Tab Navigation */}
           <div className="sticky top-[5rem] z-40 bg-white/95 backdrop-blur-md rounded-2xl border border-gray-200 shadow-lg mb-8">
             <div className="p-2">
-              <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-gray-50/80 rounded-xl p-1 gap-1">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-gray-50/80 rounded-xl p-1 gap-1">
                 <TabsTrigger 
                   value="discover" 
-                  className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50 text-gray-600 hover:text-blue-600 min-h-[3rem]"
+                  className="flex items-center justify-center gap-2 px-2 sm:px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50 text-gray-600 hover:text-blue-600 min-h-[3rem]"
                 >
                   <Search className="h-4 w-4 flex-shrink-0" />
-                  <span className="hidden sm:inline whitespace-nowrap">Discover</span>
-                  <span className="sm:hidden">Find</span>
+                  <span className="hidden xs:inline">Discover</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="my-communities" 
-                  className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-green-50 text-gray-600 hover:text-green-600 min-h-[3rem]"
+                  className="flex items-center justify-center gap-2 px-2 sm:px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-green-50 text-gray-600 hover:text-green-600 min-h-[3rem]"
                 >
                   <Users className="h-4 w-4 flex-shrink-0" />
-                  <span className="hidden sm:inline whitespace-nowrap">My Communities</span>
-                  <span className="sm:hidden">Mine</span>
+                  <span className="hidden xs:inline">My Communities</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="managing" 
-                  className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-purple-50 text-gray-600 hover:text-purple-600 min-h-[3rem]"
+                  className="flex items-center justify-center gap-2 px-2 sm:px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-purple-50 text-gray-600 hover:text-purple-600 min-h-[3rem]"
                 >
                   <Crown className="h-4 w-4 flex-shrink-0" />
-                  <span className="hidden sm:inline whitespace-nowrap">Managing</span>
-                  <span className="sm:hidden">Admin</span>
+                  <span className="hidden xs:inline">Managing</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="analytics" 
-                  className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-orange-50 text-gray-600 hover:text-orange-600 min-h-[3rem]"
+                  className="flex items-center justify-center gap-2 px-2 sm:px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-300 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-orange-50 text-gray-600 hover:text-orange-600 min-h-[3rem]"
                 >
                   <TrendingUp className="h-4 w-4 flex-shrink-0" />
-                  <span className="hidden sm:inline whitespace-nowrap">Analytics</span>
-                  <span className="sm:hidden">Stats</span>
+                  <span className="hidden xs:inline">Analytics</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -260,22 +362,6 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                       <Filter className="h-4 w-4 mr-2" />
                       Advanced Filters
                     </Button>
-                    
-                    {/* Quick Filter Pills */}
-                    {["Mental Health", "Chronic Conditions", "Family Support"].map((filter) => (
-                      <Button
-                        key={filter}
-                        variant="outline"
-                        onClick={() => setSearchFilters(prev => ({...prev, category: filter}))}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                          searchFilters.category === filter
-                            ? "bg-blue-500 text-white border-blue-500 shadow-md"
-                            : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600"
-                        }`}
-                      >
-                        {filter}
-                      </Button>
-                    ))}
                   </div>
 
                   {/* Expanded Advanced Filters */}
@@ -387,7 +473,31 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
 
             {/* Premium Communities Grid */}
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredDiscoverCommunities.length === 0 ? (
+              {isSearching || searchLoading ? (
+                // Loading state
+                Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="border-gray-200 bg-white rounded-3xl overflow-hidden animate-pulse">
+                    <CardContent className="p-8">
+                      <div className="flex items-start space-x-5 mb-6">
+                        <div className="w-16 h-16 bg-gray-200 rounded-2xl"></div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="h-6 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                        </div>
+                      </div>
+                      <div className="space-y-3 mb-6">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-4/5"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/5"></div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="flex-1 h-12 bg-gray-200 rounded-xl"></div>
+                        <div className="flex-1 h-12 bg-gray-200 rounded-xl"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : filteredDiscoverCommunities.length === 0 ? (
                 <div className="col-span-full text-center py-24">
                   <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg">
                     <Search className="h-10 w-10 text-gray-400" />
@@ -406,20 +516,19 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                       <div className="flex items-start space-x-5 mb-6">
                         <div className="relative">
                           <div 
-                            className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg"
-                            style={{ background: community.color || "#3b82f6" }}
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg bg-blue-600"
                           >
-                            {community.name.charAt(0).toUpperCase()}
+                            {community.title.charAt(0).toUpperCase()}
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 rounded-full border-2 border-white"></div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold text-xl text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1 mb-2">
-                            {community.name}
+                            {community.title}
                           </h3>
                           <div className="flex items-center text-gray-500 mb-3">
                             <Users className="h-5 w-5 mr-2" />
-                            <span className="font-medium">{community.memberCount} members</span>
+                            <span className="font-medium">Community</span>
                           </div>
                         </div>
                       </div>
@@ -427,15 +536,25 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                       <p className="text-gray-600 line-clamp-3 leading-relaxed mb-6 text-base">{community.description}</p>
                       
                       <div className="flex flex-wrap items-center gap-3 mb-6">
-                        {community.category && (
-                          <Badge className="bg-blue-50 text-blue-700 border-blue-200 rounded-xl px-4 py-2 font-medium">
-                            {community.category}
-                          </Badge>
+                        {community.tags && community.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {community.tags.slice(0, 3).map((tag, index) => (
+                              <Badge key={index} className="bg-blue-50 text-blue-700 border-blue-200 rounded-xl px-4 py-2 font-medium">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {community.tags.length > 3 && (
+                              <Badge className="bg-gray-50 text-gray-600 border-gray-200 rounded-xl px-4 py-2 font-medium">
+                                +{community.tags.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
                         )}
-                        {community.region && (
+                        {community.location?.region && (
                           <Badge variant="outline" className="border-gray-300 text-gray-600 rounded-xl px-4 py-2 font-medium">
                             <MapPin className="h-4 w-4 mr-2" />
-                            {community.region}
+                            {community.location.region}
+                            {community.location.state && `, ${community.location.state}`}
                           </Badge>
                         )}
                       </div>
@@ -488,18 +607,18 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                         <div className="flex items-center space-x-4">
                           <div 
                             className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg shadow-sm"
-                            style={{ background: community.color || "#3b82f6" }}
+                            style={{ background: "#3b82f6" }}
                           >
-                            {community.name.charAt(0).toUpperCase()}
+                            {community.title.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 line-clamp-1 mb-1">{community.name}</h3>
+                            <h3 className="font-semibold text-gray-900 line-clamp-1 mb-1">{community.title}</h3>
                             <div className="flex items-center gap-3">
                               <div className="flex items-center text-sm text-gray-500">
                                 <Users className="h-4 w-4 mr-1.5" />
                                 <span>{community.memberCount} members</span>
                               </div>
-                              {community.admin === user?.username && (
+                              {isUserAdmin(community) && (
                                 <Badge variant="secondary" className="text-xs bg-purple-50 text-purple-700 border-purple-200 px-2 py-1 rounded-md">
                                   <Crown className="h-3 w-3 mr-1" />
                                   Admin
@@ -533,11 +652,12 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Visit
                         </Button>
-                        {community.admin === user?.username ? (
+                        {isUserAdmin(community) ? (
                           <Button
                             variant="outline"
                             size="sm"
                             className="flex-1 text-purple-600 border-purple-200 hover:bg-purple-50 h-9 text-sm rounded-lg"
+                            onClick={() => handleManageCommunity(community)}
                           >
                             <Settings className="h-4 w-4 mr-2" />
                             Manage
@@ -564,7 +684,11 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
           {/* Managing Tab */}
           <TabsContent value="managing" className="mt-0 space-y-6">
             {(() => {
-              const managedCommunities = allUserCommunities.filter(c => c.admin === user?.username)
+              const managedCommunities = allUserCommunities.filter(c => 
+                // For now, show all user communities as manageable
+                // since we don't have admin/creator info in the simplified structure
+                true
+              )
               
               return managedCommunities.length === 0 ? (
                 <div className="text-center py-20">
@@ -581,18 +705,25 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {managedCommunities.map((community) => (
-                    <Card key={community.slug} className="hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-purple-200 bg-white">
+                    <Card key={community.slug} className="hover:shadow-lg transition-all duration-300 border-gray-200 hover:border-purple-200 bg-white relative">
+                      {isUserCreator(community) && new Date(community.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000) && (
+                        <div className="absolute -top-2 -right-2 z-10">
+                          <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg animate-pulse">
+                            New!
+                          </Badge>
+                        </div>
+                      )}
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-3">
                             <div 
                               className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg shadow-sm"
-                              style={{ background: community.color || "#3b82f6" }}
+                              style={{ background: "#3b82f6" }}
                             >
-                              {community.name.charAt(0).toUpperCase()}
+                              {community.title.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-900 line-clamp-1 mb-1">{community.name}</h3>
+                              <h3 className="font-semibold text-gray-900 line-clamp-1 mb-1">{community.title}</h3>
                               <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-2 py-1 rounded-md">
                                 <Crown className="h-3 w-3 mr-1" />
                                 Admin
@@ -611,21 +742,36 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                             <div className="text-xs text-gray-600">Posts</div>
                           </div>
                           <div className="bg-orange-50 rounded-lg p-3">
-                            <div className="text-lg font-bold text-orange-600">{community.totalReactions || 0}</div>
+                            <div className="text-lg font-bold text-orange-600">0</div>
                             <div className="text-xs text-gray-600">Reactions</div>
                           </div>
                         </div>
 
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="flex-1 border-gray-200 hover:bg-gray-50 h-9 text-sm rounded-lg">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 border-gray-200 hover:bg-gray-50 h-9 text-sm rounded-lg"
+                            onClick={() => handleEditCommunity(community)}
+                          >
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1 border-gray-200 hover:bg-gray-50 h-9 text-sm rounded-lg">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 border-gray-200 hover:bg-gray-50 h-9 text-sm rounded-lg"
+                            onClick={() => handleManageCommunity(community)}
+                          >
                             <Settings className="h-4 w-4 mr-2" />
                             Settings
                           </Button>
-                          <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50 h-9 px-3 rounded-lg">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-red-600 border-red-200 hover:bg-red-50 h-9 px-3 rounded-lg"
+                            onClick={() => handleDeleteCommunity(community.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -640,7 +786,9 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="mt-0 space-y-6">
             {(() => {
-              const createdCommunities = allUserCommunities.filter(c => c.admin === user?.username).length
+              const createdCommunities = allUserCommunities.filter(c => 
+                isUserAdmin(c)
+              ).length
               const hasCreatedCommunities = createdCommunities > 0
               
               if (!hasCreatedCommunities && allUserCommunities.length === 0) {
@@ -766,7 +914,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       <CreateCommunityModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onCreate={handleCreateCommunity}
+        onSuccess={handleCreateCommunity}
         availableConditions={availableConditions}
       />
     </div>

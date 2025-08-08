@@ -9,6 +9,46 @@ const router = express.Router();
 // Get user's communities (created and joined)
 router.get('/user/my-communities', extractUserInfo, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // Check if database is connected
+    if (!Community.db || Community.db.readyState !== 1) {
+      // Return mock data when database is not connected
+      const mockCommunities = [
+        {
+          _id: 'mock1',
+          name: 'Tech Enthusiasts',
+          slug: 'tech-enthusiasts',
+          description: 'A community for technology lovers',
+          isPrivate: false,
+          tags: ['technology', 'programming'],
+          createdBy: { id: req.user!.id, name: req.user!.name, avatar: req.user!.avatar },
+          admins: [],
+          members: [],
+          memberCount: 150,
+          userRole: 'creator',
+          createdAt: new Date().toISOString()
+        },
+        {
+          _id: 'mock2',
+          name: 'Design Community',
+          slug: 'design-community',
+          description: 'Share and discuss design ideas',
+          isPrivate: false,
+          tags: ['design', 'ui-ux'],
+          createdBy: { id: 'other-user', name: 'John Doe', avatar: '' },
+          admins: [],
+          members: [],
+          memberCount: 89,
+          userRole: 'member',
+          createdAt: new Date().toISOString()
+        }
+      ];
+      
+      return res.json({ 
+        communities: mockCommunities,
+        message: 'Using mock data (database not connected)' 
+      });
+    }
+
     const userId = req.user!.id;
     
     // Find communities where user is a member or admin
@@ -25,15 +65,53 @@ router.get('/user/my-communities', extractUserInfo, async (req: AuthenticatedReq
                 community.admins.some((admin: any) => admin.id === userId) ? 'admin' : 'member'
     }));
 
-    res.json({ communities: userCommunities });
+    return res.json({ communities: userCommunities });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user communities' });
+    return;
   }
 });
 
 // Get all communities with search and pagination
 router.get('/', async (req: Request<{}, {}, {}, GetCommunitiesQuery>, res: Response) => {
   try {
+    // Check if database is connected
+    if (!Community.db || Community.db.readyState !== 1) {
+      // Return mock data when database is not connected
+      const mockCommunities = [
+        {
+          _id: 'mock1',
+          name: 'Tech Enthusiasts',
+          slug: 'tech-enthusiasts',
+          description: 'A community for technology lovers',
+          isPrivate: false,
+          tags: ['technology', 'programming'],
+          createdBy: { id: 'user1', name: 'Alice Johnson', avatar: '' },
+          memberCount: 150,
+          createdAt: new Date().toISOString()
+        },
+        {
+          _id: 'mock2',
+          name: 'Design Community',
+          slug: 'design-community',
+          description: 'Share and discuss design ideas',
+          isPrivate: false,
+          tags: ['design', 'ui-ux'],
+          createdBy: { id: 'user2', name: 'John Doe', avatar: '' },
+          memberCount: 89,
+          createdAt: new Date().toISOString()
+        }
+      ];
+      
+      return res.json({ 
+        communities: mockCommunities,
+        totalPages: 1,
+        currentPage: 1,
+        total: mockCommunities.length,
+        message: 'Using mock data (database not connected)' 
+      });
+    }
+
     const { 
       page = '1', 
       limit = '10', 
@@ -67,7 +145,7 @@ router.get('/', async (req: Request<{}, {}, {}, GetCommunitiesQuery>, res: Respo
 
     const total = await Community.countDocuments(query);
 
-    res.json({
+    return res.json({
       communities,
       totalPages: Math.ceil(total / limitNum),
       currentPage: pageNum,
@@ -75,6 +153,7 @@ router.get('/', async (req: Request<{}, {}, {}, GetCommunitiesQuery>, res: Respo
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch communities' });
+    return;
   }
 });
 
@@ -97,19 +176,20 @@ router.get('/:slug', async (req: Request<{ slug: string }>, res: Response) => {
 // Create new community
 router.post('/', extractUserInfo, validateCommunity, async (req: AuthenticatedRequest<{}, {}, CreateCommunityRequest>, res: Response) => {
   try {
-    const { name, description, tags, isPrivate, settings } = req.body;
+    const { title, description, tags, location, isPrivate, settings } = req.body;
     
-    // Generate slug from name
-    const slug = name.toLowerCase()
+    // Generate slug from title
+    const slug = title.toLowerCase()
       .replace(/[^a-z0-9 -]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
 
     const community = new Community({
-      name,
+      title,
       description,
       slug,
       tags,
+      location,
       isPrivate,
       settings,
       createdBy: {
