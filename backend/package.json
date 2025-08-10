@@ -10,7 +10,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "seed:communities": "tsx src/scripts/seedCommunities.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

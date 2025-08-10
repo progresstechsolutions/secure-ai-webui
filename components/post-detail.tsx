@@ -1,17 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, MessageSquare, Flag, Clock, User, Heart, ThumbsUp, Eye, Video, Share2 } from "lucide-react"
 import { logUserActivity } from "@/lib/utils"
+import { useProfilePicture } from "@/hooks/use-profile-picture"
+import { apiClient } from "@/lib/api-client"
+import type { Post } from "@/lib/api-client"
+
+// Helper function to get full image URL
+const getImageUrl = (imagePath: string) => {
+  if (imagePath.startsWith('http')) {
+    return imagePath // Already a full URL
+  }
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001'
+  return `${BACKEND_URL}${imagePath}`
+}
 
 interface PostDetailProps {
-  post: any
+  post: Post | any
   onBack: () => void
   user: any
   onAddComment: (postId: string, comment: any) => void
@@ -33,32 +42,101 @@ export function PostDetail({
   userReactions = {},
   onReactionUpdate,
 }: PostDetailProps) {
+  const { profilePicture } = useProfilePicture()
+  
+  // Helper function to format relative time
+  const formatRelativeTime = (timestamp: string): string => {
+    const now = new Date()
+    const postDate = new Date(timestamp)
+    const diffInMilliseconds = now.getTime() - postDate.getTime()
+    const diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60))
+    const diffInHours = Math.floor(diffInMilliseconds / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMilliseconds / (1000 * 60 * 60 * 24))
+
+    if (diffInMinutes < 1) return "Just now"
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    if (diffInDays === 1) return "1 day ago"
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7)
+      return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`
+    }
+    if (diffInDays < 365) {
+      const months = Math.floor(diffInDays / 30)
+      return months === 1 ? "1 month ago" : `${months} months ago`
+    }
+    const years = Math.floor(diffInDays / 365)
+    return years === 1 ? "1 year ago" : `${years} years ago`
+  }
+
+  // Helper function to safely calculate reaction score
+  const getReactionScore = (post: Post | any): number => {
+    if (!post || !post.reactions || !Array.isArray(post.reactions)) {
+      return 0
+    }
+    return post.reactions.length
+  }
+
   const [newComment, setNewComment] = useState("")
   const [replyText, setReplyText] = useState<Record<string, string>>({})
   const [anonymousComment, setAnonymousComment] = useState(false)
   const [anonymousReply, setAnonymousReply] = useState<Record<string, boolean>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submittingReply, setSubmittingReply] = useState<string | null>(null)
-  const [showReactionPicker, setShowReactionPicker] = useState(false)
+  
+  // Local post state to handle updates
+  const [localPost, setLocalPost] = useState(post)
+  
+  // Update local post when prop changes
+  useEffect(() => {
+    setLocalPost(post)
+  }, [post])
+  
+  // Use localPost for all post data references
+  const currentPost = localPost || post
 
   const handleAddComment = async () => {
     if (newComment.trim() && !isSubmitting) {
       setIsSubmitting(true)
       try {
-        const comment = {
-          id: `c${Date.now()}`,
-          body: newComment.trim(),
-          author: anonymousComment ? "Anonymous" : user?.username || "Guest User",
-          timestamp: "just now",
-          replies: [],
-        }
-        await onAddComment(post.id, comment)
-        logUserActivity(`Commented on post: \"${(post.caption || post.content || '').substring(0, 50)}...\"`);
-        setNewComment("")
-        setAnonymousComment(false)
+        // Make API call to create comment
+        const response = await apiClient.createComment({
+          content: newComment.trim(),
+          postId: currentPost.id || currentPost._id,
+          parentCommentId: undefined
+        })
+        
+        if (response.data) {
+          // Clear the input immediately for better UX
+          setNewComment("")
+          setAnonymousComment(false)
+          
+          // Refetch the complete post with updated comments from the database
+          try {
+            const updatedPostResponse = await apiClient.getPost(currentPost.id || currentPost._id)
+            if (updatedPostResponse.data) {
+              setLocalPost(updatedPostResponse.data)
+              
+              // Also call parent handler for consistency (if needed for parent state)
+              await onAddComment(currentPost.id || currentPost._id, response.data)
+            }
+          } catch (fetchError) {
+            console.error("Failed to refresh post after comment:", fetchError)
+            // Fallback to local state update
+            setLocalPost((prevPost: Post | any) => ({
+              ...prevPost,
+              comments: [...(prevPost.comments || []), response.data],
+              stats: {
+                ...prevPost.stats,
+                totalComments: (prevPost.stats?.totalComments || 0) + 1
+              }
+            }))
+          }
+          
+          logUserActivity(`Commented on post: \"${(currentPost.caption || currentPost.content || '').substring(0, 50)}...\"`);}
       } catch (error) {
-        console.error("Failed to add comment:", error)
-      } finally {
+        console.error("Failed to add comment:", error)} finally {
         setIsSubmitting(false)
       }
     }
@@ -68,32 +146,105 @@ export function PostDetail({
     if (replyText[commentId] && replyText[commentId].trim() && submittingReply !== commentId) {
       setSubmittingReply(commentId)
       try {
-        const reply = {
-          id: `r${Date.now()}`,
-          body: replyText[commentId].trim(),
-          author: anonymousReply[commentId] ? "Anonymous" : user?.username || "Guest User",
-          timestamp: "just now",
-          replies: [],
-        }
-        await onAddReply(post.id, commentId, reply)
-        // Close reply box by removing the entry
-        setReplyText((prev) => {
-          const newState = { ...prev }
-          delete newState[commentId]
-          return newState
+        // Make API call to create reply
+        const response = await apiClient.createComment({
+          content: replyText[commentId].trim(),
+          postId: currentPost.id || currentPost._id,
+          parentCommentId: commentId
         })
-        setAnonymousReply((prev) => ({ ...prev, [commentId]: false }))
+        
+        if (response.data) {
+          // Clear the reply input immediately for better UX
+          setReplyText((prev) => {
+            const newState = { ...prev }
+            delete newState[commentId]
+            return newState
+          })
+          setAnonymousReply((prev) => ({ ...prev, [commentId]: false }))
+          
+          // Refetch the complete post with updated comments from the database
+          try {
+            const updatedPostResponse = await apiClient.getPost(currentPost.id || currentPost._id)
+            if (updatedPostResponse.data) {
+              setLocalPost(updatedPostResponse.data)
+              
+              // Also call parent handler for consistency (if needed for parent state)
+              await onAddReply(currentPost.id || currentPost._id, commentId, response.data)
+            }
+          } catch (fetchError) {
+            console.error("Failed to refresh post after reply:", fetchError)
+            // Fallback to local state update
+            setLocalPost((prevPost: Post | any) => {
+              const updateComments = (comments: any[]): any[] => {
+                return comments.map(comment => {
+                  if (comment.id === commentId || comment._id === commentId) {
+                    return {
+                      ...comment,
+                      replies: [...(comment.replies || []), response.data]
+                    }
+                  }
+                  if (comment.replies && comment.replies.length > 0) {
+                    return {
+                      ...comment,
+                      replies: updateComments(comment.replies)
+                    }
+                  }
+                  return comment
+                })
+              }
+              
+              return {
+                ...prevPost,
+                comments: updateComments(prevPost.comments || []),
+                stats: {
+                  ...prevPost.stats,
+                  totalComments: (prevPost.stats?.totalComments || 0) + 1
+                }
+              }
+            })
+          }}
       } catch (error) {
-        console.error("Failed to add reply:", error)
-      } finally {
+        console.error("Failed to add reply:", error)} finally {
         setSubmittingReply(null)
       }
     }
   }
 
-  const handleReactionSelect = (reactionType: string) => {
-    onReaction(post.id, reactionType)
-    setShowReactionPicker(false)
+  const handleReactionSelect = async (reactionType: string) => {
+    try {
+      const currentReaction = userReaction
+      
+      // Determine if we're removing or adding/changing reaction
+      const isRemoving = currentReaction === reactionType
+      
+      // Update local post reaction count immediately for better UX
+      setLocalPost((prevPost: Post | any) => {
+        const currentTotal = prevPost.stats?.totalReactions || 0
+        const newTotal = isRemoving ? Math.max(0, currentTotal - 1) : currentTotal + 1
+        
+        return {
+          ...prevPost,
+          stats: {
+            ...prevPost.stats,
+            totalReactions: newTotal
+          }
+        }
+      })
+      
+      // Make API call
+      if (isRemoving) {
+        await apiClient.removeReactionFromPost(currentPost.id || currentPost._id)
+      } else {
+        await apiClient.addReactionToPost(currentPost.id || currentPost._id, reactionType as any)
+      }
+      
+      // Also call the parent's reaction handler for state synchronization
+      const newReactionType = isRemoving ? "" : reactionType
+      onReaction(currentPost.id || currentPost._id, newReactionType)
+      
+    } catch (error) {
+      // Revert local state on error
+      setLocalPost(post)}
   }
 
   const reactions = [
@@ -105,8 +256,11 @@ export function PostDetail({
   ]
 
   const renderComments = (comments: any[], level = 0) => {
-    return comments.map((comment) => (
-      <div key={comment.id} className={`${level > 0 ? "ml-8 sm:ml-10" : ""}`}>
+    return comments.map((comment, index) => {
+      const commentId = comment._id || comment.id || `comment-${index}-${level}`
+      
+      return (
+      <div key={commentId} className={`${level > 0 ? "ml-8 sm:ml-10" : ""}`}>
         <div className="flex space-x-3 mb-3">
           {/* User Avatar - Consistent styling */}
           <div className="flex-shrink-0">
@@ -132,7 +286,7 @@ export function PostDetail({
                 </span>
                 <span className="text-xs text-gray-500">{comment.timestamp}</span>
               </div>
-              <p className="text-gray-800 text-sm leading-relaxed">{comment.body}</p>
+              <p className="text-gray-800 text-sm leading-relaxed">{comment.content}</p>
             </div>
             
             {/* Comment Actions */}
@@ -147,10 +301,10 @@ export function PostDetail({
                 onClick={() => {
                   setReplyText((prev) => ({ 
                     ...prev, 
-                    [comment.id]: prev[comment.id] !== undefined ? undefined : "" 
+                    [commentId]: prev[commentId] !== undefined ? undefined : "" 
                   }))
-                  if (!anonymousReply[comment.id]) {
-                    setAnonymousReply((prev) => ({ ...prev, [comment.id]: false }))
+                  if (!anonymousReply[commentId]) {
+                    setAnonymousReply((prev) => ({ ...prev, [commentId]: false }))
                   }
                 }}
                 className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors py-1 px-2 -mx-2 rounded-lg hover:bg-gray-50 min-h-[32px] flex items-center touch-manipulation"
@@ -161,7 +315,7 @@ export function PostDetail({
             </div>
 
             {/* Reply Input */}
-            {replyText[comment.id] !== undefined && (
+            {replyText[commentId] !== undefined && (
               <div className="mt-3 flex space-x-2" role="form" aria-label="Reply to comment">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -175,27 +329,27 @@ export function PostDetail({
                     <input
                       type="text"
                       placeholder="Write a reply..."
-                      value={replyText[comment.id]}
-                      onChange={(e) => setReplyText((prev) => ({ ...prev, [comment.id]: e.target.value }))}
+                      value={replyText[commentId]}
+                      onChange={(e) => setReplyText((prev) => ({ ...prev, [commentId]: e.target.value }))}
                       className="border-none resize-none text-sm p-0 focus:ring-0 focus:outline-none bg-transparent placeholder:text-gray-500 flex-1 h-6 touch-manipulation"
                       aria-label="Reply content"
-                      disabled={submittingReply === comment.id}
+                      disabled={submittingReply === commentId}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey && replyText[comment.id]?.trim()) {
+                        if (e.key === 'Enter' && !e.shiftKey && replyText[commentId]?.trim()) {
                           e.preventDefault()
-                          handleAddReply(comment.id)
+                          handleAddReply(commentId)
                         }
                       }}
                     />
-                    {replyText[comment.id]?.trim() && (
+                    {replyText[commentId]?.trim() && (
                       <Button 
                         size="sm" 
-                        onClick={() => handleAddReply(comment.id)}
-                        disabled={submittingReply === comment.id}
+                        onClick={() => handleAddReply(commentId)}
+                        disabled={submittingReply === commentId}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-6 px-3 rounded-full ml-2 touch-manipulation"
                         aria-label="Submit reply"
                       >
-                        {submittingReply === comment.id ? (
+                        {submittingReply === commentId ? (
                           <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
                         ) : (
                           "Reply"
@@ -203,19 +357,19 @@ export function PostDetail({
                       </Button>
                     )}
                   </div>
-                  {replyText[comment.id]?.trim() && (
+                  {replyText[commentId]?.trim() && (
                     <div className="flex items-center space-x-2 mt-2 ml-4">
                       <Checkbox
-                        id={`anonymous-reply-${comment.id}`}
-                        checked={anonymousReply[comment.id] || false}
+                        id={`anonymous-reply-${commentId}`}
+                        checked={anonymousReply[commentId] || false}
                         onCheckedChange={(checked) => setAnonymousReply((prev) => ({ 
                           ...prev, 
-                          [comment.id]: checked as boolean 
+                          [commentId]: checked as boolean 
                         }))}
                         className="w-4 h-4"
-                        disabled={submittingReply === comment.id}
+                        disabled={submittingReply === commentId}
                       />
-                      <Label htmlFor={`anonymous-reply-${comment.id}`} className="text-xs text-gray-600 cursor-pointer">
+                      <Label htmlFor={`anonymous-reply-${commentId}`} className="text-xs text-gray-600 cursor-pointer">
                         Post anonymously
                       </Label>
                     </div>
@@ -235,10 +389,11 @@ export function PostDetail({
         
         {level === 0 && <div className="mb-4"></div>}
       </div>
-    ))
+      )
+    })
   }
 
-  if (!post) {
+  if (!currentPost) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
@@ -274,10 +429,10 @@ export function PostDetail({
             <div className="flex items-center space-x-3">
               {/* Avatar - Slightly smaller on mobile */}
               <div className="flex-shrink-0">
-                {!post.anonymous ? (
+                {!currentPost.anonymous ? (
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">
-                      {(typeof post.author === 'string' ? post.author : post.author?.name || 'User')?.charAt(0)?.toUpperCase() || 'U'}
+                      {(typeof currentPost.author === 'string' ? currentPost.author : currentPost.author?.name || 'User')?.charAt(0)?.toUpperCase() || 'U'}
                     </span>
                   </div>
                 ) : (
@@ -291,9 +446,9 @@ export function PostDetail({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-1 overflow-hidden">
                   <h3 className="font-semibold text-gray-900 text-sm flex-shrink-0">
-                    {post.anonymous ? "Anonymous" : (typeof post.author === 'string' ? post.author : post.author?.name || 'User')}
+                    {currentPost.anonymous ? "Anonymous" : (typeof currentPost.author === 'string' ? currentPost.author : currentPost.author?.name || 'User')}
                   </h3>
-                  {typeof post.community === 'object' && post.community?.name && (
+                  {typeof currentPost.community === 'object' && currentPost.community?.name && (
                     <>
                       <span className="text-gray-400 flex-shrink-0">•</span>
                       <Button 
@@ -301,17 +456,17 @@ export function PostDetail({
                         className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium hover:underline truncate touch-manipulation p-0 h-auto min-w-0"
                         onClick={() => {
                           // Add navigation logic here if needed
-                          console.log('Navigate to community:', post.community.name)
+                          console.log('Navigate to community:', currentPost.community.name)
                         }}
                       >
-                        {post.community.name}
+                        {currentPost.community.name}
                       </Button>
                     </>
                   )}
                 </div>
                 <div className="flex items-center space-x-1 text-xs text-gray-500 mt-0.5">
                   <Clock className="h-3 w-3" />
-                  <time>{post.timestamp}</time>
+                  <time>{formatRelativeTime(currentPost.timestamp || currentPost.createdAt)}</time>
                 </div>
               </div>
               
@@ -323,45 +478,45 @@ export function PostDetail({
           </div>
 
           {/* Post Content - Better mobile spacing */}
-          {post.caption && post.caption.trim() && (
+          {(currentPost.caption || currentPost.content) && (currentPost.caption || currentPost.content).trim() && (
             <div className="px-3 sm:px-4 py-3">
               <p className="text-gray-900 text-sm leading-relaxed">
-                {post.caption.length > 200 ? (
+                {(currentPost.caption || currentPost.content).length > 200 ? (
                   <>
-                    {post.caption.slice(0, 200)}
+                    {(currentPost.caption || currentPost.content).slice(0, 200)}
                     <span className="text-gray-500">... </span>
                     <span className="text-blue-600 hover:text-blue-700 font-medium">
                       See more
                     </span>
                   </>
                 ) : (
-                  post.caption
+                  currentPost.caption || currentPost.content
                 )}
               </p>
             </div>
           )}
 
           {/* Media */}
-          {post.images && post.images.length > 0 && (
+          {currentPost.images && currentPost.images.length > 0 && (
             <div className="relative">
-              <div className={`${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
-                {post.images.slice(0, 4).map((image: string, index: number) => (
+              <div className={`${currentPost.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
+                {currentPost.images.slice(0, 4).map((image: string, index: number) => (
                   <div 
                     key={index} 
                     className="relative overflow-hidden"
                   >
                     <img
-                      src={image}
+                      src={getImageUrl(image)}
                       alt={`Post image ${index + 1}`}
                       className="w-full h-auto object-cover hover:opacity-95 transition-opacity"
                       style={{ 
-                        maxHeight: post.images && post.images.length === 1 ? '400px' : '160px',
-                        aspectRatio: post.images && post.images.length === 1 ? 'auto' : '1'
+                        maxHeight: currentPost.images && currentPost.images.length === 1 ? '400px' : '160px',
+                        aspectRatio: currentPost.images && currentPost.images.length === 1 ? 'auto' : '1'
                       }}
                     />
-                    {index === 3 && post.images && post.images.length > 4 && (
+                    {index === 3 && currentPost.images && currentPost.images.length > 4 && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="text-white text-lg font-semibold">+{post.images.length - 4}</span>
+                        <span className="text-white text-lg font-semibold">+{currentPost.images.length - 4}</span>
                       </div>
                     )}
                   </div>
@@ -371,10 +526,10 @@ export function PostDetail({
           )}
 
           {/* Videos */}
-          {post.videos && post.videos.length > 0 && (
+          {currentPost.videos && currentPost.videos.length > 0 && (
             <div className="relative">
               <video
-                src={post.videos[0]}
+                src={currentPost.videos[0]}
                 className="w-full h-auto object-cover"
                 controls
                 preload="metadata"
@@ -385,8 +540,8 @@ export function PostDetail({
 
           {/* Engagement Stats */}
           {(() => {
-            const totalReactions = (post.reactions?.heart || 0) + (post.reactions?.thumbsUp || 0) + (post.reactions?.hope || 0) + (post.reactions?.hug || 0) + (post.reactions?.grateful || 0)
-            const hasEngagement = totalReactions > 0 || (post.stats?.totalComments || post.commentCount || 0) > 0
+            const totalReactions = getReactionScore(currentPost)
+            const hasEngagement = totalReactions > 0 || (currentPost.stats?.totalComments || currentPost.commentCount || 0) > 0
             
             return hasEngagement ? (
               <div className="px-4 py-2 border-b border-gray-50">
@@ -394,38 +549,25 @@ export function PostDetail({
                   {totalReactions > 0 && (
                     <div className="flex items-center space-x-1">
                       <div className="flex items-center -space-x-0.5">
-                        {(post.reactions?.heart || 0) > 0 && (
+                        {totalReactions > 0 && (
                           <div className="w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
                             <span className="text-[8px]">❤️</span>
                           </div>
                         )}
-                        {(post.reactions?.thumbsUp || 0) > 0 && (
-                          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                            <span className="text-[8px]">💪</span>
-                          </div>
-                        )}
-                        {(post.reactions?.hope || 0) > 0 && (
-                          <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                            <span className="text-[8px]">🌟</span>
-                          </div>
-                        )}
-                        {(post.reactions?.hug || 0) > 0 && (
-                          <div className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
-                            <span className="text-[8px]">🤗</span>
-                          </div>
-                        )}
-                        {(post.reactions?.grateful || 0) > 0 && (
-                          <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-[8px]">🙏</span>
-                          </div>
-                        )}
+                        {/* Show simplified reaction indicator */}
+                        <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                          <span className="text-[8px]">💪</span>
+                        </div>
+                        <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                          <span className="text-[8px]">🌟</span>
+                        </div>
                       </div>
-                      <span className="ml-1">{totalReactions}</span>
+                      <span className="ml-1">{totalReactions} reaction{totalReactions !== 1 ? 's' : ''}</span>
                     </div>
                   )}
-                  {(post.stats?.totalComments || post.commentCount || 0) > 0 && (
+                  {(currentPost.stats?.totalComments || currentPost.commentCount || 0) > 0 && (
                     <span className="hover:underline cursor-pointer">
-                      {post.stats?.totalComments || post.commentCount} comment{(post.stats?.totalComments || post.commentCount) !== 1 ? 's' : ''}
+                      {currentPost.stats?.totalComments || currentPost.commentCount} comment{(currentPost.stats?.totalComments || currentPost.commentCount) !== 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
@@ -449,20 +591,14 @@ export function PostDetail({
                       : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100'
                   }`}
                   onClick={() => {
-                    const currentReaction = userReaction
-                    if (currentReaction === "heart") {
-                      // If already hearted, remove reaction
-                      onReaction(post.id, "")
-                    } else {
-                      // Otherwise, add heart reaction
-                      onReaction(post.id, "heart")
-                    }
+                    handleReactionSelect("heart")
                   }}
                   onTouchStart={(e) => {
                     // Show reaction picker on mobile long press
                     const button = e.currentTarget;
                     const touchTimer = setTimeout(() => {
-                      setShowReactionPicker(true)
+                      const picker = document.getElementById(`reaction-picker-${currentPost._id || currentPost.id}`)
+                      if (picker) picker.classList.remove('hidden')
                     }, 500);
                     (button as any)._touchTimer = touchTimer;
                   }}
@@ -478,7 +614,8 @@ export function PostDetail({
                       const button = e.currentTarget;
                       const hoverTimer = setTimeout(() => {
                         if (button.matches(':hover')) {
-                          setShowReactionPicker(true)
+                          const picker = document.getElementById(`reaction-picker-${currentPost._id || currentPost.id}`)
+                          if (picker) picker.classList.remove('hidden')
                         }
                       }, 800);
                       (button as any)._hoverTimer = hoverTimer;
@@ -492,7 +629,10 @@ export function PostDetail({
                         (button as any)._hoverTimer = null;
                       }
                       setTimeout(() => {
-                        setShowReactionPicker(false)
+                        const picker = document.getElementById(`reaction-picker-${currentPost._id || currentPost.id}`)
+                        if (picker && !picker.matches(':hover')) {
+                          picker.classList.add('hidden')
+                        }
                       }, 100)
                     }
                   }}
@@ -517,46 +657,43 @@ export function PostDetail({
                 </button>
                 
                 {/* Mobile-Optimized Reaction Picker */}
-                {showReactionPicker && (
-                  <>
-                    {/* Backdrop */}
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowReactionPicker(false)}
-                    />
-                    {/* Reaction Picker */}
-                    <div 
-                      className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-2"
-                      onMouseEnter={() => setShowReactionPicker(true)}
-                      onMouseLeave={() => setShowReactionPicker(false)}
-                      onTouchStart={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center space-x-1">
-                        {[
-                          { emoji: "❤️", type: "heart", label: "Love" },
-                          { emoji: "💪", type: "thumbsUp", label: "Strength" },
-                          { emoji: "🌟", type: "hope", label: "Hope" },
-                          { emoji: "🤗", type: "hug", label: "Hug" },
-                          { emoji: "🙏", type: "grateful", label: "Grateful" }
-                        ].map(({ emoji, type, label }) => (
-                          <button
-                            key={type}
-                            className="w-10 h-10 sm:w-8 sm:h-8 rounded-full hover:scale-125 transition-transform duration-200 flex items-center justify-center text-lg hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              onReaction(post.id, type)
-                              setShowReactionPicker(false)
-                            }}
-                            title={label}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+                <div 
+                  id={`reaction-picker-${currentPost._id || currentPost.id}`}
+                  className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 p-2"
+                  onMouseEnter={() => {
+                    const picker = document.getElementById(`reaction-picker-${currentPost._id || currentPost.id}`)
+                    if (picker) picker.classList.remove('hidden')
+                  }}
+                  onMouseLeave={() => {
+                    const picker = document.getElementById(`reaction-picker-${currentPost._id || currentPost.id}`)
+                    if (picker) picker.classList.add('hidden')
+                  }}
+                  onTouchStart={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center space-x-1">
+                    {[
+                      { emoji: "❤️", type: "heart", label: "Love" },
+                      { emoji: "💪", type: "thumbsUp", label: "Strength" },
+                      { emoji: "🌟", type: "hope", label: "Hope" },
+                      { emoji: "🤗", type: "hug", label: "Hug" },
+                      { emoji: "🙏", type: "grateful", label: "Grateful" }
+                    ].map(({ emoji, type, label }) => (
+                      <button
+                        key={type}
+                        className="w-10 h-10 sm:w-8 sm:h-8 rounded-full hover:scale-125 transition-transform duration-200 flex items-center justify-center text-lg hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleReactionSelect(type)
+                          document.getElementById(`reaction-picker-${currentPost._id || currentPost.id}`)?.classList.add('hidden')
+                        }}
+                        title={label}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               
               {/* Comment Button - Mobile optimized */}
@@ -637,7 +774,7 @@ export function PostDetail({
 
           {/* Comments List */}
           <div className="px-3 sm:px-4 py-4">
-            {post.comments.length === 0 ? (
+            {(!currentPost.comments || currentPost.comments.length === 0) ? (
               <div className="text-center py-8 sm:py-12">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
@@ -647,7 +784,7 @@ export function PostDetail({
               </div>
             ) : (
               <div className="space-y-4" role="list" aria-label="Comments">
-                {renderComments(post.comments)}
+                {renderComments(currentPost.comments || [])}
               </div>
             )}
           </div>

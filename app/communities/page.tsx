@@ -4,11 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { CommunityManagement } from "@/components/community-management"
 import { apiClient, Community } from "@/lib/api-client"
-import { useToast } from "@/hooks/use-toast"
 
 export default function CommunitiesPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [userCommunities, setUserCommunities] = useState<Community[]>([])
   const [allCommunities, setAllCommunities] = useState<Community[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,11 +50,6 @@ export default function CommunitiesPage() {
       } catch (err) {
         console.error('Error fetching communities:', err)
         setError('Failed to load communities. Please try again.')
-        toast({
-          title: "Error",
-          description: "Failed to load communities. Please check your connection.",
-          variant: "destructive",
-        })
       } finally {
         setLoading(false)
       }
@@ -140,11 +133,6 @@ export default function CommunitiesPage() {
         // Update local state
         setUserCommunities(prev => [newJoinedCommunity, ...prev])
         
-        toast({
-          title: "Success",
-          description: `Successfully joined ${community.name}!`,
-        })
-        
         // Dispatch event for other components
         window.dispatchEvent(new CustomEvent('community-updated', { 
           detail: { action: 'joined', community: newJoinedCommunity } 
@@ -152,11 +140,6 @@ export default function CommunitiesPage() {
       }
     } catch (err) {
       console.error('Error joining community:', err)
-      toast({
-        title: "Error",
-        description: `Failed to join ${community.name}. Please try again.`,
-        variant: "destructive",
-      })
     }
   }
 
@@ -167,11 +150,6 @@ export default function CommunitiesPage() {
         // Remove from user communities
         setUserCommunities(prev => prev.filter(c => c._id !== communityId))
         
-        toast({
-          title: "Success",
-          description: "Successfully left the community!",
-        })
-        
         // Dispatch event for other components
         window.dispatchEvent(new CustomEvent('community-updated', { 
           detail: { action: 'left', communityId } 
@@ -179,11 +157,6 @@ export default function CommunitiesPage() {
       }
     } catch (err) {
       console.error('Error leaving community:', err)
-      toast({
-        title: "Error",
-        description: "Failed to leave community. Please try again.",
-        variant: "destructive",
-      })
     }
   }
 
@@ -202,12 +175,7 @@ export default function CommunitiesPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <CommunityManagement
         user={user}
-        mockCommunities={allCommunities.map(convertApiCommunity)}
-        allUserCommunities={userCommunities.map(convertApiCommunity)}
         onBack={() => window.history.back()}
-        onJoinCommunity={handleJoinCommunity}
-        onLeaveCommunity={handleLeaveCommunity}
-        availableConditions={availableConditions}
       />
     </div>
   )

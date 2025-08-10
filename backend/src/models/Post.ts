@@ -25,6 +25,7 @@ const postSchema = new Schema<IPost>({
     required: true
   },
   images: [String],
+  videos: [String],
   attachments: [{
     filename: String,
     originalName: String,

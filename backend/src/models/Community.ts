@@ -10,6 +10,7 @@ export interface ICommunity extends Document {
   };
   tags: string[];  // Genetic conditions
   isPrivate: boolean;
+  isSystemCommunity?: boolean; // Flag to identify system-created communities
   
   // Fields added after creation
   memberCount: number;
@@ -112,6 +113,10 @@ const communitySchema = new Schema<ICommunity>({
   
   // Optional fields
   isPrivate: {
+    type: Boolean,
+    default: false
+  },
+  isSystemCommunity: {
     type: Boolean,
     default: false
   },

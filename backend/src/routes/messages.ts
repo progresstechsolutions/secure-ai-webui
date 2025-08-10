@@ -260,4 +260,61 @@ router.post('/conversations/direct', extractUserInfo, async (req: AuthenticatedR
   }
 });
 
+// Create group conversation
+router.post('/conversations/group', extractUserInfo, async (req: AuthenticatedRequest<{}, {}, CreateGroupConversationRequest>, res: Response) => {
+  try {
+    const { name, participantIds, participantData } = req.body;
+
+    if (!name || !participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+      res.status(400).json({ error: 'Name and participant IDs are required' });
+      return;
+    }
+
+    // Include the creator in participants
+    const allParticipantData = [
+      {
+        id: req.user!.id,
+        name: req.user!.name,
+        email: req.user!.email,
+        avatar: req.user!.avatar,
+        role: 'admin'
+      },
+      ...participantData.map((participant: any) => ({
+        ...participant,
+        role: 'member'
+      }))
+    ];
+
+    const conversation = new Conversation({
+      type: 'group',
+      name: name.trim(),
+      participants: allParticipantData,
+      lastMessage: {
+        content: `Group "${name.trim()}" was created`,
+        sender: {
+          id: req.user!.id,
+          name: req.user!.name
+        },
+        timestamp: new Date(),
+        type: 'text'
+      },
+      settings: {
+        isArchived: false,
+        isMuted: false,
+        allowInvites: true
+      },
+      createdBy: {
+        id: req.user!.id,
+        name: req.user!.name
+      }
+    });
+
+    await conversation.save();
+
+    res.status(201).json(conversation);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create group conversation' });
+  }
+});
+
 export default router;

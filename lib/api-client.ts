@@ -210,6 +210,46 @@ class ApiClient {
     }
   }
 
+  private async requestFormData<T>(
+    endpoint: string,
+    formData: FormData,
+    options: Omit<RequestInit, 'body'> = {}
+  ): Promise<ApiResponse<T>> {
+    try {
+      const user = getMockUser();
+      
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'x-user-id': user.id,
+          'x-user-name': user.name,
+          'x-user-email': user.email,
+          'x-user-avatar': user.avatar || '',
+          // Don't set Content-Type for FormData - let browser handle it
+          ...options.headers,
+        },
+        body: formData,
+        ...options,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error(`API Error ${response.status}:`, data);
+        return {
+          error: data.error || `HTTP ${response.status}`,
+        };
+      }
+
+      return { data };
+    } catch (error) {
+      console.error('API Request failed:', error);
+      return {
+        error: error instanceof Error ? error.message : 'Network error',
+      };
+    }
+  }
+
   // Communities API
   async getCommunities(params?: {
     page?: number;
@@ -388,7 +428,7 @@ class ApiClient {
         if (value !== undefined) queryParams.append(key, value.toString());
       });
     }
-    return this.request(`/comments/post/${postId}?${queryParams}`);
+    return this.request(`/posts/${postId}/comments?${queryParams}`);
   }
 
   async createComment(data: {
@@ -396,28 +436,55 @@ class ApiClient {
     postId: string;
     parentCommentId?: string;
   }): Promise<ApiResponse<Comment>> {
-    return this.request('/comments', {
+    return this.request(`/posts/${data.postId}/comments`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        content: data.content,
+        parentCommentId: data.parentCommentId
+      }),
     });
   }
 
   async updateComment(commentId: string, data: {
     content: string;
   }): Promise<ApiResponse<Comment>> {
-    return this.request(`/comments/${commentId}`, {
+    return this.request(`/posts/comments/${commentId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteComment(commentId: string): Promise<ApiResponse<{ message: string }>> {
-    return this.request(`/comments/${commentId}`, {
+    return this.request(`/posts/comments/${commentId}`, {
       method: 'DELETE',
     });
   }
 
   // Reactions API
+  async addReactionToPost(postId: string, reactionType: 'like' | 'love' | 'laugh' | 'sad' | 'angry' | 'heart' | 'thumbsUp' | 'hope' | 'hug' | 'grateful'): Promise<ApiResponse<{ message: string; reactions: any[] }>> {
+    // Map frontend reaction types to backend types
+    const reactionTypeMap: Record<string, string> = {
+      'heart': 'love',
+      'thumbsUp': 'like', 
+      'hope': 'laugh',
+      'hug': 'love',
+      'grateful': 'love'
+    }
+    
+    const backendType = reactionTypeMap[reactionType] || reactionType
+    
+    return this.request(`/posts/${postId}/reactions`, {
+      method: 'POST',
+      body: JSON.stringify({ type: backendType }),
+    });
+  }
+
+  async removeReactionFromPost(postId: string): Promise<ApiResponse<{ message: string; reactions: any[] }>> {
+    return this.request(`/posts/${postId}/reactions`, {
+      method: 'DELETE',
+    });
+  }
+
   async toggleReaction(data: {
     targetType: 'post' | 'comment';
     targetId: string;
@@ -523,38 +590,37 @@ class ApiClient {
     });
   }
 
+  async createGroupConversation(data: {
+    name: string;
+    participantIds: string[];
+    participantData: any[];
+  }): Promise<ApiResponse<Conversation>> {
+    return this.request('/messages/conversations/group', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Upload API
   async uploadAvatar(file: File): Promise<ApiResponse<{ url: string; filename: string }>> {
     const formData = new FormData();
     formData.append('avatar', file);
 
-    return this.request('/upload/avatar', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Let browser set Content-Type for FormData
-    });
+    return this.requestFormData('/upload/avatar', formData);
   }
 
   async uploadImages(files: File[]): Promise<ApiResponse<{ images: { url: string; filename: string }[] }>> {
     const formData = new FormData();
     files.forEach(file => formData.append('images', file));
 
-    return this.request('/upload/images', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Let browser set Content-Type for FormData
-    });
+    return this.requestFormData('/upload/images', formData);
   }
 
   async uploadFiles(files: File[]): Promise<ApiResponse<{ files: { url: string; filename: string }[] }>> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
 
-    return this.request('/upload/files', {
-      method: 'POST',
-      body: formData,
-      headers: {}, // Let browser set Content-Type for FormData
-    });
+    return this.requestFormData('/upload/files', formData);
   }
 }
 

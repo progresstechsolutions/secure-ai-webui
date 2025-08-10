@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, ArrowRight, ArrowLeft, Check, X, Search, MapPin, Loader2 } from "lucide-react";
 import { useCreateCommunity } from "@/hooks/use-api";
-import { toast } from "@/hooks/use-toast";
 
 interface CreateCommunityModalProps {
   open: boolean;
@@ -91,11 +90,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
 
         const result = await createCommunity(communityData);
         
-        if (result?.data) {
-          toast({
-            title: "Success!",
-            description: "Community created successfully!",
-          });
+        if (result?.data) {;
 
           setSuccess(true);
           setTimeout(() => {
@@ -131,12 +126,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
           errorMessage = error.message;
         }
         
-        setError(errorMessage);
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        setError(errorMessage);;
       }
     }
   };

@@ -27,9 +27,7 @@ import { rateLimitConfig } from './config/rateLimit.js';
 // Routes
 import communityRoutes from './routes/community.js';
 import postRoutes from './routes/posts.js';
-import commentRoutes from './routes/comments.js';
 import friendRoutes from './routes/friends.js';
-import reactionRoutes from './routes/reactions.js';
 import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
 import searchRoutes from './routes/search.js';
@@ -66,14 +64,10 @@ app.use('/uploads', express.static('uploads'));
 // API Routes
 app.use('/api/communities', communityRoutes);
 app.use('/api/posts', postRoutes);
-app.use('/api/comments', commentRoutes);
 app.use('/api/friends', friendRoutes);
-app.use('/api/reactions', reactionRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/search', searchRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/upload', uploadRoutes);
 
 // Health check endpoints
 app.get('/health', (req: Request, res: Response) => {

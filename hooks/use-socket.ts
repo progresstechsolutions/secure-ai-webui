@@ -44,7 +44,7 @@ export interface SocketEvents {
   'notification:new': (notification: any) => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5000';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5001';
 
 export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);

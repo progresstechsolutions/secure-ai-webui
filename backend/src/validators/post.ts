@@ -8,6 +8,8 @@ export const validatePost = (req: Request, res: Response, next: NextFunction): v
     communityId: Joi.string().required(),
     tags: Joi.array().items(Joi.string().max(50)).max(10),
     images: Joi.array().items(Joi.string()).max(5),
+    videos: Joi.array().items(Joi.string()).max(5),
+    isAnonymous: Joi.boolean().optional(),
     attachments: Joi.array().items(Joi.object({
       filename: Joi.string().required(),
       originalName: Joi.string().required(),
@@ -18,6 +20,8 @@ export const validatePost = (req: Request, res: Response, next: NextFunction): v
 
   const { error } = schema.validate(req.body);
   if (error) {
+    console.log('🚫 Post validation failed:', error.details.map(d => d.message));
+    console.log('📊 Request body:', JSON.stringify(req.body, null, 2));
     res.status(400).json({
       error: 'Validation failed',
       details: error.details.map(d => d.message)

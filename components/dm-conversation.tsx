@@ -7,9 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Send, Paperclip, Smile, MoreVertical, ArrowLeft, MessageCircle, Phone, Video, Search, Plus, Edit, X, Users, UserPlus, Check, UserMinus, Bell, LogOut, User } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useNotifications } from "@/contexts/notification-context"
-import { useConversations, useMessages, useSendMessage } from "@/hooks/use-api"
+import { useConversations, useMessages, useSendMessage, useCreateDirectConversation, useCreateGroupConversation, useAvailableUsers, useUploadImages } from "@/hooks/use-api"
 import { useSocket } from "@/hooks/use-socket"
-import { toast } from "@/hooks/use-toast"
 import { Conversation as ApiConversation, Message as ApiMessage } from "@/lib/api-client"
 
 /**
@@ -115,6 +114,10 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const { messages: apiMessages, loading: loadingMessages, refetch: refetchMessages } = useMessages(selectedConversation || '')
   const { sendMessage, loading: sendingMessage } = useSendMessage()
+  const { createDirectConversation, loading: creatingDirectConversation } = useCreateDirectConversation()
+  const { createGroupConversation, loading: creatingGroupConversation } = useCreateGroupConversation()
+  const { friends: availableFriends, loading: loadingFriends } = useAvailableUsers()
+  const { uploadImages, loading: uploadingImages } = useUploadImages()
   const { connected, emit, on } = useSocket()
   
   // UI state
@@ -128,6 +131,8 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -135,6 +140,18 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
   const currentUserId = "66b1e5c8f1d2a3b4c5d6e7f8" // TODO: Get from auth context
   const conversations: Conversation[] = apiConversations.map(conv => convertApiConversationToUIConversation(conv, currentUserId))
   const messages: Message[] = apiMessages.map(msg => convertApiMessageToUIMessage(msg, currentUserId))
+  
+  // Convert friends to available users format
+  const availableUsers = availableFriends.map(friendship => {
+    const friend = friendship.requester.id === currentUserId ? friendship.recipient : friendship.requester
+    return {
+      id: friend.id,
+      name: friend.name,
+      email: friend.email,
+      avatarUrl: friend.avatar || "/placeholder-user.jpg",
+      isOnline: true // TODO: Get real online status from socket
+    }
+  })
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -177,6 +194,20 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
     if (!newMessage.trim() || !selectedConversation || sendingMessage) return
 
     try {
+      // Stop typing indicator before sending
+      if (typingTimeout) {
+        clearTimeout(typingTimeout)
+        setTypingTimeout(null)
+      }
+      if (isTyping && connected) {
+        emit('user:typing', {
+          userId: currentUserId,
+          conversationId: selectedConversation,
+          isTyping: false
+        })
+        setIsTyping(false)
+      }
+
       // Send via API
       await sendMessage(selectedConversation, {
         content: newMessage.trim(),
@@ -198,36 +229,123 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
       await refetchMessages()
       await refetchConversations()
     } catch (error) {
-      toast({
-        title: "Failed to send message",
-        description: "Please try again later.",
-        variant: "destructive",
-      })
+      console.error('Failed to send message:', error)
     }
   }
 
-  const handleCreateGroup = () => {
-    // TODO: Implement group creation via API
-    if (groupName.trim() && selectedUsers.length > 0) {
-      toast({
-        title: "Group creation",
-        description: "Group creation will be implemented with the backend API.",
+  const handleTyping = (message: string) => {
+    setNewMessage(message)
+    
+    if (!selectedConversation || !connected) return
+
+    // Start typing indicator if not already typing
+    if (!isTyping) {
+      emit('user:typing', {
+        userId: currentUserId,
+        conversationId: selectedConversation,
+        isTyping: true
       })
-      setGroupName("")
-      setSelectedUsers([])
-      setShowCreateGroup(false)
+      setIsTyping(true)
+    }
+
+    // Clear existing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout)
+    }
+
+    // Set new timeout to stop typing indicator
+    const timeout = setTimeout(() => {
+      if (connected) {
+        emit('user:typing', {
+          userId: currentUserId,
+          conversationId: selectedConversation,
+          isTyping: false
+        })
+      }
+      setIsTyping(false)
+      setTypingTimeout(null)
+    }, 2000) // Stop typing after 2 seconds of inactivity
+
+    setTypingTimeout(timeout)
+  }
+
+  const handleCreateGroup = async () => {
+    if (groupName.trim() && selectedUsers.length > 0) {
+      try {
+        // Get participant data for selected users
+        const participantData = selectedUsers.map(userName => {
+          const user = availableUsers.find(u => u.name === userName)
+          return {
+            id: user?.id || '',
+            name: user?.name || userName,
+            email: user?.email || '',
+            avatar: user?.avatarUrl || '/placeholder-user.jpg'
+          }
+        }).filter(p => p.id) // Remove any invalid users
+
+        const participantIds = participantData.map(p => p.id)
+
+        const response = await createGroupConversation({
+          name: groupName.trim(),
+          participantIds,
+          participantData
+        })
+
+        if (response?.data) {
+          const newConversation = response.data
+          
+          // Emit group creation event via socket
+          if (connected) {
+            emit('conversation:join', {
+              conversationId: newConversation._id
+            })
+          }
+
+          // Refresh conversations and select the new group
+          await refetchConversations()
+          setSelectedConversation(newConversation._id)
+          
+          // Reset form
+          setGroupName("")
+          setSelectedUsers([])
+          setShowCreateGroup(false)
+        }
+      } catch (error) {
+        console.error('Failed to create group:', error)
+        alert(`Failed to create group: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }
   }
 
   const handleInviteResponse = (invitationId: string, accept: boolean) => {
-    // TODO: Implement invitation response via API
     const response = accept ? "accepted" : "declined"
     updateInvitationStatus(invitationId, response)
+  }
+
+  const handleVoiceCall = () => {
+    if (!selectedConversation || !selectedConv) return
     
-    toast({
-      title: accept ? "Invitation accepted" : "Invitation declined",
-      description: "Real-time invitation handling will be implemented with the backend.",
-    })
+    try {
+      // TODO: Add call events to socket interface
+      // For now, just show a placeholder
+      console.log(`Initiating voice call with ${selectedConv.participantName}`)
+      alert(`Voice call feature coming soon! Would call ${selectedConv.participantName}`)
+    } catch (error) {
+      console.error('Failed to initiate voice call:', error)
+    }
+  }
+
+  const handleVideoCall = () => {
+    if (!selectedConversation || !selectedConv) return
+    
+    try {
+      // TODO: Add call events to socket interface  
+      // For now, just show a placeholder
+      console.log(`Initiating video call with ${selectedConv.participantName}`)
+      alert(`Video call feature coming soon! Would call ${selectedConv.participantName}`)
+    } catch (error) {
+      console.error('Failed to initiate video call:', error)
+    }
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,21 +353,54 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
     if (!file || !selectedConversation) return
 
     try {
-      // TODO: Implement file upload via API
-      await sendMessage(selectedConversation, {
-        content: `📎 Shared file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
-        type: 'text', // TODO: Change to 'file' when file upload is implemented
-      })
+      // Check if it's an image file
+      const isImage = file.type.startsWith('image/')
+      
+      if (isImage) {
+        // Upload image
+        const uploadResult = await uploadImages([file])
+        if (uploadResult?.data?.images && uploadResult.data.images.length > 0) {
+          const imageUrl = uploadResult.data.images[0].url
+          
+          await sendMessage(selectedConversation, {
+            content: `📷 Shared an image: ${file.name}`,
+            type: 'image',
+            attachments: [{
+              url: imageUrl,
+              filename: file.name,
+              size: file.size,
+              mimetype: file.type
+            }]
+          })
+        }
+      } else {
+        // For non-image files, send as file attachment
+        await sendMessage(selectedConversation, {
+          content: `📎 Shared file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`,
+          type: 'file',
+          attachments: [{
+            url: URL.createObjectURL(file), // Temporary URL for display
+            filename: file.name,
+            size: file.size,
+            mimetype: file.type
+          }]
+        })
+      }
+
+      // Emit file share event via socket
+      if (connected) {
+        emit('message:new', {
+          conversationId: selectedConversation,
+          content: isImage ? `📷 Shared an image: ${file.name}` : `📎 Shared file: ${file.name}`,
+          type: isImage ? 'image' : 'file',
+        })
+      }
 
       // Refresh messages
       await refetchMessages()
       await refetchConversations()
     } catch (error) {
-      toast({
-        title: "Failed to share file",
-        description: "Please try again later.",
-        variant: "destructive",
-      })
+      console.error('Failed to upload file:', error)
     }
   }
 
@@ -258,70 +409,126 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
     setShowEmojiPicker(false)
   }
 
-  const handleNewMessage = (userId: string) => {
-    // TODO: Implement new conversation creation via API
-    const user = availableUsers.find(u => u.id === userId)
-    if (user) {
+  const handleNewMessage = async (userId: string) => {
+    try {
+      const user = availableUsers.find(u => u.id === userId)
+      if (!user) return
+
       // Check if conversation already exists
       const existingConv = conversations.find(conv => 
-        conv.type === "direct" && conv.participantName === user.name
+        conv.type === "direct" && 
+        (conv.participantName === user.name || 
+         (conv.participants && conv.participants.includes(user.name)))
       )
       
       if (existingConv) {
         setSelectedConversation(existingConv.id)
       } else {
-        toast({
-          title: "Create conversation",
-          description: "New conversation creation will be implemented with the backend API.",
+        // Create new direct conversation
+        const response = await createDirectConversation({
+          recipientId: user.id,
+          recipientName: user.name,
+          recipientEmail: user.email,
+          recipientAvatar: user.avatarUrl
         })
+
+        if (response?.data) {
+          // Emit conversation join event via socket
+          if (connected) {
+            emit('conversation:join', {
+              conversationId: response.data._id
+            })
+          }
+
+          // Refresh conversations and select the new conversation
+          await refetchConversations()
+          setSelectedConversation(response.data._id)
+        }
       }
       setShowNewMessageModal(false)
+    } catch (error) {
+      console.error('Failed to create conversation:', error)
     }
   }
 
-  const handleInviteToGroup = (userId: string) => {
-    // TODO: Implement group invitation via API
-    const user = availableUsers.find(u => u.id === userId)
-    const selectedConv = conversations.find(conv => conv.id === selectedConversation)
-    
-    if (user && selectedConv && selectedConv.type === "group") {
-      toast({
-        title: "Group invitation",
-        description: "Group invitations will be implemented with the backend API.",
-      })
-      setShowInviteModal(false)
+  const handleInviteToGroup = async (userId: string) => {
+    try {
+      const user = availableUsers.find(u => u.id === userId)
+      const selectedConv = conversations.find(conv => conv.id === selectedConversation)
+      
+      if (user && selectedConv && selectedConv.type === "group") {
+        // TODO: Implement backend API for adding participants to group
+        // For now, just simulate the action
+        console.log(`Inviting ${user.name} to group ${selectedConv.participantName}`)
+        
+        // Emit group invitation via socket
+        if (connected) {
+          emit('conversation:join', {
+            conversationId: selectedConversation
+          })
+        }
+
+        // Create a notification for the UI
+        addGroupInvitation({
+          id: `inv_${Date.now()}`,
+          groupId: selectedConversation || '',
+          groupName: selectedConv.participantName,
+          invitedBy: "You",
+          invitedById: currentUserId,
+          invitedUser: user.name,
+          invitedUserId: user.id,
+          status: "pending",
+          timestamp: new Date().toISOString()
+        })
+        
+        setShowInviteModal(false)
+      }
+    } catch (error) {
+      console.error('Failed to invite user to group:', error)
     }
   }
 
   const handleToggleMute = () => {
     setIsMuted(!isMuted)
     const action = !isMuted ? "muted" : "unmuted"
+    console.log(`${action} conversation with ${selectedConv?.participantName}`)
     // TODO: Implement mute/unmute via API
-    toast({
-      title: `Conversation ${action}`,
-      description: "Mute settings will be implemented with the backend API.",
-    })
   }
 
-  const handleLeaveGroup = () => {
+  const handleLeaveGroup = async () => {
     if (selectedConversation && window.confirm("Are you sure you want to leave this group?")) {
-      // TODO: Implement leave group via API
-      toast({
-        title: "Leave group",
-        description: "Group management will be implemented with the backend API.",
-      })
-      setSelectedConversation(null)
+      try {
+        // TODO: Implement leave group API endpoint
+        console.log(`Left group: ${selectedConv?.participantName}`)
+        
+        // Emit leave event via socket
+        if (connected) {
+          emit('conversation:leave', {
+            conversationId: selectedConversation
+          })
+        }
+        
+        // Refresh conversations and clear selection
+        await refetchConversations()
+        setSelectedConversation(null)
+      } catch (error) {
+        console.error('Failed to leave group:', error)
+      }
     }
   }
 
-  const handleBlockUser = () => {
+  const handleBlockUser = async () => {
     if (selectedConversation && window.confirm("Are you sure you want to block this user?")) {
-      // TODO: Implement block user via API
-      toast({
-        title: "Block user",
-        description: "User blocking will be implemented with the backend API.",
-      })
-      setSelectedConversation(null)
+      try {
+        // TODO: Implement block user API endpoint
+        console.log(`Blocked user: ${selectedConv?.participantName}`)
+        
+        // For now, just remove the conversation from view
+        await refetchConversations()
+        setSelectedConversation(null)
+      } catch (error) {
+        console.error('Failed to block user:', error)
+      }
     }
   }
 
@@ -344,7 +551,6 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
 
   return (
     <div className="h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
-     
 
       {/* Main Content */}
       <div className="flex-1 w-full flex bg-white overflow-hidden min-h-0">
@@ -619,6 +825,7 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
                       variant="ghost" 
                       size="sm" 
                       className="hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm"
+                      onClick={handleVoiceCall}
                     >
                       <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -626,6 +833,7 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
                       variant="ghost" 
                       size="sm" 
                       className="hover:bg-white/60 p-1.5 sm:p-2 rounded-full shadow-sm"
+                      onClick={handleVideoCall}
                     >
                       <Video className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -783,7 +991,7 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
                     <Input
                       placeholder="Type a message..."
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={(e) => handleTyping(e.target.value)}
                       onKeyPress={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault()
@@ -825,10 +1033,14 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
                   </div>
                   <Button 
                     onClick={handleSendMessage} 
-                    disabled={!newMessage.trim()}
+                    disabled={!newMessage.trim() || sendingMessage}
                     className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 disabled:from-gray-300 disabled:to-gray-400 text-white shadow-lg hover:shadow-xl rounded-full h-10 w-10 sm:h-12 sm:w-12 p-0 flex-shrink-0 transition-all duration-200 disabled:cursor-not-allowed"
                   >
-                    <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                    {sendingMessage ? (
+                      <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -932,10 +1144,10 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
               </Button>
               <Button 
                 onClick={handleCreateGroup}
-                disabled={!groupName.trim() || selectedUsers.length === 0}
+                disabled={!groupName.trim() || selectedUsers.length === 0 || creatingGroupConversation}
                 className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
               >
-                Create Group
+                {creatingGroupConversation ? "Creating..." : "Create Group"}
               </Button>
             </div>
           </div>
@@ -1120,11 +1332,11 @@ export function DMInbox({ onBack, onConversationChange, showSidebarHeaderOnMobil
               <div className="flex space-x-2 mt-6">
                 {selectedConv.type === "direct" && (
                   <>
-                    <Button variant="outline" className="flex-1">
+                    <Button variant="outline" className="flex-1" onClick={handleVideoCall}>
                       <Video className="h-4 w-4 mr-2" />
                       Video Call
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button variant="outline" className="flex-1" onClick={handleVoiceCall}>
                       <Phone className="h-4 w-4 mr-2" />
                       Voice Call
                     </Button>

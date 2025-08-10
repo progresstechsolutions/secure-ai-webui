@@ -3,8 +3,26 @@ import Community from '../models/Community.js';
 import { extractUserInfo } from '../middleware/userExtract.js';
 import { validateCommunity } from '../validators/community.js';
 import { AuthenticatedRequest, GetCommunitiesQuery, CreateCommunityRequest, UpdateCommunityRequest, AddAdminRequest, PaginationQuery, User } from '../types/index.js';
+import { seedSystemCommunities } from '../utils/seedCommunities.js';
 
 const router = express.Router();
+
+// Admin endpoint to seed system communities
+router.post('/admin/seed-system-communities', async (req: Request, res: Response) => {
+  try {
+    await seedSystemCommunities();
+    res.json({ 
+      success: true, 
+      message: 'System communities seeded successfully' 
+    });
+  } catch (error) {
+    console.error('Error seeding system communities:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to seed system communities' 
+    });
+  }
+});
 
 // Get user's communities (created and joined)
 router.get('/user/my-communities', extractUserInfo, async (req: AuthenticatedRequest, res: Response) => {

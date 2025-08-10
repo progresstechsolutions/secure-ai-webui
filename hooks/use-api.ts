@@ -420,6 +420,54 @@ export function useSendMessage() {
   return { sendMessage, loading, error };
 }
 
+export function useCreateDirectConversation() {
+  const { loading, error, execute } = useApi<Conversation>();
+
+  const createDirectConversation = useCallback(async (data: {
+    recipientId: string;
+    recipientName: string;
+    recipientEmail: string;
+    recipientAvatar?: string;
+  }) => {
+    return await execute(() => apiClient.createDirectConversation(data));
+  }, [execute]);
+
+  return { createDirectConversation, loading, error };
+}
+
+export function useCreateGroupConversation() {
+  const { loading, error, execute } = useApi<Conversation>();
+
+  const createGroupConversation = useCallback(async (data: {
+    name: string;
+    participantIds: string[];
+    participantData: any[];
+  }) => {
+    return await execute(() => apiClient.createGroupConversation(data));
+  }, [execute]);
+
+  return { createGroupConversation, loading, error };
+}
+
+export function useAvailableUsers() {
+  const { data, loading, error, execute } = useApi<{ friendships: Friendship[]; totalPages: number; currentPage: number; total: number }>();
+
+  const fetchAvailableUsers = useCallback(() => {
+    execute(() => apiClient.getFriends({ status: 'accepted' }));
+  }, [execute]);
+
+  useEffect(() => {
+    fetchAvailableUsers();
+  }, [fetchAvailableUsers]);
+
+  return { 
+    friends: data?.friendships || [],
+    loading, 
+    error, 
+    refetch: fetchAvailableUsers 
+  };
+}
+
 // Upload hooks
 export function useUploadAvatar() {
   const { loading, error, execute } = useApi<{ url: string; filename: string }>();

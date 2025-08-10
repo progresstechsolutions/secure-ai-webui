@@ -1,6 +1,7 @@
 
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
+import { seedSystemCommunities } from '../utils/seedCommunities.js';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const LOCAL_MONGODB_URI = 'mongodb://localhost:27017/secure-ai-webui';
@@ -26,6 +27,9 @@ export const connectDatabase = async (): Promise<void> => {
     logger.info('✅ MongoDB Atlas connected successfully');
     console.log("✅ Connected to MongoDB Atlas! Database:", mongoose.connection.name);
     
+    // Seed system communities after successful connection
+    await seedSystemCommunities();
+    
   } catch (error) {
     logger.error('❌ MongoDB Atlas connection failed:', error);
     console.error('❌ MongoDB Atlas connection failed:', error);
@@ -37,6 +41,9 @@ export const connectDatabase = async (): Promise<void> => {
         await mongoose.connect(LOCAL_MONGODB_URI);
         logger.info('✅ Connected to local MongoDB successfully');
         console.log("✅ Connected to local MongoDB! Database:", mongoose.connection.name);
+        
+        // Seed system communities after successful connection
+        await seedSystemCommunities();
         return;
       } catch (localError) {
         logger.warn('❌ Local MongoDB connection also failed:', localError);

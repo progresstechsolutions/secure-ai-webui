@@ -1,32 +1,19 @@
 import { useState, useEffect } from 'react'
 
 export function useProfilePicture() {
-  const [profilePicture, setProfilePicture] = useState<string>("")
+  const [profilePicture, setProfilePicture] = useState<string>("/placeholder-user.jpg")
 
   useEffect(() => {
-    const userData = localStorage.getItem("user_data")
-    if (userData) {
-      try {
-        const parsed = JSON.parse(userData)
-        setProfilePicture(parsed.profilePicture || "")
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-      }
-    }
+    // Use default profile picture for now since we're using API-only approach
+    // In the future, this would fetch from user profile API
+    setProfilePicture("/placeholder-user.jpg")
   }, [])
 
   const updateProfilePicture = (newPicture: string) => {
-    const userData = localStorage.getItem("user_data")
-    if (userData) {
-      try {
-        const parsed = JSON.parse(userData)
-        const updated = { ...parsed, profilePicture: newPicture }
-        localStorage.setItem("user_data", JSON.stringify(updated))
-        setProfilePicture(newPicture)
-      } catch (error) {
-        console.error("Error updating profile picture:", error)
-      }
-    }
+    // For now, just update local state
+    // In the future, this would call API to update user profile
+    setProfilePicture(newPicture)
+    console.log("Profile picture updated (API integration needed):", newPicture)
   }
 
   return { profilePicture, updateProfilePicture }

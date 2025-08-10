@@ -57,6 +57,7 @@ export interface IPost extends Document {
   author: User;
   community: ICommunity | string;
   images: string[];
+  videos: string[];
   attachments: FileAttachment[];
   tags: string[];
   reactions: Reaction[];
@@ -235,7 +236,9 @@ export interface CreatePostRequest {
   communityId: string;
   tags?: string[];
   images?: string[];
+  videos?: string[];
   attachments?: FileAttachment[];
+  isAnonymous?: boolean;
 }
 
 export interface GetPostsQuery {
@@ -263,7 +266,6 @@ export interface CreateReactionRequest {
 
 export interface CreateCommentRequest {
   content: string;
-  postId: string;
   parentCommentId?: string;
 }
 

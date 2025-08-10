@@ -1,0 +1,1 @@
+{"version":3,"file":"socketHandler.d.ts","sourceRoot":"","sources":["../../src/socket/socketHandler.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,WAAW,CAAC;AAEnC,OAAO,EACL,oBAAoB,EACpB,oBAAoB,EACpB,iBAAiB,EACjB,UAAU,EACX,MAAM,mBAAmB,CAAC;AAE3B,eAAO,MAAM,gBAAgB,GAAI,IAAI,MAAM,CAAC,oBAAoB,EAAE,oBAAoB,EAAE,iBAAiB,EAAE,UAAU,CAAC,SAuJrH,CAAC"}

@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CreateCommunityModal } from "./create-community-modal"
 import { useSearchCommunities, useCreateCommunity, useUserCommunities, useJoinCommunity, useLeaveCommunity } from "@/hooks/use-api"
-import { toast } from "@/hooks/use-toast"
 import { 
   Users, 
   Search, 
@@ -188,42 +187,20 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   const handleJoinCommunity = async (community: Community) => {
     try {
       const result = await joinCommunity(community.id)
-      if (result.data) {
-        toast({
-          title: "Joined Community! 🎉",
-          description: `You've successfully joined ${community.title}.`,
-        })
-        // Refetch user communities to update the UI
+      if (result.data) {// Refetch user communities to update the UI
         refetchUserCommunities()
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to join community. Please try again.",
-        variant: "destructive",
-      })
-    }
+    } catch (error) {}
   }
 
   const handleLeaveCommunity = async (communityId: string) => {
     if (confirm('Are you sure you want to leave this community?')) {
       try {
         const result = await leaveCommunity(communityId)
-        if (result.data) {
-          toast({
-            title: "Left Community",
-            description: "You've successfully left the community.",
-          })
-          // Refetch user communities to update the UI
+        if (result.data) {// Refetch user communities to update the UI
           refetchUserCommunities()
         }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to leave community. Please try again.",
-          variant: "destructive",
-        })
-      }
+      } catch (error) {}
     }
   }
 
@@ -243,14 +220,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       })
 
       if (result.data) {
-        // Show success toast
-        toast({
-          title: "Community Created! 🎉",
-          description: `${result.data.title} is now ready for members. Redirecting to admin dashboard...`,
-          duration: 3000,
-        })
-        
-        // Refetch user communities to update the UI
+        // Show success toast// Refetch user communities to update the UI
         refetchUserCommunities()
         setShowCreateModal(false)
         
@@ -262,13 +232,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
           }
         }, 1500)
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create community. Please try again.",
-        variant: "destructive",
-      })
-    }
+    } catch (error) {}
   }
 
   // Sample data for demo
@@ -315,41 +279,70 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Mobile-First Tab Navigation */}
-          <div className="sticky top-[4.5rem] sm:top-[5rem] z-40 bg-white/95 backdrop-blur-lg rounded-xl sm:rounded-2xl border border-gray-200 shadow-lg mb-4 sm:mb-8">
-            <div className="p-2 sm:p-2">
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-gray-50/80 rounded-lg sm:rounded-xl p-1 gap-1">
-                <TabsTrigger 
-                  value="discover" 
-                  className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-3 rounded-md sm:rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50 text-gray-600 hover:text-blue-600 min-h-[3rem] sm:min-h-[3rem]"
-                >
-                  <Search className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm">Discover</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="my-communities" 
-                  className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-3 rounded-md sm:rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-green-50 text-gray-600 hover:text-green-600 min-h-[3rem] sm:min-h-[3rem]"
-                >
-                  <Users className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm">My</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="managing" 
-                  className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-3 rounded-md sm:rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-purple-50 text-gray-600 hover:text-purple-600 min-h-[3rem] sm:min-h-[3rem]"
-                >
-                  <Crown className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm">Admin</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="analytics" 
-                  className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-3 rounded-md sm:rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-orange-50 text-gray-600 hover:text-orange-600 min-h-[3rem] sm:min-h-[3rem]"
-                >
-                  <TrendingUp className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm">Stats</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-          </div>
+          <div className="relative p-1 sm:p-2">
+  {/* Outer container with gradient + glass */}
+  <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-white/30 shadow-xl backdrop-blur-md bg-white/80">
+    
+    {/* Decorative floating orbs */}
+    <div className="absolute top-2 left-1/4 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-400/10 to-purple-400/10 rounded-full blur-2xl opacity-60 animate-pulse"></div>
+    <div className="absolute bottom-2 right-1/4 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-purple-400/10 to-pink-400/10 rounded-full blur-xl opacity-50 animate-pulse delay-1000"></div>
+
+    {/* Tabs container */}
+    <div className="relative p-2 sm:p-3">
+      <TabsList 
+        className="flex justify-evenly w-full bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl overflow-y-hidden p-1.5 sm:p-2 gap-1.5 sm:gap-2 border border-white/40 shadow-sm"
+      >
+        {/* Discover */}
+        <TabsTrigger
+          value="discover"
+          className="group inline-flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 
+          data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-inner
+          hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 text-gray-700 hover:text-blue-700 min-h-[2.75rem] sm:min-h-[3rem]"
+        >
+          <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm font-medium">Discover</span>
+        </TabsTrigger>
+
+        {/* My Communities */}
+        <TabsTrigger
+          value="my-communities"
+          className="group inline-flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 
+          data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-inner
+          hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-100 text-gray-700 hover:text-green-700 min-h-[2.75rem] sm:min-h-[3rem]"
+        >
+          <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm font-medium hidden sm:inline">My Communities</span>
+          <span className="text-xs font-medium sm:hidden">My</span>
+        </TabsTrigger>
+
+        {/* Managing */}
+        <TabsTrigger
+          value="managing"
+          className="group inline-flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 
+          data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-inner
+          hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-100 text-gray-700 hover:text-purple-700 min-h-[2.75rem] sm:min-h-[3rem]"
+        >
+          <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm font-medium hidden sm:inline">Managing</span>
+          <span className="text-xs font-medium sm:hidden">Admin</span>
+        </TabsTrigger>
+
+        {/* Analytics */}
+        <TabsTrigger
+          value="analytics"
+          className="group inline-flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 
+          data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-inner
+          hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-100 text-gray-700 hover:text-orange-700 min-h-[2.75rem] sm:min-h-[3rem]"
+        >
+          <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm font-medium hidden sm:inline">Analytics</span>
+          <span className="text-xs font-medium sm:hidden">Stats</span>
+        </TabsTrigger>
+      </TabsList>
+    </div>
+  </div>
+</div>
+
 
           {/* Tab Content Container */}
           <div className="w-full min-h-[50vh]">
@@ -709,6 +702,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                           variant="outline"
                           size="sm"
                           className="flex-1 border-gray-200 hover:bg-gray-50 h-8 sm:h-9 text-xs sm:text-sm rounded-lg"
+                          onClick={() => router.push(`/community/${community.slug}`)}
                         >
                           <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                           <span className="hidden sm:inline">Visit</span>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiClient } from "@/lib/api-client";
 import { 
   Users, 
   MessageSquare, 
@@ -25,12 +26,13 @@ import {
   Heart,
   UserPlus,
   Crown,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from "lucide-react";
 import { useUserCommunities } from "@/hooks/use-api";
 
 // Utility function for admin check
-function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, community: any): boolean {
+function isUserAdminOfCommunity(user: { userKey?: string; username?: string; name?: string; email?: string }, community: any): boolean {
   console.log("Admin check - user:", user);
   console.log("Admin check - community:", community);
   
@@ -43,7 +45,9 @@ function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, c
   if (community.admins && Array.isArray(community.admins)) {
     const isAdmin = community.admins.some((admin: any) => 
       admin.name?.toLowerCase() === user.username?.toLowerCase() ||
-      admin.email?.toLowerCase() === user.username?.toLowerCase()
+      admin.email?.toLowerCase() === user.username?.toLowerCase() ||
+      admin.name?.toLowerCase() === user.name?.toLowerCase() ||
+      admin.email?.toLowerCase() === user.email?.toLowerCase()
     );
     if (isAdmin) {
       console.log("Admin check (admins array) - result:", true);
@@ -52,9 +56,11 @@ function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, c
   }
   
   // Check if user is the creator
-  if (community.createdBy && user.username) {
+  if (community.createdBy && (user.username || user.name || user.email)) {
     const isCreator = community.createdBy.name?.toLowerCase() === user.username?.toLowerCase() ||
-                     community.createdBy.email?.toLowerCase() === user.username?.toLowerCase();
+                     community.createdBy.email?.toLowerCase() === user.username?.toLowerCase() ||
+                     community.createdBy.name?.toLowerCase() === user.name?.toLowerCase() ||
+                     community.createdBy.email?.toLowerCase() === user.email?.toLowerCase();
     console.log("Admin check (createdBy) - result:", isCreator);
     return isCreator;
   }
@@ -73,6 +79,8 @@ function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, c
 export default function CommunityAdminPage() {
   const { communityId } = useParams();
   const router = useRouter();
+  
+  // State hooks - must be called before any conditional returns
   const [community, setCommunity] = useState<any>(null);
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState<any>(null);
@@ -92,27 +100,122 @@ export default function CommunityAdminPage() {
     recentActivity: [] as Array<{action: string, user: string, time: string}>
   });
 
-  // Fetch communities from API
+  // Fetch communities from API - must be called before conditional returns
   const { communities, loading: communitiesLoading, error: communitiesError } = useUserCommunities();
 
-  useEffect(() => {
-    // Get user data
-    const storedUser = localStorage.getItem("user");
-    const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
-    let userObj = storedUser ? JSON.parse(storedUser) : null;
+  // All useCallback hooks must be defined before conditional returns
+  const calculateMetrics = useCallback((community: any) => {
+    // Mock metrics calculation - in real app, this would come from your database
+    const creatorName = community?.createdBy?.name || community?.createdBy?.email || "Admin";
+    const memberNames = community.members?.map((m: any) => m.name || m.email) || [];
+    const adminNames = community.admins?.map((a: any) => a.name || a.email) || [];
+    const creatorNameFromCommunity = community.createdBy?.name || community.createdBy?.email;
+    const allMembers = [...new Set([...memberNames, ...adminNames, creatorNameFromCommunity].filter(Boolean))];
     
-    // Merge userKey and username from user_data if available
-    if (userData.userKey && userObj) userObj.userKey = userData.userKey;
-    if (userData.username && userObj) userObj.username = userData.username;
-    
-    if (userObj) {
-      setUser(userObj);
-    } else {
-      setError("User not found. Please log in.");
-      setLoading(false);
-      return;
-    }
+    const mockMetrics = {
+      totalPosts: community.posts || Math.floor(Math.random() * 50) + 10,
+      totalMembers: community.memberCount || allMembers.length + Math.floor(Math.random() * 20),
+      totalViews: Math.floor(Math.random() * 1000) + 200,
+      totalReactions: Math.floor(Math.random() * 200) + 50,
+      weeklyGrowth: Math.floor(Math.random() * 20) - 5, // Can be negative
+      activeMembers: Math.floor(allMembers.length * 0.7),
+      recentActivity: [
+        { action: "New member joined", user: "user123", time: "2 hours ago" },
+        { action: "New post created", user: creatorName, time: "5 hours ago" },
+        { action: "Comment added", user: "member456", time: "1 day ago" },
+        { action: "Post liked", user: "visitor789", time: "2 days ago" },
+      ]
+    };
+    setMetrics(mockMetrics);
+  }, []); // Empty dependency array since we're using parameters
 
+  const handleSave = useCallback(async () => {
+    try {
+      // TODO: Implement community update API call
+      // For now, just update local state
+      setCommunity({ ...community, ...editData });
+      setEditMode(false);
+      // Show success message
+      console.log("Community updated successfully");
+    } catch (error) {
+      console.error("Failed to update community:", error);
+      setError("Failed to update community. Please try again.");
+    }
+  }, [community, editData]);
+
+  const handleDelete = useCallback(async () => {
+    if (!confirm("Are you sure you want to delete this community? This cannot be undone.")) return;
+    
+    try {
+      // TODO: Implement community delete API call
+      // For now, just redirect
+      console.log("Community would be deleted");
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Failed to delete community:", error);
+      setError("Failed to delete community. Please try again.");
+    }
+  }, [router]);
+
+  // Mock member management - TODO: Implement proper API calls
+  const handleAddMember = useCallback(async () => {
+    const newMember = prompt("Enter username to add as member:");
+    if (newMember && !members.includes(newMember)) {
+      try {
+        // TODO: Implement add member API call
+        const updatedMembers = [...members, newMember];
+        setMembers(updatedMembers);
+        console.log("Member added successfully");
+      } catch (error) {
+        console.error("Failed to add member:", error);
+        setError("Failed to add member. Please try again.");
+      }
+    }
+  }, [members]);
+
+  const handleRemoveMember = useCallback(async (username: string) => {
+    if (!confirm(`Remove ${username} from community?`)) return;
+    
+    try {
+      // TODO: Implement remove member API call
+      const updatedMembers = members.filter((m) => m !== username);
+      setMembers(updatedMembers);
+      console.log("Member removed successfully");
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+      setError("Failed to remove member. Please try again.");
+    }
+  }, [members]);
+
+  // Set user data once on mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        // Use the SAME mock user data that the API client uses
+        // This ensures the user data matches the community creator data
+        const mockUser = {
+          id: "66b1e5c8f1d2a3b4c5d6e7f8",
+          name: "John Doe",
+          email: "john.doe@example.com",
+          avatar: "/placeholder-user.jpg",
+          username: "john.doe@example.com" // Add username for admin check
+        };
+        
+        setUser(mockUser);
+      } catch (error) {
+        console.error("Error setting user data:", error);
+        setError("Failed to load user data. Please try again.");
+        setLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, []); // Empty dependency array - only run once on mount
+
+  // Handle community data when communities or user data changes
+  useEffect(() => {
+    if (!user) return; // Wait for user data
+    
     // Find community from API data
     if (communities && communities.length > 0) {
       const found = communities.find((c: any) => c._id === communityId || c.id === communityId);
@@ -125,7 +228,7 @@ export default function CommunityAdminPage() {
         const creatorName = found.createdBy?.name || found.createdBy?.email;
         const allMembers = [...new Set([...memberNames, ...adminNames, creatorName].filter(Boolean))];
         setMembers(allMembers);
-        setIsAdmin(isUserAdminOfCommunity(userObj, found));
+        setIsAdmin(isUserAdminOfCommunity(user, found));
         calculateMetrics(found);
         setLoading(false);
       } else {
@@ -136,28 +239,9 @@ export default function CommunityAdminPage() {
       setError("Failed to load communities. Please try again.");
       setLoading(false);
     }
-  }, [communityId, communities, communitiesLoading, communitiesError]);
+  }, [communityId, communities, communitiesLoading, communitiesError, user]); // Add user to dependencies
 
-  const calculateMetrics = (community: any) => {
-    // Mock metrics calculation - in real app, this would come from your database
-    const creatorName = community?.createdBy?.name || community?.createdBy?.email || "Admin";
-    const mockMetrics = {
-      totalPosts: community.posts || Math.floor(Math.random() * 50) + 10,
-      totalMembers: community.memberCount || members.length + Math.floor(Math.random() * 20),
-      totalViews: Math.floor(Math.random() * 1000) + 200,
-      totalReactions: Math.floor(Math.random() * 200) + 50,
-      weeklyGrowth: Math.floor(Math.random() * 20) - 5, // Can be negative
-      activeMembers: Math.floor(members.length * 0.7),
-      recentActivity: [
-        { action: "New member joined", user: "user123", time: "2 hours ago" },
-        { action: "New post created", user: creatorName, time: "5 hours ago" },
-        { action: "Comment added", user: "member456", time: "1 day ago" },
-        { action: "Post liked", user: "visitor789", time: "2 days ago" },
-      ]
-    };
-    setMetrics(mockMetrics);
-  };
-
+  // Conditional returns after all hooks are defined
   if (loading || communitiesLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
@@ -222,92 +306,54 @@ export default function CommunityAdminPage() {
     );
   }
 
-  const handleSave = async () => {
-    try {
-      // TODO: Implement community update API call
-      // For now, just update local state
-      setCommunity({ ...community, ...editData });
-      setEditMode(false);
-      // Show success message
-      console.log("Community updated successfully");
-    } catch (error) {
-      console.error("Failed to update community:", error);
-      setError("Failed to update community. Please try again.");
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this community? This cannot be undone.")) return;
-    
-    try {
-      // TODO: Implement community delete API call
-      // For now, just redirect
-      console.log("Community would be deleted");
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Failed to delete community:", error);
-      setError("Failed to delete community. Please try again.");
-    }
-  };
-
-  // Mock member management - TODO: Implement proper API calls
-  const handleAddMember = async () => {
-    const newMember = prompt("Enter username to add as member:");
-    if (newMember && !members.includes(newMember)) {
-      try {
-        // TODO: Implement add member API call
-        const updatedMembers = [...members, newMember];
-        setMembers(updatedMembers);
-        console.log("Member added successfully");
-      } catch (error) {
-        console.error("Failed to add member:", error);
-        setError("Failed to add member. Please try again.");
-      }
-    }
-  };
-
-  const handleRemoveMember = async (username: string) => {
-    if (!confirm(`Remove ${username} from community?`)) return;
-    
-    try {
-      // TODO: Implement remove member API call
-      const updatedMembers = members.filter((m) => m !== username);
-      setMembers(updatedMembers);
-      console.log("Member removed successfully");
-    } catch (error) {
-      console.error("Failed to remove member:", error);
-      setError("Failed to remove member. Please try again.");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <header className="bg-white/95 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between">
+            {/* Left Section */}
             <div className="flex items-center space-x-4">
               <Link href="/dashboard" prefetch legacyBehavior>
-                <Button variant="ghost" className="text-gray-600 hover:text-gray-900" asChild>
-                  <a>← Back to Home</a>
+                <Button 
+                  variant="ghost" 
+                  className="text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200" 
+                  asChild
+                >
+                  <a className="flex items-center space-x-2">
+                    <ArrowLeft className="h-4 w-4" />
+                   
+                  </a>
                 </Button>
               </Link>
-              <div className="h-6 w-px bg-gray-300" />
+              
+              {/* Community Info */}
               <div className="flex items-center space-x-3">
-                <Crown className="h-6 w-6 text-amber-500" />
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">{community.title}</h1>
-                  <p className="text-sm text-gray-500">Community Admin Dashboard</p>
+                <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-md">
+                  <Crown className="h-5 w-5 text-white" />
+                </div>
+                <div className="hidden sm:block">
+                  <h1 className="text-lg font-semibold text-gray-800 leading-none">{community.title}</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">Community Administration</p>
                 </div>
               </div>
             </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
-              <Crown className="h-3 w-3 mr-1" />
-              Administrator
-            </Badge>
+
+            {/* Right Section */}
+            <div className="flex items-center space-x-3">
+              <Badge 
+                variant="secondary" 
+                className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-200 font-medium px-3 py-1.5 shadow-sm"
+              >
+                <Crown className="h-3 w-3 mr-1.5" />
+                Administrator
+              </Badge>
+              
+          
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Stats Cards */}
@@ -402,10 +448,7 @@ export default function CommunityAdminPage() {
                       <label className="text-sm font-medium text-gray-700">Community Name</label>
                       <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{community.title}</p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Slug</label>
-                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{community.slug}</p>
-                    </div>
+                    
                     <div className="md:col-span-2">
                       <label className="text-sm font-medium text-gray-700">Description</label>
                       <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{community.description || "No description available"}</p>
