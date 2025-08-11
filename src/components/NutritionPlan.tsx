@@ -662,201 +662,283 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:max-w-7xl lg:px-8 lg:py-8">
+        {/* Desktop Layout - Two Column Grid */}
+        <div className="lg:grid lg:grid-cols-3 lg:gap-8 lg:items-start">
+          {/* Left Column - Search and Quick Actions */}
+          <div className="lg:col-span-1">
+            {/* Search Bar */}
+            <div className="mb-6 lg:mb-8">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search foods, meals, or supplements…"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={handleSearchFocus}
+                  onBlur={handleSearchBlur}
+                  className="w-full px-4 py-3 pl-12 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500 lg:text-base"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
 
-
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search foods, meals, or supplements…"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onFocus={handleSearchFocus}
-              onBlur={handleSearchBlur}
-              className="w-full px-4 py-3 pl-12 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-
-          {showSearchResults && searchQuery.length > 0 && (
-            <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1">
-              {searchResults.length > 0 ? (
-                <ul className="py-2">
-                  {searchResults.map((item) => (
-                    <li
-                      key={item.id}
-                      onClick={() => handleSearchResultClick(item)}
-                      className="flex items-center px-4 py-2 cursor-pointer hover:bg-gray-100 text-sm text-gray-800"
-                    >
-                      <span className="text-base mr-2">{item.icon}</span>
-                      <span>{item.name}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="p-4 text-center text-sm text-gray-500">
-                  No results found for "{searchQuery}". Add your own item?
-                  <button
-                    onClick={handleAddCustomItem}
-                    className="ml-2 text-indigo-600 hover:text-indigo-700 font-medium"
-                  >
-                    Add
-                  </button>
+              {showSearchResults && searchQuery.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1">
+                  {searchResults.length > 0 ? (
+                    <ul className="py-2">
+                      {searchResults.map((item) => (
+                        <li
+                          key={item.id}
+                          onClick={() => handleSearchResultClick(item)}
+                          className="flex items-center px-4 py-2 cursor-pointer hover:bg-gray-100 text-sm text-gray-800"
+                        >
+                          <span className="text-base mr-2">{item.icon}</span>
+                          <span>{item.name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      No results found for "{searchQuery}". Add your own item?
+                      <button
+                        onClick={handleAddCustomItem}
+                        className="ml-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Quick Log Chips */}
-        <div className="mb-6">
-          <div className="flex overflow-x-auto space-x-3 pb-3">
-            {quickLogItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleQuickLog(item)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm flex-shrink-0"
-              >
-                <span className="text-base">{item.icon}</span>
-                <span className="text-gray-700">{item.name}</span>
-                <span className="text-indigo-600 text-lg">+</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Reminders Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">Reminders</h2>
-            <div className="flex items-center space-x-1">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-xs text-gray-500">See what's scheduled for today</span>
-            </div>
-          </div>
-
-          {upcomingReminders.length > 0 ? (
-            <div className="space-y-2">
-              {upcomingReminders.map((reminder) => (
-                <div
-                  key={reminder.id}
-                  className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-xl">{reminder.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{reminder.itemName}</p>
-                      <div className="flex items-center space-x-2 text-xs text-gray-500">
-                        <span>{reminder.scheduledTime}</span>
-                        <span>•</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          reminder.type === 'Medication' ? 'bg-red-100 text-red-700' :
-                          reminder.type === 'Nutrition' ? 'bg-blue-100 text-blue-700' :
-                          'bg-purple-100 text-purple-700'
-                        }`}>
-                          {reminder.type}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+            {/* Quick Log Chips */}
+            <div className="mb-6 lg:mb-8">
+              <h3 className="text-base font-semibold text-gray-900 mb-3 lg:text-lg lg:mb-4">Quick Log</h3>
+              <div className="flex flex-wrap gap-2 lg:flex-col lg:gap-3">
+                {quickLogItems.map((item) => (
                   <button
-                    onClick={() => handleMarkReminderDone(reminder.id)}
-                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                    aria-label="Mark as done"
+                    key={item.id}
+                    onClick={() => handleQuickLog(item)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm flex-shrink-0 lg:rounded-lg lg:justify-start"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                    <span className="text-base">{item.icon}</span>
+                    <span className="text-gray-700">{item.name}</span>
+                    <span className="text-indigo-600 text-lg">+</span>
                   </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reminders Section */}
+            <div className="mb-6 lg:mb-8">
+              <div className="flex items-center justify-between mb-3 lg:mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 lg:text-xl">Reminders</h2>
+                <div className="flex items-center space-x-1">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-xs text-gray-500 lg:text-sm">See what's scheduled for today</span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 text-center">
-              <p className="text-sm text-gray-500">No reminders scheduled for today.</p>
-            </div>
-          )}
+              </div>
 
-          <button
-            onClick={handleViewAllReminders}
-            className="mt-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center space-x-1"
-          >
-            <span>View all reminders</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+              {upcomingReminders.length > 0 ? (
+                <div className="space-y-2 lg:space-y-3">
+                  {upcomingReminders.map((reminder) => (
+                    <div
+                      key={reminder.id}
+                      className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 flex items-center justify-between lg:p-4"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-xl">{reminder.icon}</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 lg:text-base">{reminder.itemName}</p>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500 lg:text-sm">
+                            <span>{reminder.scheduledTime}</span>
+                            <span>•</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              reminder.type === 'Medication' ? 'bg-red-100 text-red-700' :
+                              reminder.type === 'Nutrition' ? 'bg-blue-100 text-blue-700' :
+                              'bg-purple-100 text-purple-700'
+                            }`}>
+                              {reminder.type}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleMarkReminderDone(reminder.id)}
+                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                        aria-label="Mark as done"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 text-center lg:p-6">
+                  <p className="text-sm text-gray-500 lg:text-base">No reminders scheduled for today.</p>
+                </div>
+              )}
 
-
-
-        {/* AI-Powered Suggestion/Tip Banner */}
-        {showAISuggestion && (
-          <div className="mb-8">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100 relative">
               <button
-                onClick={() => setShowAISuggestion(false)}
-                className="absolute top-2 right-2 p-1 text-blue-400 hover:text-blue-600 transition-colors"
-                aria-label="Dismiss suggestion"
+                onClick={handleViewAllReminders}
+                className="mt-3 text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center space-x-1 lg:text-base"
               >
+                <span>View all reminders</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              
-              <div className="pr-6">
-                <p className="text-sm text-blue-800 mb-3">
-                  Based on Jamie's recent logs, consider adding more leafy greens this week for better iron absorption.
-                </p>
-                <div className="flex items-center space-x-3">
+            </div>
+          </div>
+
+          {/* Right Column - AI Suggestions and Content */}
+          <div className="lg:col-span-2">
+            {/* AI-Powered Suggestion/Tip Banner */}
+            {showAISuggestion && (
+              <div className="mb-8 lg:mb-10">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100 relative lg:p-6">
                   <button
-                    onClick={() => {
-                      setSearchQuery('spinach');
-                      setShowAISuggestion(false);
-                    }}
-                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full hover:bg-blue-700 transition-colors font-medium"
+                    onClick={() => setShowAISuggestion(false)}
+                    className="absolute top-2 right-2 p-1 text-blue-400 hover:text-blue-600 transition-colors"
+                    aria-label="Dismiss suggestion"
                   >
-                    Log Now
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
-                  <button
-                    onClick={() => {
-                      setSearchQuery('leafy greens');
-                      setShowAISuggestion(false);
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    See Meal Ideas
-                  </button>
+                  
+                  <div className="pr-6">
+                    <p className="text-sm text-blue-800 mb-3 lg:text-base lg:mb-4">
+                      Based on Jamie's recent logs, consider adding more leafy greens this week for better iron absorption.
+                    </p>
+                    <div className="flex items-center space-x-3 lg:space-x-4">
+                      <button
+                        onClick={() => {
+                          setSearchQuery('spinach');
+                          setShowAISuggestion(false);
+                        }}
+                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full hover:bg-blue-700 transition-colors font-medium lg:text-sm lg:px-4 lg:py-2"
+                      >
+                        Log Now
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSearchQuery('leafy greens');
+                          setShowAISuggestion(false);
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium lg:text-sm"
+                      >
+                        See Meal Ideas
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Nutrition Progress Section - Desktop Layout */}
+            <div className="hidden lg:block mb-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Daily Nutrition Progress</h3>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Calories and Protein */}
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <CalorieIcon />
+                        <span className="font-medium text-gray-900">Calories</span>
+                      </div>
+                      <span className="text-sm text-gray-500">{nutritionData.calories.current}/{nutritionData.calories.target} {nutritionData.calories.unit}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${getProgressColor(calculateProgress(nutritionData.calories.current, nutritionData.calories.target))}`}
+                        style={{ width: `${calculateProgress(nutritionData.calories.current, nutritionData.calories.target)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <ProteinIcon />
+                        <span className="font-medium text-gray-900">Protein</span>
+                      </div>
+                      <span className="text-sm text-gray-500">{nutritionData.protein.current}/{nutritionData.protein.target} {nutritionData.protein.unit}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${getProgressColor(calculateProgress(nutritionData.protein.current, nutritionData.protein.target))}`}
+                        style={{ width: `${calculateProgress(nutritionData.protein.current, nutritionData.protein.target)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Water and Fiber */}
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <WaterIcon />
+                        <span className="font-medium text-gray-900">Water</span>
+                      </div>
+                      <span className="text-sm text-gray-500">{nutritionData.water.current}/{nutritionData.water.target} {nutritionData.water.unit}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${getProgressColor(calculateProgress(nutritionData.water.current, nutritionData.water.target))}`}
+                        style={{ width: `${calculateProgress(nutritionData.water.current, nutritionData.water.target)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <FiberIcon />
+                        <span className="font-medium text-gray-900">Fiber</span>
+                      </div>
+                      <span className="text-sm text-gray-500">{nutritionData.fiber.current}/{nutritionData.fiber.target} {nutritionData.fiber.unit}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${getProgressColor(calculateProgress(nutritionData.fiber.current, nutritionData.fiber.target))}`}
+                        style={{ width: `${calculateProgress(nutritionData.fiber.current, nutritionData.fiber.target)}%` }}
+                      ></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Recent Entries Section - Always visible below main content */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8 lg:max-w-7xl lg:px-8 lg:pb-12">
         <div className="bg-white rounded-xl border border-gray-200 shadow-lg">
           {/* Section Header */}
-          <div className="px-6 py-4 border-b border-gray-100">
-            <div className="flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-100 lg:px-8 lg:py-6">
+            <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
               <div className="flex items-center space-x-2">
-                <span className="text-lg font-semibold text-gray-900">Recent Entries</span>
-                <span className="text-sm text-gray-500">({nutritionHistory.length} entries)</span>
+                <span className="text-lg font-semibold text-gray-900 lg:text-xl">Recent Entries</span>
+                <span className="text-sm text-gray-500 lg:text-base">({nutritionHistory.length} entries)</span>
               </div>
               <div className="relative">
                 <select 
                   value={historyTimeFilter}
                   onChange={(e) => handleHistoryTimeFilterChange(e.target.value)}
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-3 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-gray-400 transition-colors min-h-[44px]"
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-3 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-gray-400 transition-colors min-h-[44px] lg:text-base"
                   aria-label="Filter entries by time period"
                 >
                   <option value="7days">Past 7 days</option>
@@ -877,7 +959,7 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
           {/* Recent Entries Timeline */}
           <div className="divide-y divide-gray-100">
             {getFilteredHistory().slice(0, 4).map((entry) => (
-              <div key={entry.id} className="px-6 py-4 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+              <div key={entry.id} className="px-6 py-4 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 lg:px-8 lg:py-6">
                 <div className="flex items-start space-x-3">
                   {/* Item Icon */}
                   <div className="flex-shrink-0 mt-1">
@@ -886,9 +968,9 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
                   
                   {/* Entry Details */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-col space-y-2 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 lg:mb-2">
                       <div className="flex items-center space-x-2">
-                        <h5 className="text-sm font-medium text-gray-900">
+                        <h5 className="text-sm font-medium text-gray-900 lg:text-base">
                           {entry.itemName}
                         </h5>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -901,12 +983,12 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
                           {entry.mealType}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                      <span className="text-xs text-gray-500 flex-shrink-0 lg:text-sm">
                         {entry.timeTaken}
                       </span>
                     </div>
                     
-                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                    <div className="flex items-center space-x-2 text-xs text-gray-500 lg:text-sm">
                       <span>{entry.amount}</span>
                       {entry.dose && (
                         <>
@@ -935,14 +1017,14 @@ const NutritionPlan: React.FC<NutritionPlanProps> = ({ onBack, onNavigateToRecip
 
           {/* Empty State */}
           {getFilteredHistory().length === 0 && (
-            <div className="px-6 py-8 text-center">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3" aria-hidden="true">
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="px-6 py-8 text-center lg:px-8 lg:py-12">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 lg:w-16 lg:h-16 lg:mb-4" aria-hidden="true">
+                <svg className="w-6 h-6 text-gray-400 lg:w-8 lg:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h4 className="text-sm font-medium text-gray-900 mb-1">No entries yet</h4>
-              <p className="text-sm text-gray-500">Start logging nutrition to see your history here - every entry helps your care team</p>
+              <h4 className="text-sm font-medium text-gray-900 mb-1 lg:text-base lg:mb-2">No entries yet</h4>
+              <p className="text-sm text-gray-500 lg:text-base">Start logging nutrition to see your history here - every entry helps your care team</p>
             </div>
           )}
         </div>

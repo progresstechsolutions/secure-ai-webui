@@ -1101,40 +1101,38 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
   }, [lazyLoadedCharts]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-4 md:py-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-4 md:py-6 lg:py-8">
       {/* Responsive Container */}
-      <div className={responsiveClasses.container}>
+      <div className={`${responsiveClasses.container} lg:max-w-7xl lg:mx-auto`}>
         {/* Main Card Container */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden"
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden lg:rounded-3xl"
              style={{ 
                maxHeight: isMobile ? 'calc(100vh - 2rem)' : 'calc(100vh - 4rem)',
                height: isMobile ? 'calc(100vh - 2rem)' : 'auto'
              }}>
           {/* Processing Indicator */}
           {isProcessing && (
-            <div className="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 max-w-sm">
+            <div className="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 max-w-sm lg:top-8 lg:right-8">
               <div className="flex items-center space-x-3">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">AI Processing</p>
-                  <p className="text-xs text-gray-600">{processingMessage}</p>
+                  <p className="text-sm font-medium text-gray-900 lg:text-base">AI Processing</p>
+                  <p className="text-xs text-gray-600 lg:text-sm">{processingMessage}</p>
                 </div>
               </div>
             </div>
           )}
 
-
-
           {/* Scrollable Content Area - Now Includes Header */}
-          <div className={`overflow-y-auto ${isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[calc(100vh-100px)]'} pb-8`}>
+          <div className={`overflow-y-auto ${isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[calc(100vh-100px)]'} pb-8 lg:pb-12`}>
             {/* Enhanced Header - Now Scrollable */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8">
-              <div className="flex items-center justify-between mb-4">
-                <h1 className="text-3xl font-bold text-white">Growth & Development</h1>
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8 lg:px-12 lg:py-12">
+              <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 lg:mb-6">
+                <h1 className="text-3xl font-bold text-white lg:text-4xl">Growth & Development</h1>
                 {onBack && (
                   <button
                     onClick={onBack}
-                    className="text-white hover:text-indigo-200 font-medium flex items-center space-x-2 transition-colors"
+                    className="text-white hover:text-indigo-200 font-medium flex items-center space-x-2 transition-colors lg:text-lg"
                   >
                     <span>←</span>
                     <span>Back</span>
@@ -1143,11 +1141,11 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
               </div>
               
               {/* User Flow Guidance */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 mb-4">
-                <div className="flex items-center justify-between text-white">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 mb-4 lg:p-4 lg:mb-6">
+                <div className="flex flex-col space-y-2 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 text-white">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm">👀</span>
-                    <span className="text-sm font-medium">
+                    <span className="text-sm lg:text-base">👀</span>
+                    <span className="text-sm font-medium lg:text-base">
                       {userFlowStep === 'overview' && 'See Progress at a Glance'}
                       {userFlowStep === 'domain' && 'Drill Down by Domain'}
                       {userFlowStep === 'update' && 'Update Progress'}
@@ -1157,115 +1155,144 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
                       {userFlowStep === 'feedback' && 'Give Feedback'}
                     </span>
                   </div>
-                  <div className="text-xs opacity-75">
+                  <div className="text-xs opacity-75 lg:text-sm">
                     Step {interactionCount + 1} of your session
                   </div>
                 </div>
               </div>
               
               {/* Child Profile Information */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-white">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 lg:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 text-white">
                   <div>
-                    <div className="text-sm font-medium text-indigo-200">Child's Name</div>
-                    <div className="text-lg font-semibold">{childProfile.name}</div>
+                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Child's Name</div>
+                    <div className="text-lg font-semibold lg:text-xl">{childProfile.name}</div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-indigo-200">Age</div>
-                    <div className="text-lg font-semibold">{childProfile.age}</div>
+                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Age</div>
+                    <div className="text-lg font-semibold lg:text-xl">{childProfile.age}</div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-indigo-200">Condition</div>
-                    <div className="text-lg font-semibold">{childProfile.condition}</div>
+                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Condition</div>
+                    <div className="text-lg font-semibold lg:text-xl">{childProfile.condition}</div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-indigo-200">Last Updated</div>
-                    <div className="text-lg font-semibold">{childProfile.lastUpdated}</div>
+                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Last Updated</div>
+                    <div className="text-lg font-semibold lg:text-xl">{childProfile.lastUpdated}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 space-y-8">
+            <div className="p-6 space-y-8 lg:px-12 lg:py-12 lg:space-y-12">
               {/* Progress Overview Section */}
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-3"></span>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 lg:text-2xl lg:mb-6 flex items-center">
+                  <span className="w-2 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-3 lg:w-3 lg:h-8"></span>
                   Progress Overview
                 </h2>
                 
                 {/* Dual Baseline Progress Bars */}
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-6 mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Development Progress</h3>
-                    <div className="relative group">
-                      <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                        ℹ️ Sources
-                      </button>
-                      <div className="absolute bottom-full right-0 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        Benchmarked against CDC/WHO and PMS research (see sources)
-                        <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {/* Typical Progress Bar */}
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-700">Typical Development</span>
-                        <span className="text-sm font-semibold text-blue-600">{progressData.typicalProgress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${progressData.typicalProgress}%` }}
-                        ></div>
-                      </div>
-                    </div>
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-6 mb-6 lg:p-8 lg:mb-8">
+                  <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 lg:mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 lg:text-xl">Development Progress</h3>
                     
-                    {/* PMS-Specific Progress Bar */}
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-700">PMS-Specific Development</span>
-                        <span className="text-sm font-semibold text-purple-600">{progressData.pmsProgress}%</span>
+                    {/* Desktop Layout - Side by Side Progress */}
+                    <div className="hidden lg:grid lg:grid-cols-2 lg:gap-8 lg:w-2/3">
+                      {/* Typical Development Progress */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Typical Development</span>
+                          <span className="text-sm text-gray-500">{progressData.typicalProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-blue-500 h-3 rounded-full transition-all duration-500"
+                            style={{ width: `${progressData.typicalProgress}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Age {progressData.currentAge} months → Target: {progressData.targetAge} months
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div 
-                          className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full transition-all duration-1000 ease-out"
-                          style={{ width: `${progressData.pmsProgress}%` }}
-                        ></div>
+
+                      {/* PMS Development Progress */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">PMS Development</span>
+                          <span className="text-sm text-gray-500">{progressData.pmsProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-purple-500 h-3 rounded-full transition-all duration-500"
+                            style={{ width: `${progressData.pmsProgress}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Current: {progressData.currentAge} months → Target: {progressData.targetAge} months
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="mt-4 text-center">
-                    <span className="text-sm text-gray-600">
-                      Age: {progressData.currentAge} years → Target: {progressData.targetAge} years
-                    </span>
+
+                    {/* Mobile Layout - Stacked Progress */}
+                    <div className="lg:hidden space-y-4">
+                      {/* Typical Development Progress */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Typical Development</span>
+                          <span className="text-sm text-gray-500">{progressData.typicalProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${progressData.typicalProgress}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Age {progressData.currentAge} months → Target: {progressData.targetAge} months
+                        </div>
+                      </div>
+
+                      {/* PMS Development Progress */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">PMS Development</span>
+                          <span className="text-sm text-gray-500">{progressData.pmsProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-purple-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${progressData.pmsProgress}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Current: {progressData.currentAge} months → Target: {progressData.targetAge} months
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Milestone Badges */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="text-2xl mr-2">🏆</span>
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm lg:p-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6 flex items-center">
+                    <span className="text-2xl mr-2 lg:text-3xl">🏆</span>
                     Recent Achievements
                   </h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
                     {recentBadges.map((badge) => (
                       <div 
                         key={badge.id} 
-                        className={`p-4 rounded-lg border-2 ${getCategoryColor(badge.category)} hover:scale-105 transition-transform cursor-pointer`}
+                        className={`p-4 rounded-lg border-2 ${getCategoryColor(badge.category)} hover:scale-105 transition-transform cursor-pointer lg:p-5`}
                       >
                         <div className="flex items-center space-x-3">
-                          <span className="text-2xl">{badge.icon}</span>
+                          <span className="text-2xl lg:text-3xl">{badge.icon}</span>
                           <div className="flex-1">
-                            <div className="font-semibold">{badge.title}</div>
-                            <div className="text-sm opacity-75">{badge.date}</div>
+                            <div className="font-semibold lg:text-base">{badge.title}</div>
+                            <div className="text-sm opacity-75 lg:text-base">{badge.date}</div>
                           </div>
-                          <div className="text-xs font-medium capitalize">
+                          <div className="text-xs font-medium capitalize lg:text-sm">
                             {badge.category}
                           </div>
                         </div>
@@ -1274,13 +1301,13 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
                   </div>
                   
                   {/* Celebrate Wins Animation Trigger */}
-                  <div className="mt-6 text-center">
+                  <div className="mt-6 text-center lg:mt-8">
                     <button 
                       onClick={() => {
                         setUserFlowStep('update');
                         setInteractionCount(prev => prev + 1);
                       }}
-                      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg lg:px-8 lg:py-4 lg:text-lg ${
                         userFlowStep === 'overview' 
                           ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white hover:from-yellow-500 hover:to-orange-600 animate-pulse' 
                           : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white hover:from-yellow-500 hover:to-orange-600'
@@ -1294,8 +1321,8 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
 
               {/* Input & Observation Section */}
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-orange-500 to-red-500 rounded-full mr-3"></span>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 lg:text-2xl lg:mb-6 flex items-center">
+                  <span className="w-2 h-6 bg-gradient-to-b from-orange-500 to-red-500 rounded-full mr-3 lg:w-3 lg:h-8"></span>
                   Input & Observation
                 </h2>
                 
@@ -1304,11 +1331,11 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
                   {/* Panel Header */}
                   <button
                     onClick={() => setIsObservationPanelExpanded(!isObservationPanelExpanded)}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors lg:px-8 lg:py-6"
                   >
                     <div className="flex items-center space-x-3">
-                      <span className="text-2xl">📝</span>
-                      <span className="font-semibold text-gray-900">Add Observations & Updates</span>
+                      <span className="text-2xl lg:text-3xl">📝</span>
+                      <span className="font-semibold text-gray-900 lg:text-lg">Add Observations & Updates</span>
                     </div>
                     <span className={`text-gray-500 transition-transform duration-200 ${isObservationPanelExpanded ? 'rotate-180' : ''}`}>
                       ▼
@@ -1317,65 +1344,68 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
 
                   {/* Panel Content */}
                   {isObservationPanelExpanded && (
-                    <div className="px-6 pb-6 space-y-6">
-                      {/* Adaptive Survey Button */}
-                      <div className={`rounded-lg p-4 border transition-all duration-300 ${
-                        userFlowStep === 'update' 
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-lg' 
-                          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-                      }`}>
-                        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                          <span className="text-xl mr-2">📊</span>
-                          Quick Assessment
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Update Emma's progress with a short, dynamic survey (Vineland/M-CHAT style, 3-5 questions max per session).
-                        </p>
-                        <button
-                          onClick={handleUpdateProgressClick}
-                          className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Update Progress
-                        </button>
-                      </div>
-
-                      {/* Journaling Prompt */}
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
-                        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                          <span className="text-xl mr-2">✍️</span>
-                          Daily Observations
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-3">Anything new or different? (Optional)</p>
-                        <textarea
-                          value={journalEntry}
-                          onChange={(e) => setJournalEntry(e.target.value)}
-                          placeholder="Share your observations about Emma's development, behavior, or achievements..."
-                          className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          rows={3}
-                        />
-                        <div className="mt-3 flex justify-between items-center">
-                          <span className="text-xs text-gray-500">
-                            AI/NLP analysis will provide insights and suggestions
-                          </span>
+                    <div className="px-6 pb-6 space-y-6 lg:px-8 lg:pb-8 lg:space-y-8">
+                      {/* Desktop Layout - Two Column Grid */}
+                      <div className="lg:grid lg:grid-cols-2 lg:gap-8">
+                        {/* Adaptive Survey Button */}
+                        <div className={`rounded-lg p-4 border transition-all duration-300 lg:p-6 ${
+                          userFlowStep === 'update' 
+                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-lg' 
+                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+                        }`}>
+                          <h3 className="font-semibold text-gray-900 mb-3 flex items-center lg:text-lg lg:mb-4">
+                            <span className="text-xl mr-2 lg:text-2xl">📊</span>
+                            Quick Assessment
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-4 lg:text-base lg:mb-6">
+                            Update Emma's progress with a short, dynamic survey (Vineland/M-CHAT style, 3-5 questions max per session).
+                          </p>
                           <button
-                            onClick={handleJournalSubmit}
-                            disabled={!journalEntry.trim()}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            onClick={handleUpdateProgressClick}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors lg:px-8 lg:py-3 lg:text-base"
                           >
-                            Save Entry
+                            Update Progress
                           </button>
+                        </div>
+
+                        {/* Journaling Prompt */}
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 lg:p-6">
+                          <h3 className="font-semibold text-gray-900 mb-3 flex items-center lg:text-lg lg:mb-4">
+                            <span className="text-xl mr-2 lg:text-2xl">✍️</span>
+                            Daily Observations
+                          </h3>
+                          <p className="text-sm text-gray-600 mb-3 lg:text-base lg:mb-4">Anything new or different? (Optional)</p>
+                          <textarea
+                            value={journalEntry}
+                            onChange={(e) => setJournalEntry(e.target.value)}
+                            placeholder="Share your observations about Emma's development, behavior, or achievements..."
+                            className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent lg:p-4 lg:text-base"
+                            rows={3}
+                          />
+                          <div className="mt-3 flex flex-col space-y-3 lg:flex-row lg:justify-between lg:items-center lg:space-y-0">
+                            <span className="text-xs text-gray-500 lg:text-sm">
+                              AI/NLP analysis will provide insights and suggestions
+                            </span>
+                            <button
+                              onClick={handleJournalSubmit}
+                              disabled={!journalEntry.trim()}
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed lg:px-6 lg:py-3 lg:text-base"
+                            >
+                              Save Entry
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Media Upload */}
-                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
-                        <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                          <span className="text-xl mr-2">📹</span>
+                      {/* Media Upload - Full Width */}
+                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200 lg:p-6">
+                        <h3 className="font-semibold text-gray-900 mb-3 flex items-center lg:text-lg lg:mb-4">
+                          <span className="text-xl mr-2 lg:text-2xl">📹</span>
                           Media Capture
                         </h3>
-                        <p className="text-sm text-gray-600 mb-3">Add a video or audio clip</p>
+                        <p className="text-sm text-gray-600 mb-3 lg:text-base lg:mb-4">Add a video or audio clip</p>
                         
-                        <div className="border-2 border-dashed border-purple-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
+                        <div className="border-2 border-dashed border-purple-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors lg:p-8 lg:text-lg lg:text-gray-600 lg:font-medium">
                           <input
                             type="file"
                             accept="video/*,audio/*"
@@ -1483,19 +1513,19 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
 
               {/* Domain Details Section */}
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-green-500 to-blue-500 rounded-full mr-3"></span>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 lg:text-2xl lg:mb-6 flex items-center">
+                  <span className="w-2 h-6 bg-gradient-to-b from-green-500 to-blue-500 rounded-full mr-3 lg:w-3 lg:h-8"></span>
                   Domain Details
                 </h2>
                 
                 {/* Tab Navigation */}
-                <div className="bg-white rounded-xl border border-gray-200 p-2 mb-6">
-                  <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'flex-wrap gap-2'}`}>
+                <div className="bg-white rounded-xl border border-gray-200 p-2 mb-6 lg:p-4 lg:mb-8">
+                  <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'flex-wrap gap-2'} lg:flex-row lg:space-y-0 lg:gap-3`}>
                     {domains.map((domain) => (
                       <button
                         key={domain.id}
                         onClick={() => handleDomainTabClick(domain.id)}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 lg:px-6 lg:py-3 lg:text-base ${
                           activeTab === domain.id
                             ? 'bg-indigo-600 text-white shadow-md'
                             : userFlowStep === 'domain'
@@ -1503,7 +1533,7 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
-                        <span className="text-lg">{domain.icon}</span>
+                        <span className="text-lg lg:text-xl">{domain.icon}</span>
                         <span>{domain.name}</span>
                       </button>
                     ))}
@@ -1512,26 +1542,26 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
 
                 {/* Active Domain Content */}
                 {activeDomain && (
-                  <div className="space-y-6">
+                  <div className="space-y-6 lg:space-y-8">
                     {/* Spider Chart / Heatmap */}
-                    <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-gray-200 p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <span className="text-2xl mr-2">{activeDomain.icon}</span>
+                    <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-gray-200 p-6 lg:p-8">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6 flex items-center">
+                        <span className="text-2xl mr-2 lg:text-3xl">{activeDomain.icon}</span>
                         {activeDomain.name} Development Snapshot
                       </h3>
                       
-                      <div className={`grid ${responsiveClasses.grid} gap-6`}>
+                      <div className={`grid ${responsiveClasses.grid} gap-6 lg:gap-8`}>
                         {/* Strengths */}
                         <div>
-                          <h4 className="font-semibold text-green-700 mb-3 flex items-center">
-                            <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                          <h4 className="font-semibold text-green-700 mb-3 lg:mb-4 flex items-center lg:text-lg">
+                            <span className="w-3 h-3 bg-green-500 rounded-full mr-2 lg:w-4 lg:h-4"></span>
                             Strengths
                           </h4>
-                          <div className="space-y-2">
+                          <div className="space-y-2 lg:space-y-3">
                             {activeDomain.strengths.map((strength, index) => (
                               <div key={index} className="flex items-center space-x-2">
-                                <span className="text-green-500">✓</span>
-                                <span className="text-gray-700">{strength}</span>
+                                <span className="text-green-500 lg:text-lg">✓</span>
+                                <span className="text-gray-700 lg:text-base">{strength}</span>
                               </div>
                             ))}
                           </div>
@@ -1539,15 +1569,15 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
                         
                         {/* Challenges */}
                         <div>
-                          <h4 className="font-semibold text-orange-700 mb-3 flex items-center">
-                            <span className="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
+                          <h4 className="font-semibold text-orange-700 mb-3 lg:mb-4 flex items-center lg:text-lg">
+                            <span className="w-3 h-3 bg-orange-500 rounded-full mr-2 lg:w-4 lg:h-4"></span>
                             Areas for Growth
                           </h4>
-                          <div className="space-y-2">
+                          <div className="space-y-2 lg:space-y-3">
                             {activeDomain.challenges.map((challenge, index) => (
                               <div key={index} className="flex items-center space-x-2">
-                                <span className="text-orange-500">→</span>
-                                <span className="text-gray-700">{challenge}</span>
+                                <span className="text-orange-500 lg:text-lg">→</span>
+                                <span className="text-gray-700 lg:text-base">{challenge}</span>
                               </div>
                             ))}
                           </div>
@@ -1556,15 +1586,15 @@ const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({
                     </div>
 
                     {/* Timeline Mini-Chart */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Progress Timeline</h3>
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 lg:p-8">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6">Progress Timeline</h3>
                       <LazyChart />
-                      <div className="space-y-4 mt-4">
+                      <div className="space-y-4 mt-4 lg:space-y-6 lg:mt-6">
                         {activeDomain.progressData.timeline.map((point, index) => (
                           <div key={index} className="flex items-center space-x-4">
-                            <div className="w-16 text-sm font-medium text-gray-600">{point.date}</div>
+                            <div className="w-16 text-sm font-medium text-gray-600 lg:w-20 lg:text-base">{point.date}</div>
                             <div className="flex-1 space-y-2">
-                              <div className="flex justify-between text-xs text-gray-500">
+                              <div className="flex justify-between text-xs text-gray-500 lg:text-sm">
                                 <span>Typical: {point.typical}%</span>
                                 <span>PMS: {point.pms}%</span>
                               </div>

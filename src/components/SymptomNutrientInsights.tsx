@@ -218,7 +218,7 @@ const SymptomNutrientInsights: React.FC<SymptomNutrientInsightsProps> = ({
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+      <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 lg:px-8 lg:py-4">
         <div className="flex items-center space-x-3">
           <button
             onClick={onBack}
@@ -228,36 +228,36 @@ const SymptomNutrientInsights: React.FC<SymptomNutrientInsightsProps> = ({
           </button>
           <div className="flex items-center space-x-2">
             <LightbulbIcon />
-            <h1 className="text-lg font-semibold text-gray-900">Symptom Insights</h1>
+            <h1 className="text-lg font-semibold text-gray-900 lg:text-xl">Symptom Insights</h1>
           </div>
         </div>
       </header>
 
       {/* Symptom Summary */}
-      <div className="px-4 py-4 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      <div className="px-4 py-4 bg-white border-b border-gray-200 lg:px-8 lg:py-6">
+        <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{symptomName}</h2>
-            <p className="text-sm text-gray-500">Logged on {date}</p>
+            <h2 className="text-xl font-semibold text-gray-900 lg:text-2xl">{symptomName}</h2>
+            <p className="text-sm text-gray-500 lg:text-base">Logged on {date}</p>
           </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-medium ${getSeverityColor(severity)}`}>
+          <div className={`px-3 py-1 rounded-full text-sm font-medium lg:text-base lg:px-4 lg:py-2 ${getSeverityColor(severity)}`}>
             {getSeverityText(severity)} ({severity}/5)
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="px-4 py-6">
+      <main className="px-4 py-6 lg:px-8 lg:py-8 lg:max-w-7xl lg:mx-auto">
         {/* Educational Header */}
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+        <div className="mb-6 lg:mb-8">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 lg:p-6">
             <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center lg:w-10 lg:h-10">
                 <BookIcon />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Why Nutrition Matters</h3>
-                <p className="text-xs text-gray-600">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1 lg:text-base">Why Nutrition Matters</h3>
+                <p className="text-xs text-gray-600 lg:text-sm">
                   {symptomName} can be influenced by nutrient deficiencies. Understanding these connections helps you make informed dietary choices.
                 </p>
               </div>
@@ -266,99 +266,101 @@ const SymptomNutrientInsights: React.FC<SymptomNutrientInsightsProps> = ({
         </div>
 
         {/* Nutrient Insights */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Key Nutrients for {symptomName}</h3>
+        <div className="space-y-4 lg:space-y-6">
+          <h3 className="text-lg font-semibold text-gray-900 lg:text-xl">Key Nutrients for {symptomName}</h3>
           
-          {insights.map((insight, index) => (
-            <div 
-              key={insight.nutrient}
-              className={`bg-white rounded-lg p-4 shadow-sm border-2 transition-all cursor-pointer ${
-                selectedNutrient === insight.nutrient 
-                  ? 'border-indigo-300 shadow-md' 
-                  : 'border-gray-200 hover:border-gray-300'
-              } ${getPriorityColor(insight.priority)}`}
-              onClick={() => setSelectedNutrient(selectedNutrient === insight.nutrient ? null : insight.nutrient)}
-            >
-              {/* Nutrient Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    {insight.icon}
-                    <h4 className="font-semibold text-gray-900">{insight.nutrient}</h4>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+            {insights.map((insight, index) => (
+              <div 
+                key={insight.nutrient}
+                className={`bg-white rounded-lg p-4 shadow-sm border-2 transition-all cursor-pointer lg:p-6 ${
+                  selectedNutrient === insight.nutrient 
+                    ? 'border-indigo-300 shadow-md' 
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${getPriorityColor(insight.priority)}`}
+                onClick={() => setSelectedNutrient(selectedNutrient === insight.nutrient ? null : insight.nutrient)}
+              >
+                {/* Nutrient Header */}
+                <div className="flex items-start justify-between mb-3 lg:mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      {insight.icon}
+                      <h4 className="font-semibold text-gray-900 lg:text-lg">{insight.nutrient}</h4>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium lg:text-sm ${
+                      insight.priority === 'high' ? 'bg-red-100 text-red-700' :
+                      insight.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      {insight.priority} priority
+                    </span>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    insight.priority === 'high' ? 'bg-red-100 text-red-700' :
-                    insight.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-green-100 text-green-700'
-                  }`}>
-                    {insight.priority} priority
-                  </span>
+                  <ArrowRightIcon />
                 </div>
-                <ArrowRightIcon />
-              </div>
 
-              {/* Basic Description */}
-              <p className="text-sm text-gray-600 mb-3">{insight.description}</p>
+                {/* Basic Description */}
+                <p className="text-sm text-gray-600 mb-3 lg:text-base lg:mb-4">{insight.description}</p>
 
-              {/* Expanded Details */}
-              {selectedNutrient === insight.nutrient && (
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-                  {/* Scientific Basis */}
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-900 mb-2">Scientific Basis</h5>
-                    <p className="text-xs text-gray-600 leading-relaxed">{insight.scientificBasis}</p>
-                  </div>
+                {/* Expanded Details */}
+                {selectedNutrient === insight.nutrient && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 space-y-4 lg:mt-6 lg:pt-6 lg:space-y-6">
+                    {/* Scientific Basis */}
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900 mb-2 lg:text-base">Scientific Basis</h5>
+                      <p className="text-xs text-gray-600 leading-relaxed lg:text-sm">{insight.scientificBasis}</p>
+                    </div>
 
-                  {/* Food Sources */}
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-900 mb-2">Best Food Sources</h5>
-                    <div className="flex flex-wrap gap-2">
-                      {insight.foodSources.map((food, idx) => (
-                        <span 
-                          key={idx}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                        >
-                          {food}
-                        </span>
-                      ))}
+                    {/* Food Sources */}
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900 mb-2 lg:text-base">Best Food Sources</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {insight.foodSources.map((food, idx) => (
+                          <span 
+                            key={idx}
+                            className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full lg:text-sm"
+                          >
+                            {food}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Daily Recommendation */}
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900 mb-1 lg:text-base">Daily Recommendation</h5>
+                      <p className="text-xs text-gray-600 lg:text-sm">{insight.dailyRecommendation}</p>
                     </div>
                   </div>
-
-                  {/* Daily Recommendation */}
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-900 mb-1">Daily Recommendation</h5>
-                    <p className="text-xs text-gray-600">{insight.dailyRecommendation}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Action Section */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Take Action</h3>
+        <div className="mt-8 pt-6 border-t border-gray-200 lg:mt-12 lg:pt-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6">Take Action</h3>
           
-          <div className="grid grid-cols-1 gap-3">
-            <button className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition-colors">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
+            <button className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition-colors lg:py-4 lg:px-6 lg:text-base">
               View Recipes Rich in These Nutrients
             </button>
             
-            <button className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition-colors">
+            <button className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg text-sm font-medium transition-colors lg:py-4 lg:px-6 lg:text-base">
               Add to Nutrition Plan
             </button>
             
-            <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg text-sm font-medium transition-colors">
+            <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg text-sm font-medium transition-colors lg:py-4 lg:px-6 lg:text-base">
               Set Reminder to Check Progress
             </button>
           </div>
         </div>
 
         {/* Additional Resources */}
-        <div className="mt-6">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Learn More</h4>
-            <div className="space-y-2 text-xs text-gray-600">
+        <div className="mt-6 lg:mt-8">
+          <div className="bg-gray-50 rounded-lg p-4 lg:p-6">
+            <h4 className="text-sm font-medium text-gray-900 mb-2 lg:text-base lg:mb-3">Learn More</h4>
+            <div className="space-y-2 text-xs text-gray-600 lg:text-sm">
               <p>• Track your nutrient intake to see if you're meeting daily recommendations</p>
               <p>• Consider working with a healthcare provider for personalized advice</p>
               <p>• Monitor symptom changes as you adjust your nutrition</p>

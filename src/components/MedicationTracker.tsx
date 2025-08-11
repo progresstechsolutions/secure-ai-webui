@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 // Back arrow icon component
 const BackArrowIcon = () => (
@@ -19,9 +19,29 @@ interface MedicationEntry {
   notes?: string;
 }
 
+interface Reminder {
+  id: string;
+  type: 'medication' | 'appointment';
+  name: string;
+  dose?: string;
+  time: string;
+  icon: string;
+  status: 'pending' | 'taken' | 'missed';
+  notes?: string;
+  location?: string;
+  repeatSchedule: string;
+  timesPerDay: string[];
+  startDate: string;
+  endDate: string;
+  method: string;
+  nextDose: string;
+  everyXHours?: string;
+}
+
 const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // State management
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
   const [showAISuggestion, setShowAISuggestion] = useState(true);
   const [currentStep, setCurrentStep] = useState<'search' | 'log' | 'confirm'>('search');
@@ -29,6 +49,10 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedNotes, setSelectedNotes] = useState<string>('');
   const [historyTimeFilter, setHistoryTimeFilter] = useState('7days');
+  
+  // Search dropdown state
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   
   // History section state
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
@@ -74,12 +98,29 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isSaving, setIsSaving] = useState(false);
 
+  // Set Reminder modal state
+  const [showSetReminderModal, setShowSetReminderModal] = useState(false);
+  const [reminderMedication, setReminderMedication] = useState<string>('');
+  const [reminderRepeatSchedule, setReminderRepeatSchedule] = useState<string>('daily');
+  const [reminderSpecificDays, setReminderSpecificDays] = useState<string[]>([]);
+  const [reminderEveryXHours, setReminderEveryXHours] = useState<string>('24');
+  const [reminderTimesPerDay, setReminderTimesPerDay] = useState<string[]>(['breakfast']);
+  const [reminderCustomTime, setReminderCustomTime] = useState<string>('');
+  const [reminderStartDate, setReminderStartDate] = useState<string>(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [reminderEndDate, setReminderEndDate] = useState<string>('');
+  const [reminderMethod, setReminderMethod] = useState<string>('in_app');
+  const [reminderNotes, setReminderNotes] = useState<string>('');
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
+
   // Mock AI suggestions - would be provided by backend/AI
   const mockSuggestions = [
     {
       id: '1',
       type: 'refill' as const,
-      message: "You're due for a refill on Iron Supplement.",
+      message: "You're due for a refill on Clobazam.",
       icon: '🔔',
       action: 'Request refill',
       priority: 'high' as const
@@ -87,7 +128,7 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     {
       id: '2',
       type: 'compliance' as const,
-      message: "Great job! You've taken Vitamin D consistently for 7 days.",
+      message: "Great job! You've taken Levetiracetam (Keppra) consistently for 7 days.",
       icon: '💡',
       action: 'View progress',
       priority: 'low' as const
@@ -103,7 +144,7 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     {
       id: '4',
       type: 'interaction' as const,
-      message: "Consider taking Iron Supplement with Vitamin C for better absorption.",
+      message: "Consider taking Clobazam with food to reduce stomach upset.",
       icon: '💊',
       action: 'Learn more',
       priority: 'medium' as const
@@ -114,9 +155,9 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [medicationHistory, setMedicationHistory] = useState<MedicationEntry[]>([
     {
       id: '1',
-      medicationName: 'Iron Supplement',
-      dosage: '15mg',
-      frequency: 'Once daily',
+      medicationName: 'Clobazam',
+      dosage: '10mg',
+      frequency: 'Twice daily',
       timeTaken: '9:00 AM',
       date: '2024-01-15',
       icon: '💊',
@@ -125,9 +166,9 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     },
     {
       id: '2',
-      medicationName: 'Vitamin D',
-      dosage: '1000 IU',
-      frequency: 'Once daily',
+      medicationName: 'Levetiracetam (Keppra)',
+      dosage: '500mg',
+      frequency: 'Twice daily',
       timeTaken: '9:00 AM',
       date: '2024-01-15',
       icon: '💊',
@@ -135,19 +176,19 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     },
     {
       id: '3',
-      medicationName: 'Multivitamin',
-      dosage: '1 tablet',
-      frequency: 'Once daily',
-      timeTaken: '9:00 AM',
+      medicationName: 'Melatonin',
+      dosage: '3mg',
+      frequency: 'Once daily at bedtime',
+      timeTaken: '9:00 PM',
       date: '2024-01-14',
-      icon: '💊',
+      icon: '🌙',
       status: 'taken'
     },
     {
       id: '4',
-      medicationName: 'Iron Supplement',
-      dosage: '15mg',
-      frequency: 'Once daily',
+      medicationName: 'Clobazam',
+      dosage: '10mg',
+      frequency: 'Twice daily',
       timeTaken: '9:00 AM',
       date: '2024-01-14',
       icon: '💊',
@@ -156,51 +197,116 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   ]);
 
-  // Mock medication database
+  // Mock medication database - Complete 50 medications list
   const medicationDatabase = [
-    { name: 'Iron Supplement', dosage: '15mg', frequency: 'Once daily' },
-    { name: 'Vitamin D', dosage: '1000 IU', frequency: 'Once daily' },
-    { name: 'Multivitamin', dosage: '1 tablet', frequency: 'Once daily' },
-    { name: 'Calcium', dosage: '500mg', frequency: 'Twice daily' },
-    { name: 'Omega-3', dosage: '1000mg', frequency: 'Once daily' },
-    { name: 'Probiotic', dosage: '1 capsule', frequency: 'Once daily' },
-    { name: 'Zinc', dosage: '10mg', frequency: 'Once daily' },
-    { name: 'Vitamin C', dosage: '500mg', frequency: 'Once daily' }
+    // Antiepileptic / Seizure Medications
+    { name: 'Clobazam', dosage: '10mg', frequency: 'Twice daily' },
+    { name: 'Levetiracetam (Keppra)', dosage: '500mg', frequency: 'Twice daily' },
+    { name: 'Valproic Acid (Depakote)', dosage: '250mg', frequency: 'Twice daily' },
+    { name: 'Lamotrigine (Lamictal)', dosage: '25mg', frequency: 'Once daily' },
+    { name: 'Topiramate (Topamax)', dosage: '25mg', frequency: 'Twice daily' },
+    { name: 'Oxcarbazepine (Trileptal)', dosage: '300mg', frequency: 'Twice daily' },
+    { name: 'Carbamazepine (Tegretol)', dosage: '200mg', frequency: 'Twice daily' },
+    { name: 'Gabapentin (Neurontin)', dosage: '300mg', frequency: 'Three times daily' },
+    { name: 'Lacosamide (Vimpat)', dosage: '50mg', frequency: 'Twice daily' },
+    { name: 'Ethosuximide (Zarontin)', dosage: '250mg', frequency: 'Twice daily' },
+    
+    // Sleep Aids / Melatonin Modulators
+    { name: 'Melatonin', dosage: '3mg', frequency: 'Once daily at bedtime' },
+    { name: 'Clonidine', dosage: '0.1mg', frequency: 'Twice daily' },
+    { name: 'Trazodone', dosage: '25mg', frequency: 'Once daily at bedtime' },
+    { name: 'Mirtazapine', dosage: '15mg', frequency: 'Once daily at bedtime' },
+    { name: 'Hydroxyzine', dosage: '25mg', frequency: 'As needed' },
+    
+    // Behavioral / Mood Stabilizers
+    { name: 'Risperidone (Risperdal)', dosage: '0.5mg', frequency: 'Twice daily' },
+    { name: 'Aripiprazole (Abilify)', dosage: '2mg', frequency: 'Once daily' },
+    { name: 'Quetiapine (Seroquel)', dosage: '25mg', frequency: 'Twice daily' },
+    { name: 'Olanzapine (Zyprexa)', dosage: '2.5mg', frequency: 'Once daily' },
+    { name: 'Lithium', dosage: '300mg', frequency: 'Twice daily' },
+    { name: 'Ziprasidone', dosage: '20mg', frequency: 'Twice daily' },
+    { name: 'Lurasidone (Latuda)', dosage: '20mg', frequency: 'Once daily' },
+    
+    // Stimulants / ADHD-Related
+    { name: 'Methylphenidate (Ritalin, Concerta)', dosage: '10mg', frequency: 'Once daily' },
+    { name: 'Amphetamine/Dextroamphetamine (Adderall)', dosage: '5mg', frequency: 'Once daily' },
+    { name: 'Lisdexamfetamine (Vyvanse)', dosage: '20mg', frequency: 'Once daily' },
+    { name: 'Atomoxetine (Strattera)', dosage: '25mg', frequency: 'Once daily' },
+    { name: 'Guanfacine', dosage: '1mg', frequency: 'Once daily' },
+    
+    // Anxiety / Depression / OCD
+    { name: 'Sertraline (Zoloft)', dosage: '25mg', frequency: 'Once daily' },
+    { name: 'Fluoxetine (Prozac)', dosage: '10mg', frequency: 'Once daily' },
+    { name: 'Citalopram (Celexa)', dosage: '10mg', frequency: 'Once daily' },
+    { name: 'Escitalopram (Lexapro)', dosage: '5mg', frequency: 'Once daily' },
+    { name: 'Buspirone', dosage: '5mg', frequency: 'Twice daily' },
+    { name: 'Duloxetine (Cymbalta)', dosage: '20mg', frequency: 'Once daily' },
+    
+    // GI & Motility Support (Common in PMS)
+    { name: 'Polyethylene Glycol (MiraLAX)', dosage: '17g', frequency: 'Once daily' },
+    { name: 'Lactulose', dosage: '15ml', frequency: 'Twice daily' },
+    { name: 'Senna', dosage: '8.6mg', frequency: 'Once daily' },
+    { name: 'Docusate Sodium', dosage: '100mg', frequency: 'Once daily' },
+    { name: 'Ranitidine', dosage: '75mg', frequency: 'Twice daily' },
+    { name: 'Famotidine (Pepcid)', dosage: '10mg', frequency: 'Twice daily' },
+    { name: 'Omeprazole (Prilosec)', dosage: '20mg', frequency: 'Once daily' },
+    { name: 'Esomeprazole (Nexium)', dosage: '20mg', frequency: 'Once daily' },
+    
+    // Other Neurological / Supportive Medications
+    { name: 'Baclofen', dosage: '10mg', frequency: 'Three times daily' },
+    { name: 'Diazepam', dosage: '2mg', frequency: 'As needed' },
+    { name: 'Clonazepam', dosage: '0.25mg', frequency: 'Twice daily' },
+    { name: 'Midazolam', dosage: '5mg', frequency: 'Emergency use only' },
+    { name: 'Propranolol', dosage: '10mg', frequency: 'Twice daily' },
+    
+    // Targeted / Investigational
+    { name: 'Insulin-like Growth Factor-1 (IGF-1)', dosage: 'Varies', frequency: 'As prescribed' },
+    { name: 'Ketamine', dosage: 'Varies', frequency: 'As prescribed' },
+    { name: 'Bumetanide', dosage: '0.5mg', frequency: 'Once daily' },
+    { name: 'Cannabidiol (Epidiolex)', dosage: '5mg/kg', frequency: 'Twice daily' }
   ];
 
-  // Quick log items - would be provided by backend/AI
+  // Quick log items - Show only 3-4 medications initially
   const quickLogItems = [
-    { id: '1', name: 'Iron Supplement', icon: '💊', type: 'medication', recentlyUsed: true, popular: true },
-    { id: '2', name: 'Vitamin D', icon: '💊', type: 'medication', recentlyUsed: true, popular: false },
-    { id: '3', name: 'Magnesium', icon: '🌿', type: 'supplement', recentlyUsed: false, popular: true },
-    { id: '4', name: 'Multivitamin', icon: '💊', type: 'medication', recentlyUsed: true, popular: false },
-    { id: '5', name: 'Omega-3', icon: '🌿', type: 'supplement', recentlyUsed: false, popular: true },
-    { id: '6', name: 'Calcium', icon: '💊', type: 'medication', recentlyUsed: true, popular: false },
-    { id: '7', name: 'Probiotic', icon: '🌿', type: 'supplement', recentlyUsed: false, popular: true },
-    { id: '8', name: 'Zinc', icon: '💊', type: 'medication', recentlyUsed: true, popular: false }
+    { id: '1', name: 'Clobazam', icon: '💊', type: 'medication', recentlyUsed: true, popular: true },
+    { id: '2', name: 'Levetiracetam (Keppra)', icon: '💊', type: 'medication', recentlyUsed: true, popular: false },
+    { id: '3', name: 'Melatonin', icon: '🌙', type: 'medication', recentlyUsed: false, popular: true },
+    { id: '4', name: 'Risperidone (Risperdal)', icon: '💊', type: 'medication', recentlyUsed: true, popular: false }
   ];
 
   // Reminders data - would be provided by backend/AI
-  const [reminders, setReminders] = useState([
+  const [reminders, setReminders] = useState<Reminder[]>([
     {
       id: '1',
       type: 'medication',
-      name: 'Iron Supplement',
-      dose: '15mg',
+      name: 'Clobazam',
+      dose: '10mg',
       time: '8:00 AM',
       icon: '💊',
       status: 'pending',
-      notes: 'Take with breakfast'
+      notes: 'Take with breakfast',
+      repeatSchedule: 'daily',
+      timesPerDay: ['breakfast'],
+      startDate: '2024-01-01',
+      endDate: '',
+      method: 'in_app',
+      nextDose: '8:00 AM'
     },
     {
       id: '2',
       type: 'medication',
-      name: 'Vitamin D',
-      dose: '1000 IU',
+      name: 'Levetiracetam (Keppra)',
+      dose: '500mg',
       time: '9:00 AM',
       icon: '💊',
       status: 'pending',
-      notes: 'Take with food'
+      notes: 'Take with food',
+      repeatSchedule: 'daily',
+      timesPerDay: ['breakfast', 'dinner'],
+      startDate: '2024-01-01',
+      endDate: '',
+      method: 'in_app',
+      nextDose: '9:00 AM'
     },
     {
       id: '3',
@@ -209,35 +315,109 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       time: '2:30 PM',
       icon: '📅',
       status: 'pending',
-      location: 'Medical Center, Room 205'
+      location: 'Medical Center, Room 205',
+      repeatSchedule: 'as_needed',
+      timesPerDay: [],
+      startDate: '2024-01-01',
+      endDate: '',
+      method: 'in_app',
+      nextDose: '2:30 PM'
     },
     {
       id: '4',
       type: 'medication',
-      name: 'Multivitamin',
-      dose: '1 tablet',
-      time: '6:00 PM',
-      icon: '💊',
+      name: 'Melatonin',
+      dose: '3mg',
+      time: '9:00 PM',
+      icon: '🌙',
       status: 'taken',
-      notes: 'Taken with dinner'
+      notes: 'Taken at bedtime',
+      repeatSchedule: 'daily',
+      timesPerDay: ['bedtime'],
+      startDate: '2024-01-01',
+      endDate: '',
+      method: 'in_app',
+      nextDose: '9:00 PM'
     }
   ]);
 
-  // Filter medications based on search query
-  const filteredMedications = medicationDatabase.filter(med =>
-    med.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 250);
 
-  // Enhanced search suggestions with descriptors
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Get filtered medications based on debounced search
+  const filteredMedications = debouncedSearchQuery.trim() === '' ? [] : 
+    medicationDatabase.filter(med =>
+      med.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    ).slice(0, 8);
+
+  // Enhanced search suggestions with descriptors from new medication database
   const searchSuggestions = [
-    { name: 'Iron Supplement', icon: '💊', descriptor: 'Daily iron for energy' },
-    { name: 'Vitamin D', icon: '💊', descriptor: 'Sunshine vitamin' },
-    { name: 'Multivitamin', icon: '💊', descriptor: 'Complete daily nutrition' },
-    { name: 'Calcium', icon: '💊', descriptor: 'Bone health support' },
-    { name: 'Omega-3', icon: '💊', descriptor: 'Brain & heart health' },
-    { name: 'Probiotic', icon: '💊', descriptor: 'Gut health support' },
-    { name: 'Zinc', icon: '💊', descriptor: 'Immune system support' },
-    { name: 'Vitamin C', icon: '💊', descriptor: 'Immune booster' }
+    // Antiepileptic / Seizure Medications
+    { name: 'Clobazam', icon: '💊', descriptor: 'Antiepileptic medication' },
+    { name: 'Levetiracetam (Keppra)', icon: '💊', descriptor: 'Seizure control medication' },
+    { name: 'Valproic Acid (Depakote)', icon: '💊', descriptor: 'Mood stabilizer & anticonvulsant' },
+    { name: 'Lamotrigine (Lamictal)', icon: '💊', descriptor: 'Bipolar & epilepsy treatment' },
+    { name: 'Topiramate (Topamax)', icon: '💊', descriptor: 'Migraine & seizure prevention' },
+    { name: 'Oxcarbazepine (Trileptal)', icon: '💊', descriptor: 'Anticonvulsant medication' },
+    { name: 'Carbamazepine (Tegretol)', icon: '💊', descriptor: 'Epilepsy & nerve pain treatment' },
+    { name: 'Gabapentin (Neurontin)', icon: '💊', descriptor: 'Nerve pain & seizure control' },
+    { name: 'Lacosamide (Vimpat)', icon: '💊', descriptor: 'Partial seizure treatment' },
+    { name: 'Ethosuximide (Zarontin)', icon: '💊', descriptor: 'Absence seizure medication' },
+    
+    // Sleep Aids / Melatonin Modulators
+    { name: 'Melatonin', icon: '🌙', descriptor: 'Sleep regulation hormone' },
+    { name: 'Clonidine', icon: '💊', descriptor: 'Blood pressure & sleep aid' },
+    { name: 'Trazodone', icon: '💊', descriptor: 'Antidepressant & sleep aid' },
+    { name: 'Mirtazapine', icon: '💊', descriptor: 'Antidepressant with sedating effects' },
+    { name: 'Hydroxyzine', icon: '💊', descriptor: 'Antihistamine for anxiety & sleep' },
+    
+    // Behavioral / Mood Stabilizers
+    { name: 'Risperidone (Risperdal)', icon: '💊', descriptor: 'Antipsychotic medication' },
+    { name: 'Aripiprazole (Abilify)', icon: '💊', descriptor: 'Atypical antipsychotic' },
+    { name: 'Quetiapine (Seroquel)', icon: '💊', descriptor: 'Antipsychotic & mood stabilizer' },
+    { name: 'Olanzapine (Zyprexa)', icon: '💊', descriptor: 'Antipsychotic medication' },
+    { name: 'Lithium', icon: '💊', descriptor: 'Classic mood stabilizer' },
+    { name: 'Ziprasidone', icon: '💊', descriptor: 'Antipsychotic medication' },
+    { name: 'Lurasidone (Latuda)', icon: '💊', descriptor: 'Atypical antipsychotic' },
+    
+    // Stimulants / ADHD-Related
+    { name: 'Methylphenidate (Ritalin, Concerta)', icon: '💊', descriptor: 'ADHD treatment medication' },
+    { name: 'Amphetamine/Dextroamphetamine (Adderall)', icon: '💊', descriptor: 'ADHD stimulant medication' },
+    { name: 'Lisdexamfetamine (Vyvanse)', icon: '💊', descriptor: 'ADHD treatment medication' },
+    { name: 'Atomoxetine (Strattera)', icon: '💊', descriptor: 'Non-stimulant ADHD treatment' },
+    { name: 'Guanfacine', icon: '💊', descriptor: 'ADHD & blood pressure medication' },
+    
+    // Anxiety / Depression / OCD
+    { name: 'Sertraline (Zoloft)', icon: '💊', descriptor: 'SSRI antidepressant' },
+    { name: 'Fluoxetine (Prozac)', icon: '💊', descriptor: 'SSRI antidepressant' },
+    { name: 'Citalopram (Celexa)', icon: '💊', descriptor: 'SSRI antidepressant' },
+    { name: 'Escitalopram (Lexapro)', icon: '💊', descriptor: 'SSRI antidepressant' },
+    { name: 'Buspirone', icon: '💊', descriptor: 'Anti-anxiety medication' },
+    { name: 'Duloxetine (Cymbalta)', icon: '💊', descriptor: 'SNRI antidepressant' },
+    
+    // GI & Motility Support
+    { name: 'Polyethylene Glycol (MiraLAX)', icon: '💊', descriptor: 'Laxative medication' },
+    { name: 'Lactulose', icon: '💊', descriptor: 'Laxative medication' },
+    { name: 'Senna', icon: '💊', descriptor: 'Natural laxative' },
+    { name: 'Docusate Sodium', icon: '💊', descriptor: 'Stool softener' },
+    { name: 'Famotidine (Pepcid)', icon: '💊', descriptor: 'Acid reducer' },
+    { name: 'Omeprazole (Prilosec)', icon: '💊', descriptor: 'Proton pump inhibitor' },
+    { name: 'Esomeprazole (Nexium)', icon: '💊', descriptor: 'Proton pump inhibitor' },
+    
+    // Other Neurological / Supportive
+    { name: 'Baclofen', icon: '💊', descriptor: 'Muscle relaxant for spasticity' },
+    { name: 'Diazepam', icon: '💊', descriptor: 'Benzodiazepine for anxiety' },
+    { name: 'Clonazepam', icon: '💊', descriptor: 'Benzodiazepine for seizures' },
+    { name: 'Propranolol', icon: '💊', descriptor: 'Beta blocker for anxiety' },
+    
+    // Targeted / Investigational
+    { name: 'Cannabidiol (Epidiolex)', icon: '💊', descriptor: 'CBD medication for epilepsy' }
   ].filter(suggestion =>
     suggestion.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     suggestion.descriptor.toLowerCase().includes(searchQuery.toLowerCase())
@@ -287,10 +467,41 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+    const value = e.target.value;
+    setSearchQuery(value);
+    setShowDropdown(value.trim() !== '');
+    setSelectedIndex(-1);
   };
 
-  // Handle medication selection
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showDropdown || filteredMedications.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < filteredMedications.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < filteredMedications.length) {
+          handleMedicationSelect(filteredMedications[selectedIndex].name);
+        }
+        break;
+      case 'Escape':
+        setShowDropdown(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  }, [showDropdown, filteredMedications, selectedIndex]);
+
+  // Handle medication selection from dropdown
   const handleMedicationSelect = (medication: string) => {
     setSelectedMedication(medication);
     const med = medicationDatabase.find(m => m.name === medication);
@@ -302,6 +513,10 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setDosageUnit(dosageMatch[2].toLowerCase());
       }
     }
+    setSearchQuery(medication);
+    setShowDropdown(false);
+    setSelectedIndex(-1);
+    setShowLogModal(true);
     setCurrentStep('log');
     setErrors({});
   };
@@ -426,9 +641,9 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   // Handle viewing appointment details
   const handleViewAppointmentDetails = (reminderId: string) => {
     const reminder = reminders.find(r => r.id === reminderId);
-    if (reminder && reminder.type === 'appointment') {
-      // For MVP, just show an alert. In production, this would open a modal/page
-      alert(`Appointment: ${reminder.name}\nTime: ${reminder.time}\nLocation: ${reminder.location}`);
+    if (reminder) {
+      // Handle appointment details view
+      console.log('View appointment details:', reminder);
     }
   };
 
@@ -457,10 +672,10 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   React.useEffect(() => {
     // Simulate backend/AI providing suggestions
     setSuggestionQueue(mockSuggestions);
-    // Always show the Iron Supplement refill message as the first suggestion
-    const ironRefillSuggestion = mockSuggestions.find(s => s.message.includes('Iron Supplement'));
-    if (ironRefillSuggestion) {
-      setCurrentSuggestion(ironRefillSuggestion);
+    // Always show the Clobazam refill message as the first suggestion
+    const clobazamRefillSuggestion = mockSuggestions.find(s => s.message.includes('Clobazam'));
+    if (clobazamRefillSuggestion) {
+      setCurrentSuggestion(clobazamRefillSuggestion);
     } else if (mockSuggestions.length > 0) {
       setCurrentSuggestion(mockSuggestions[0]);
     }
@@ -477,11 +692,11 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       if (updatedQueue.length > 0) {
         setCurrentSuggestion(updatedQueue[0]);
       } else {
-        // If no more suggestions, always show the Iron Supplement refill message
-        const ironRefillSuggestion = mockSuggestions.find(s => s.message.includes('Iron Supplement'));
-        if (ironRefillSuggestion) {
-          setCurrentSuggestion(ironRefillSuggestion);
-          setSuggestionQueue([ironRefillSuggestion]);
+        // If no more suggestions, always show the Clobazam refill message
+        const clobazamRefillSuggestion = mockSuggestions.find(s => s.message.includes('Clobazam'));
+        if (clobazamRefillSuggestion) {
+          setCurrentSuggestion(clobazamRefillSuggestion);
+          setSuggestionQueue([clobazamRefillSuggestion]);
         } else {
           setCurrentSuggestion(null);
         }
@@ -533,6 +748,113 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return hasRequiredFields && hasValidCustomSchedule;
   };
 
+  // Reminder management functions
+  const handleCreateReminder = () => {
+    if (!reminderMedication.trim()) {
+      setErrors(prev => ({ ...prev, reminderMedication: 'Medication name is required' }));
+      return;
+    }
+
+    const newReminder = {
+      id: Date.now().toString(),
+      type: 'medication' as const,
+      name: reminderMedication,
+      dose: '',
+      time: reminderTimesPerDay.length > 0 ? reminderTimesPerDay[0] : 'Custom',
+      icon: '💊',
+      status: 'pending' as const,
+      notes: reminderNotes,
+      repeatSchedule: reminderRepeatSchedule,
+      timesPerDay: reminderTimesPerDay,
+      startDate: reminderStartDate,
+      endDate: reminderEndDate,
+      method: reminderMethod,
+      nextDose: reminderTimesPerDay.length > 0 ? reminderTimesPerDay[0] : 'Custom'
+    };
+
+    setReminders(prev => [...prev, newReminder]);
+    handleCloseSetReminderModal();
+  };
+
+  const handleEditReminder = (reminderId: string) => {
+    const reminder = reminders.find(r => r.id === reminderId);
+    if (reminder) {
+      setEditingReminderId(reminderId);
+      setReminderMedication(reminder.name);
+      setReminderRepeatSchedule(reminder.repeatSchedule || 'daily');
+      setReminderSpecificDays(reminder.timesPerDay || []);
+      setReminderTimesPerDay(reminder.timesPerDay || ['breakfast']);
+      setReminderStartDate(reminder.startDate || '');
+      setReminderEndDate(reminder.endDate || '');
+      setReminderMethod(reminder.method || 'in_app');
+      setReminderNotes(reminder.notes || '');
+      setShowSetReminderModal(true);
+    }
+  };
+
+  const handleUpdateReminder = () => {
+    if (!reminderMedication.trim()) {
+      setErrors(prev => ({ ...prev, reminderMedication: 'Medication name is required' }));
+      return;
+    }
+
+    setReminders(prev => prev.map(reminder => 
+      reminder.id === editingReminderId 
+        ? {
+            ...reminder,
+            name: reminderMedication,
+            notes: reminderNotes,
+            repeatSchedule: reminderRepeatSchedule,
+            timesPerDay: reminderTimesPerDay,
+            startDate: reminderStartDate,
+            endDate: reminderEndDate,
+            method: reminderMethod
+          }
+        : reminder
+    ));
+
+    handleCloseSetReminderModal();
+  };
+
+  const handleDeleteReminder = (reminderId: string) => {
+    setReminders(prev => prev.filter(reminder => reminder.id !== reminderId));
+  };
+
+  const handleCloseSetReminderModal = () => {
+    setShowSetReminderModal(false);
+    setEditingReminderId(null);
+    setReminderMedication('');
+    setReminderRepeatSchedule('daily');
+    setReminderSpecificDays([]);
+    setReminderEveryXHours('24');
+    setReminderTimesPerDay(['breakfast']);
+    setReminderCustomTime('');
+    setReminderStartDate(() => {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    });
+    setReminderEndDate('');
+    setReminderMethod('in_app');
+    setReminderNotes('');
+    setErrors({});
+  };
+
+  const handleReminderTimeToggle = (time: string) => {
+    setReminderTimesPerDay(prev => 
+      prev.includes(time) 
+        ? prev.filter(t => t !== time)
+        : [...prev, time]
+    );
+  };
+
+  const handleReminderDayToggle = (day: string) => {
+    setReminderSpecificDays(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <style>{`
@@ -582,6 +904,9 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               placeholder="Search medications or supplements…"
               value={searchQuery}
               onChange={handleSearchChange}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowDropdown(searchQuery.trim() !== '')}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
               className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               aria-label="Search medications or supplements"
             />
@@ -597,27 +922,32 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </button>
             )}
             
-            {/* Autosuggest Dropdown */}
-            {searchQuery && searchSuggestions.length > 0 && (
+                        {/* Autosuggest Dropdown */}
+            {showDropdown && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                {searchSuggestions.slice(0, 6).map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setSearchQuery(suggestion.name);
-                      handleMedicationSelect(suggestion.name);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xl">{suggestion.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{suggestion.name}</p>
-                        <p className="text-xs text-gray-500">{suggestion.descriptor}</p>
+                {filteredMedications.length > 0 ? (
+                  filteredMedications.map((medication, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleMedicationSelect(medication.name)}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset transition-colors ${
+                        selectedIndex === index ? 'bg-indigo-100' : ''
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-xl">💊</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{medication.name}</p>
+                          <p className="text-xs text-gray-500">{medication.dosage} • {medication.frequency}</p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                    No medications found
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -625,327 +955,449 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-[144px] pb-6 sm:pb-8">
-        {/* Quick Log Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">Quick Log</h2>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Recently Used</span>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Popular</span>
-            </div>
-          </div>
-          
-          {/* Horizontal Scrollable Chips */}
-          <div className="relative">
-            <div className="flex space-x-3 overflow-x-auto scrollbar-hide pb-2">
-              {quickLogItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedMedication(item.name);
-                    const med = medicationDatabase.find(m => m.name === item.name);
-                    if (med) {
-                      // Parse dosage to extract numeric value and unit
-                      const dosageMatch = med.dosage.match(/(\d+(?:\.\d+)?)\s*(.+)/);
-                      if (dosageMatch) {
-                        setDosage(dosageMatch[1]);
-                        setDosageUnit(dosageMatch[2].toLowerCase());
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-[144px] pb-6 sm:pb-8 lg:max-w-7xl lg:px-8 lg:pt-8 lg:pb-12">
+        {/* Desktop Layout - Two Column Grid */}
+        <div className="lg:grid lg:grid-cols-3 lg:gap-8 lg:items-start">
+          {/* Left Column - Quick Log and Reminders */}
+          <div className="lg:col-span-1">
+            {/* Quick Log Section */}
+            <div className="mb-6 lg:mb-8">
+              <div className="flex items-center justify-between mb-3 lg:mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 lg:text-xl">Quick Log</h2>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full lg:text-sm">Recently Used</span>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full lg:text-sm">Popular</span>
+                </div>
+              </div>
+              
+              {/* Horizontal Scrollable Chips - Mobile */}
+              <div className="lg:hidden relative">
+                <div className="flex space-x-3 overflow-x-auto scrollbar-hide pb-2">
+                  {quickLogItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setSelectedMedication(item.name);
+                        const med = medicationDatabase.find(m => m.name === item.name);
+                        if (med) {
+                          // Parse dosage to extract numeric value and unit
+                          const dosageMatch = med.dosage.match(/(\d+(?:\.\d+)?)\s*(.+)/);
+                          if (dosageMatch) {
+                            setDosage(dosageMatch[1]);
+                            setDosageUnit(dosageMatch[2].toLowerCase());
+                          }
+                        }
+                        setShowLogModal(true);
+                        setCurrentStep('log');
+                      }}
+                      className="flex-shrink-0 flex items-center space-x-2 bg-white border border-gray-200 rounded-full px-4 py-2 hover:border-indigo-300 hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      <span className="text-lg">{item.icon}</span>
+                      <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">{item.name}</span>
+                      <div className="flex-shrink-0 w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                  
+                  {/* Add New Chip */}
+                  <button
+                    onClick={() => setShowLogModal(true)}
+                    className="flex-shrink-0 flex items-center space-x-2 bg-indigo-50 border border-indigo-200 rounded-full px-4 py-2 hover:bg-indigo-100 hover:border-indigo-300 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    <span className="text-lg">➕</span>
+                    <span className="text-sm font-medium text-indigo-700">Add New</span>
+                  </button>
+                </div>
+                
+                {/* Scroll Indicators */}
+                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none rounded-l-full"></div>
+                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none rounded-r-full"></div>
+              </div>
+
+              {/* Desktop Vertical Layout */}
+              <div className="hidden lg:block space-y-3">
+                {quickLogItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setSelectedMedication(item.name);
+                      const med = medicationDatabase.find(m => m.name === item.name);
+                      if (med) {
+                        const dosageMatch = med.dosage.match(/(\d+(?:\.\d+)?)\s*(.+)/);
+                        if (dosageMatch) {
+                          setDosage(dosageMatch[1]);
+                          setDosageUnit(dosageMatch[2].toLowerCase());
+                        }
                       }
-                    }
-                    setShowLogModal(true);
-                    setCurrentStep('log');
-                  }}
-                  className="flex-shrink-0 flex items-center space-x-2 bg-white border border-gray-200 rounded-full px-4 py-2 hover:border-indigo-300 hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">{item.name}</span>
-                  <div className="flex-shrink-0 w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <svg className="w-3 h-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      setShowLogModal(true);
+                      setCurrentStep('log');
+                    }}
+                    className="w-full flex items-center space-x-3 bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="text-sm font-medium text-gray-900 flex-1 text-left">{item.name}</span>
+                    <div className="flex-shrink-0 w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                  </button>
+                ))}
+                
+                {/* Show "Add New Medication" only when search has no results */}
+                {searchQuery && filteredMedications.length === 0 && (
+                  <button
+                    onClick={() => setShowLogModal(true)}
+                    className="w-full flex items-center space-x-3 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 hover:bg-indigo-100 hover:border-indigo-300 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    <span className="text-xl">➕</span>
+                    <span className="text-sm font-medium text-indigo-700">Add New Medication</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Reminders Section */}
+            <div className="mb-6 lg:mb-8">
+              <div className="flex items-center justify-between mb-3 lg:mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 lg:text-xl">Reminders</h2>
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => setShowSetReminderModal(true)}
+                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                    aria-label="Add new reminder"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                  <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors lg:text-base">
+                    View all reminders
+                  </button>
+                </div>
+              </div>
               
-              {/* Add New Chip */}
-              <button
-                onClick={() => setShowLogModal(true)}
-                className="flex-shrink-0 flex items-center space-x-2 bg-indigo-50 border border-indigo-200 rounded-full px-4 py-2 hover:bg-indigo-100 hover:border-indigo-300 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                <span className="text-lg">➕</span>
-                <span className="text-sm font-medium text-indigo-700">Add New</span>
-              </button>
-            </div>
-            
-            {/* Scroll Indicators */}
-            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none rounded-l-full"></div>
-            <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none rounded-r-full"></div>
-          </div>
-                 </div>
-
-         {/* Reminders Section */}
-         <div className="mb-6">
-           <div className="flex items-center justify-between mb-3">
-             <h2 className="text-lg font-semibold text-gray-900">Reminders</h2>
-             <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors">
-               View all reminders
-             </button>
-           </div>
-           
-           {/* Reminders List */}
-           <div className="space-y-3">
-             {getTodayReminders().length > 0 ? (
-               getTodayReminders().map((reminder) => (
-                 <div 
-                   key={reminder.id} 
-                   className={`bg-white border rounded-lg p-4 transition-all ${
-                     reminder.type === 'medication' 
-                       ? 'border-gray-200 hover:border-indigo-200' 
-                       : 'border-gray-200 hover:border-blue-200'
-                   }`}
-                 >
-                   <div className="flex items-center justify-between">
-                     <div className="flex items-center space-x-3">
-                       <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                         reminder.type === 'medication' ? 'bg-indigo-100' : 'bg-blue-100'
-                       }`}>
-                         <span className="text-lg">{reminder.icon}</span>
-                       </div>
-                       <div className="flex-1 min-w-0">
-                         <h3 className="text-sm font-medium text-gray-900 truncate">
-                           {reminder.name}
-                         </h3>
-                         <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
-                           <span>{reminder.time}</span>
-                           {reminder.type === 'medication' && reminder.dose && (
-                             <>
-                               <span>•</span>
-                               <span>{reminder.dose}</span>
-                             </>
-                           )}
-                         </div>
-                         {reminder.notes && (
-                           <p className="text-xs text-gray-400 mt-1">{reminder.notes}</p>
-                         )}
-                       </div>
-                     </div>
-                     
-                     <div className="flex-shrink-0">
-                       {reminder.type === 'medication' ? (
-                         <button
-                           onClick={() => handleMarkAsTaken(reminder.id)}
-                           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
-                         >
-                           Mark as taken
-                         </button>
-                       ) : (
-                         <button
-                           onClick={() => handleViewAppointmentDetails(reminder.id)}
-                           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                         >
-                           View details
-                         </button>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-               ))
-             ) : (
-               <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                   </svg>
-                 </div>
-                 <p className="text-sm text-gray-500">No reminders scheduled for today.</p>
-               </div>
-             )}
-           </div>
-         </div>
-
-
-
-
-
-
-
-
-
-        {/* AI-Powered Suggestion/Tip Banner */}
-        {showAISuggestion && (
-          <div className="mb-8">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100 relative">
-              <button
-                onClick={() => setShowAISuggestion(false)}
-                className="absolute top-2 right-2 text-blue-400 hover:text-blue-600 transition-colors"
-                aria-label="Dismiss suggestion"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <div className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center" aria-hidden="true">
-                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+              {/* Reminders List */}
+              <div className="space-y-3 lg:space-y-4">
+                {/* Today's Schedule Summary */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-blue-900 mb-2">Today's Schedule</h3>
+                  <div className="space-y-2">
+                    {getTodayReminders().length > 0 ? (
+                      getTodayReminders().map((reminder) => (
+                        <div key={reminder.id} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-blue-600">{reminder.icon}</span>
+                            <span className="text-blue-800 font-medium">{reminder.name}</span>
+                            {reminder.dose && (
+                              <span className="text-blue-600">({reminder.dose})</span>
+                            )}
+                          </div>
+                          <span className="text-blue-600 font-medium">{reminder.time}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-blue-600 text-sm">No reminders scheduled for today</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-medium text-blue-900 mb-1">Medication Reminder</h4>
-                  <p className="text-sm text-blue-800">
-                    Set up medication reminders to ensure consistent dosing. You can also track side effects and effectiveness over time.
-                  </p>
-                </div>
+
+                {getTodayReminders().length > 0 ? (
+                  getTodayReminders().map((reminder) => (
+                    <div 
+                      key={reminder.id} 
+                      className={`bg-white border rounded-lg p-4 transition-all lg:p-5 ${
+                        reminder.type === 'medication' 
+                          ? 'border-gray-200 hover:border-indigo-200' 
+                          : 'border-gray-200 hover:border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center lg:w-12 lg:h-12 ${
+                            reminder.type === 'medication' ? 'bg-indigo-100' : 'bg-blue-100'
+                          }`}>
+                            <span className="text-lg lg:text-xl">{reminder.icon}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-medium text-gray-900 truncate lg:text-base">
+                              {reminder.name}
+                            </h3>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1 lg:text-sm">
+                              <span>{reminder.time}</span>
+                              {reminder.type === 'medication' && reminder.dose && (
+                                <>
+                                  <span>•</span>
+                                  <span>{reminder.dose}</span>
+                                </>
+                              )}
+                            </div>
+                            {reminder.repeatSchedule && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                {reminder.repeatSchedule === 'daily' && 'Daily'}
+                                {reminder.repeatSchedule === 'specific_days' && `Every ${reminder.timesPerDay.join(', ')}`}
+                                {reminder.repeatSchedule === 'every_x_hours' && `Every ${reminder.everyXHours || '24'} hours`}
+                                {reminder.repeatSchedule === 'as_needed' && 'As needed'}
+                              </div>
+                            )}
+                            {reminder.notes && (
+                              <p className="text-xs text-gray-400 mt-1">{reminder.notes}</p>
+                            )}
+                            {reminder.startDate && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                From: {new Date(reminder.startDate).toLocaleDateString()}
+                                {reminder.endDate && ` To: ${new Date(reminder.endDate).toLocaleDateString()}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          {reminder.type === 'medication' ? (
+                            <button
+                              onClick={() => handleMarkAsTaken(reminder.id)}
+                              className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                            >
+                              Mark as taken
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleViewAppointmentDetails(reminder.id)}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            >
+                              View details
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleEditReminder(reminder.id)}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                            aria-label="Edit reminder"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                            aria-label="Delete reminder"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-gray-500">No reminders scheduled for today.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Right Column - Search, AI Suggestion, and History */}
+          <div className="lg:col-span-2">
+            {/* AI-Powered Suggestion/Tip Banner */}
+            {showAISuggestion && (
+              <div className="mb-8 lg:mb-12">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100 relative">
+                  <button
+                    onClick={() => setShowAISuggestion(false)}
+                    className="absolute top-2 right-2 text-blue-400 hover:text-blue-600 transition-colors"
+                    aria-label="Dismiss suggestion"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center" aria-hidden="true">
+                      <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-blue-900 mb-1">Medication Reminder</h4>
+                      <p className="text-sm text-blue-800">
+                        Set up medication reminders to ensure consistent dosing. You can also track side effects and effectiveness over time.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Search Medication Section */}
+            <div className="mb-6 lg:mb-8">
+              <div className="flex items-center justify-between mb-3 lg:mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 lg:text-xl">Search Medication</h2>
+                <button
+                  onClick={() => setCurrentStep('search')}
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors lg:text-base"
+                >
+                  View all medications
+                </button>
+              </div>
+              
+              {/* Search functionality moved to main search bar above */}
+            </div>
+
+            {/* History Section - Collapsible at bottom */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-lg">
+              {/* Collapsible Header */}
+              <button
+                onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                aria-expanded={isHistoryExpanded}
+                aria-label="Toggle history section"
+              >
+                <div className="flex items-center space-x-3">
+                  <h2 className="text-lg font-semibold text-gray-900">History</h2>
+                  <span className="text-sm text-gray-500">({getTimeFilterDisplay()})</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  {/* Time Filter Dropdown - Only visible when expanded */}
+                  {isHistoryExpanded && (
+                    <div className="relative">
+                      <select 
+                        value={historyTimeFilter}
+                        onChange={(e) => handleHistoryTimeFilterChange(e.target.value)}
+                        className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-gray-400 transition-colors"
+                        aria-label="Filter history by time period"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="7days">Last 7 days</option>
+                        <option value="30days">Last 30 days</option>
+                        <option value="6months">Last 6 months</option>
+                        <option value="1year">Last 1 year</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                  {/* Expand/Collapse Icon */}
+                  <svg 
+                    className={`w-5 h-5 text-gray-400 transition-transform ${isHistoryExpanded ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Expanded History Content */}
+              {isHistoryExpanded && (
+                <>
+                  {/* History Entries List */}
+                  <div className="border-t border-gray-100">
+                    {getDisplayHistory().length > 0 ? (
+                      <div className="divide-y divide-gray-100">
+                        {getDisplayHistory().map((entry) => (
+                          <div key={entry.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-start space-x-3">
+                              {/* Date */}
+                              <div className="flex-shrink-0">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {formatDate(entry.date)}
+                                </span>
+                              </div>
+                              
+                              {/* Entry Details */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="text-lg">{entry.icon}</span>
+                                  <h5 className="text-sm font-medium text-gray-900 truncate">
+                                    {entry.medicationName}
+                                  </h5>
+                                </div>
+                                
+                                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                  <span>{entry.dosage}</span>
+                                  <span>•</span>
+                                  <span>{entry.timeTaken}</span>
+                                  {entry.notes && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-gray-400">{entry.notes}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex-shrink-0">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  entry.status === 'taken' ? 'bg-green-100 text-green-700' :
+                                  entry.status === 'missed' ? 'bg-red-100 text-red-700' :
+                                  'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {entry.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-6 py-8 text-center">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3" aria-hidden="true">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-1">No medication entries for this period</h4>
+                        <p className="text-sm text-gray-500">Start logging medications to see your history here</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Show More Button */}
+                  {getFilteredHistory().length > 5 && !showMoreHistory && (
+                    <div className="px-6 py-3 border-t border-gray-100">
+                      <button
+                        onClick={() => setShowMoreHistory(true)}
+                        className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                      >
+                        Show more ({getFilteredHistory().length - 5} more entries)
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Show Less Button */}
+                  {showMoreHistory && getFilteredHistory().length > 5 && (
+                    <div className="px-6 py-3 border-t border-gray-100">
+                      <button
+                        onClick={() => setShowMoreHistory(false)}
+                        className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                      >
+                        Show less
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-
-             {/* History Section - Collapsible at bottom */}
-       <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-8">
-         <div className="bg-white rounded-xl border border-gray-200 shadow-lg">
-           {/* Collapsible Header */}
-           <button
-             onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-             className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-             aria-expanded={isHistoryExpanded}
-             aria-label="Toggle history section"
-           >
-             <div className="flex items-center space-x-3">
-               <h2 className="text-lg font-semibold text-gray-900">History</h2>
-               <span className="text-sm text-gray-500">({getTimeFilterDisplay()})</span>
-             </div>
-             <div className="flex items-center space-x-3">
-               {/* Time Filter Dropdown - Only visible when expanded */}
-               {isHistoryExpanded && (
-                 <div className="relative">
-                   <select 
-                     value={historyTimeFilter}
-                     onChange={(e) => handleHistoryTimeFilterChange(e.target.value)}
-                     className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer hover:border-gray-400 transition-colors"
-                     aria-label="Filter history by time period"
-                     onClick={(e) => e.stopPropagation()}
-                   >
-                     <option value="7days">Last 7 days</option>
-                     <option value="30days">Last 30 days</option>
-                     <option value="6months">Last 6 months</option>
-                     <option value="1year">Last 1 year</option>
-                     <option value="custom">Custom</option>
-                   </select>
-                   <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                     </svg>
-                   </div>
-                 </div>
-               )}
-               {/* Expand/Collapse Icon */}
-               <svg 
-                 className={`w-5 h-5 text-gray-400 transition-transform ${isHistoryExpanded ? 'rotate-180' : ''}`}
-                 fill="none" 
-                 stroke="currentColor" 
-                 viewBox="0 0 24 24"
-               >
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-               </svg>
-             </div>
-           </button>
-
-           {/* Expanded History Content */}
-           {isHistoryExpanded && (
-             <>
-               {/* History Entries List */}
-               <div className="border-t border-gray-100">
-                 {getDisplayHistory().length > 0 ? (
-                   <div className="divide-y divide-gray-100">
-                     {getDisplayHistory().map((entry) => (
-                       <div key={entry.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                         <div className="flex items-start space-x-3">
-                           {/* Date */}
-                           <div className="flex-shrink-0">
-                             <span className="text-sm font-medium text-gray-900">
-                               {formatDate(entry.date)}
-                             </span>
-                           </div>
-                           
-                           {/* Entry Details */}
-                           <div className="flex-1 min-w-0">
-                             <div className="flex items-center space-x-2 mb-1">
-                               <span className="text-lg">{entry.icon}</span>
-                               <h5 className="text-sm font-medium text-gray-900 truncate">
-                                 {entry.medicationName}
-                               </h5>
-                             </div>
-                             
-                             <div className="flex items-center space-x-2 text-xs text-gray-500">
-                               <span>{entry.dosage}</span>
-                               <span>•</span>
-                               <span>{entry.timeTaken}</span>
-                               {entry.notes && (
-                                 <>
-                                   <span>•</span>
-                                   <span className="text-gray-400">{entry.notes}</span>
-                                 </>
-                               )}
-                             </div>
-                           </div>
-                           
-                           {/* Status Badge */}
-                           <div className="flex-shrink-0">
-                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                               entry.status === 'taken' ? 'bg-green-100 text-green-700' :
-                               entry.status === 'missed' ? 'bg-red-100 text-red-700' :
-                               'bg-yellow-100 text-yellow-700'
-                             }`}>
-                               {entry.status}
-                             </span>
-                           </div>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 ) : (
-                   <div className="px-6 py-8 text-center">
-                     <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3" aria-hidden="true">
-                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                       </svg>
-                     </div>
-                     <h4 className="text-sm font-medium text-gray-900 mb-1">No medication entries for this period</h4>
-                     <p className="text-sm text-gray-500">Start logging medications to see your history here</p>
-                   </div>
-                 )}
-               </div>
-
-               {/* Show More Button */}
-               {getFilteredHistory().length > 5 && !showMoreHistory && (
-                 <div className="px-6 py-3 border-t border-gray-100">
-                   <button
-                     onClick={() => setShowMoreHistory(true)}
-                     className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
-                   >
-                     Show more ({getFilteredHistory().length - 5} more entries)
-                   </button>
-                 </div>
-               )}
-
-               {/* Show Less Button */}
-               {showMoreHistory && getFilteredHistory().length > 5 && (
-                 <div className="px-6 py-3 border-t border-gray-100">
-                   <button
-                     onClick={() => setShowMoreHistory(false)}
-                     className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
-                   >
-                     Show less
-                   </button>
-                 </div>
-               )}
-             </>
-           )}
-         </div>
-       </div>
 
              {/* Enhanced Medication Logging Modal/Drawer */}
        {showLogModal && (
@@ -1383,6 +1835,284 @@ const MedicationTracker: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <span className="font-medium">Medication logged!</span>
+            </div>
+          </div>
+        )}
+
+        {/* Set Reminder Modal */}
+        {showSetReminderModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {editingReminderId ? 'Edit Reminder' : 'Set Reminder'}
+                </h2>
+                <button
+                  onClick={handleCloseSetReminderModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Close modal"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* Medication Name */}
+                <div>
+                  <label htmlFor="reminder-medication" className="block text-sm font-medium text-gray-700 mb-2">
+                    Medication Name *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="reminder-medication"
+                      type="text"
+                      value={reminderMedication}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setReminderMedication(value);
+                        if (errors.reminderMedication) {
+                          setErrors(prev => ({ ...prev, reminderMedication: '' }));
+                        }
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base ${
+                        errors.reminderMedication ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Search medications or enter custom name..."
+                      aria-describedby={errors.reminderMedication ? "reminder-medication-error" : undefined}
+                      aria-invalid={!!errors.reminderMedication}
+                    />
+                    
+                    {/* Medication Search Dropdown */}
+                    {showDropdown && reminderMedication.trim() !== '' && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                        {medicationDatabase
+                          .filter(med => 
+                            med.name.toLowerCase().includes(reminderMedication.toLowerCase())
+                          )
+                          .slice(0, 8)
+                          .map((medication, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                setReminderMedication(medication.name);
+                                setShowDropdown(false);
+                              }}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className="text-xl">💊</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900">{medication.name}</p>
+                                  <p className="text-xs text-gray-500">{medication.dosage} • {medication.frequency}</p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                  {errors.reminderMedication && (
+                    <p id="reminder-medication-error" className="text-sm text-red-600 mt-1" role="alert">
+                      {errors.reminderMedication}
+                    </p>
+                  )}
+                </div>
+
+                {/* Repeat Schedule */}
+                <div>
+                  <label htmlFor="repeat-schedule" className="block text-sm font-medium text-gray-700 mb-2">
+                    Repeat Schedule
+                  </label>
+                  <select
+                    id="repeat-schedule"
+                    value={reminderRepeatSchedule}
+                    onChange={(e) => setReminderRepeatSchedule(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="specific_days">Specific days</option>
+                    <option value="every_x_hours">Every X hours</option>
+                    <option value="as_needed">As needed</option>
+                  </select>
+                </div>
+
+                {/* Specific Days (conditional) */}
+                {reminderRepeatSchedule === 'specific_days' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Days
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => handleReminderDayToggle(day)}
+                          className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                            reminderSpecificDays.includes(day)
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Every X Hours (conditional) */}
+                {reminderRepeatSchedule === 'every_x_hours' && (
+                  <div>
+                    <label htmlFor="every-x-hours" className="block text-sm font-medium text-gray-700 mb-2">
+                      Every X Hours
+                    </label>
+                    <input
+                      id="every-x-hours"
+                      type="number"
+                      value={reminderEveryXHours}
+                      onChange={(e) => setReminderEveryXHours(e.target.value)}
+                      min="1"
+                      max="168"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                      placeholder="24"
+                    />
+                  </div>
+                )}
+
+                {/* Multiple Times Per Day */}
+                {reminderRepeatSchedule !== 'every_x_hours' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Times Per Day
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {['breakfast', 'lunch', 'dinner', 'bedtime'].map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => handleReminderTimeToggle(time)}
+                          className={`px-3 py-2 text-sm rounded-lg border transition-colors capitalize ${
+                            reminderTimesPerDay.includes(time)
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
+                    <div>
+                      <label htmlFor="custom-time" className="block text-sm font-medium text-gray-700 mb-2">
+                        Custom Time
+                      </label>
+                      <input
+                        id="custom-time"
+                        type="time"
+                        value={reminderCustomTime}
+                        onChange={(e) => setReminderCustomTime(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                      />
+                      {reminderCustomTime && (
+                        <button
+                          type="button"
+                          onClick={() => handleReminderTimeToggle(reminderCustomTime)}
+                          className={`mt-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                            reminderTimesPerDay.includes(reminderCustomTime)
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'
+                          }`}
+                        >
+                          Add {reminderCustomTime}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Start Date */}
+                <div>
+                  <label htmlFor="reminder-start-date" className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    id="reminder-start-date"
+                    type="date"
+                    value={reminderStartDate}
+                    onChange={(e) => setReminderStartDate(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                  />
+                </div>
+
+                {/* End Date (optional) */}
+                <div>
+                  <label htmlFor="reminder-end-date" className="block text-sm font-medium text-gray-700 mb-2">
+                    End Date (Optional)
+                  </label>
+                  <input
+                    id="reminder-end-date"
+                    type="date"
+                    value={reminderEndDate}
+                    onChange={(e) => setReminderEndDate(e.target.value)}
+                    min={reminderStartDate}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                  />
+                </div>
+
+                {/* Reminder Method */}
+                <div>
+                  <label htmlFor="reminder-method" className="block text-sm font-medium text-gray-700 mb-2">
+                    Reminder Method
+                  </label>
+                  <select
+                    id="reminder-method"
+                    value={reminderMethod}
+                    onChange={(e) => setReminderMethod(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                  >
+                    <option value="in_app">In-app notification</option>
+                    <option value="email">Email</option>
+                    <option value="sms">SMS</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label htmlFor="reminder-notes" className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    id="reminder-notes"
+                    value={reminderNotes}
+                    onChange={(e) => setReminderNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base resize-none"
+                    placeholder="Additional notes about this reminder..."
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={handleCloseSetReminderModal}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={editingReminderId ? handleUpdateReminder : handleCreateReminder}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors font-medium"
+                >
+                  {editingReminderId ? 'Update Reminder' : 'Save Reminder'}
+                </button>
+              </div>
             </div>
           </div>
         )}
