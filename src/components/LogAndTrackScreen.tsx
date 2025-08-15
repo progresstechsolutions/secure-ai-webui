@@ -357,9 +357,9 @@ const LogAndTrackScreen: React.FC<LogAndTrackScreenProps> = ({ onBack }) => {
       {/* Persistent Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="px-4 py-4">
-                     <div className="flex items-center justify-center">
-             {/* Back button and title */}
-             <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-between">
+            {/* Back button and title */}
+            <div className="flex items-center space-x-3">
               <button
                 onClick={onBack}
                 className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -367,12 +367,48 @@ const LogAndTrackScreen: React.FC<LogAndTrackScreenProps> = ({ onBack }) => {
               >
                 <BackArrowIcon />
               </button>
-                             <div>
-                 <h1 className="text-lg font-semibold text-gray-900">Symptom Tracker</h1>
-               </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">Log & Track</h1>
+                <p className="text-sm text-gray-600">Capture today's care in seconds.</p>
+              </div>
             </div>
             
+            {/* Right Actions - Desktop */}
+            <div className="hidden sm:flex items-center space-x-3">
+              <button
+                onClick={() => setCurrentStep(1)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                aria-label="Quick log a symptom"
+              >
+                Quick Log
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Open export modal in Journal sub-tab
+                  console.log('Export functionality - to be implemented');
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                aria-label="Export data"
+              >
+                Export
+              </button>
+            </div>
             
+            {/* Mobile Overflow Menu */}
+            <div className="sm:hidden">
+              <button
+                onClick={() => {
+                  // TODO: Implement mobile overflow menu
+                  console.log('Mobile overflow menu - to be implemented');
+                }}
+                className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                aria-label="More options"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </div>
           </div>
           
           {/* Progress Bar */}

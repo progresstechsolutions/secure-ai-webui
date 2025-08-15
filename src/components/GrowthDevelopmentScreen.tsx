@@ -1,2362 +1,1900 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 
-interface GrowthData {
-  date: string;
-  height: number;
-  weight: number;
-  notes: string;
-}
-
-interface DevelopmentMilestone {
-  id: string;
-  title: string;
-  description: string;
-  achieved: boolean;
-  date?: string;
-}
-
-interface ChildProfile {
-  name: string;
-  age: string;
-  condition: string;
-  lastUpdated: string;
-}
-
-interface ProgressData {
-  typicalProgress: number;
-  pmsProgress: number;
-  currentAge: number;
-  targetAge: number;
-}
-
-interface MilestoneBadge {
-  id: string;
-  title: string;
-  date: string;
-  icon: string;
-  category: 'physical' | 'cognitive' | 'social' | 'emotional';
+interface GrowthDevelopmentScreenProps {
+  onBack: () => void;
 }
 
 interface DomainData {
   id: string;
   name: string;
   icon: string;
-  strengths: string[];
-  challenges: string[];
-  progressData: {
-    typical: number;
-    pms: number;
-    timeline: { date: string; typical: number; pms: number }[];
-  };
-  nextMilestones: {
-    title: string;
-    description: string;
-    timeline: string;
-    tips: string[];
-  }[];
+  observedSkills: number;
+  suggestedSkills: number;
+  lastSkillName?: string;
+  lastSkillDate?: string;
 }
 
-interface SurveyQuestion {
+interface SkillData {
   id: string;
-  question: string;
-  type: 'multiple-choice' | 'scale' | 'text';
-  options?: string[];
-  domain: string;
-}
-
-interface Recommendation {
-  id: string;
-  title: string;
-  description: string;
-  category: 'therapy' | 'intervention' | 'assessment' | 'strategy';
-  priority: 'high' | 'medium' | 'low';
-  evidence: string;
-  actionUrl?: string;
-}
-
-interface NextStep {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  status: 'pending' | 'scheduled' | 'completed';
-  type: 'assessment' | 'screening' | 'appointment' | 'follow-up';
-}
-
-interface ContentItem {
-  id: string;
-  title: string;
-  type: 'video' | 'infographic' | 'article';
-  duration?: string;
-  description: string;
-  url: string;
-}
-
-interface Goal {
-  id: string;
-  title: string;
-  description: string;
-  category: 'motor' | 'language' | 'social' | 'cognitive' | 'adaptive';
-  targetDate: string;
-  progress: number;
-  status: 'active' | 'achieved' | 'paused';
-  reminders: boolean;
-  aiSuggested: boolean;
-  createdAt: string;
-}
-
-interface AISuggestion {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  reason: string;
-}
-
-interface CommunityBenchmark {
-  metric: string;
-  average: number;
-  range: string;
-  sampleSize: number;
-}
-
-interface ClinicalReviewer {
   name: string;
-  credentials: string;
-  specialty: string;
-  institution: string;
-}
-
-// AI/API Integration Interfaces
-interface SurveyResponse {
-  questionId: string;
-  response: string | number;
-  timestamp: Date;
-}
-
-interface MilestoneScore {
   domain: string;
-  score: number;
-  percentile: number;
-  flagged: boolean;
-  confidence: number;
-}
-
-interface NLPAnalysis {
-  sentiment: 'positive' | 'neutral' | 'negative';
-  keywords: string[];
-  flags: string[];
-  suggestions: string[];
-  confidence: number;
-}
-
-interface MediaAnalysis {
-  type: 'video' | 'audio';
-  duration: number;
-  developmentalCues: string[];
-  milestoneVerification: {
-    milestone: string;
-    confidence: number;
-    verified: boolean;
-  }[];
-  feedback: string;
-}
-
-interface AIRecommendation {
-  id: string;
-  type: 'intervention' | 'assessment' | 'goal' | 'resource';
-  title: string;
+  ageRange: string;
   description: string;
-  priority: 'high' | 'medium' | 'low';
-  confidence: number;
-  reasoning: string;
-  evidence: string[];
+  ageBand: string; // Added for age-based filtering
 }
 
-interface ExportData {
-  format: 'pdf' | 'csv';
-  sections: string[];
-  dateRange: {
-    start: Date;
-    end: Date;
-  };
-  includeMedia: boolean;
+interface MilestoneEntry {
+  id: string;
+  skillId: string;
+  skillName: string;
+  domain: string;
+  domainIcon: string;
+  status: 'observed' | 'emerging' | 'not-yet' | 'not-applicable';
+  dateObserved: string;
+  context: string[];
+  supports: string[];
+  notes: string;
+  caregiver: string;
 }
 
-interface ClinicianInvite {
-  email: string;
-  permissions: string[];
-  expiryDate: Date;
-  secureLink: string;
+interface AddSkillForm {
+  step: number;
+  selectedDomain: string;
+  selectedSkill: string;
+  status: 'observed' | 'emerging' | 'not-yet' | 'not-applicable';
+  dateObserved: string;
+  supports: string[];
+  context: string[];
+  notes: string;
 }
 
-interface GrowthDevelopmentScreenProps {
-  onBack?: () => void;
-  onNavigateToNutrition?: () => void;
-  onNavigateToSymptomLogs?: () => void;
-}
-
-const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({ 
-  onBack,
-  onNavigateToNutrition,
-  onNavigateToSymptomLogs
-}) => {
-  const [activeTab, setActiveTab] = useState('motor');
-  const [isObservationPanelExpanded, setIsObservationPanelExpanded] = useState(false);
-  const [showSurvey, setShowSurvey] = useState(false);
-  const [showContentLibrary, setShowContentLibrary] = useState(false);
-  const [showGoalModal, setShowGoalModal] = useState(false);
-  const [showAISuggestions, setShowAISuggestions] = useState(false);
-  const [showTransparencyModal, setShowTransparencyModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const [journalEntry, setJournalEntry] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+const GrowthDevelopmentScreen: React.FC<GrowthDevelopmentScreenProps> = ({ onBack }) => {
+  const [showQuickAddSheet, setShowQuickAddSheet] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showMilestoneDetail, setShowMilestoneDetail] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState<MilestoneEntry | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [milestoneSettings, setMilestoneSettings] = useState({
+    defaultView: 'age-based' as 'age-based' | 'developmental-level',
+    showSkillsBeyondLevel: true,
+    weeklyReminder: false
+  });
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string; isVisible: boolean }>({
+    type: 'success',
+    message: '',
+    isVisible: false
+  });
+  const [reportOptions, setReportOptions] = useState({
+    includeDomains: ['motor', 'communication', 'social-emotional', 'cognitive', 'adaptive'],
+    includeEmergingSkills: true,
+    includeNotes: true
+  });
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportReady, setReportReady] = useState(false);
+  const [showAISuggestionsModal, setShowAISuggestionsModal] = useState(false);
+  const [currentDomain, setCurrentDomain] = useState<string | null>(null);
+  const [showDomainDetail, setShowDomainDetail] = useState(false);
   
-  // User flow tracking
-  const [userFlowStep, setUserFlowStep] = useState<'overview' | 'domain' | 'update' | 'recommendations' | 'goals' | 'share' | 'feedback'>('overview');
-  const [sessionStartTime] = useState(new Date());
-  const [interactionCount, setInteractionCount] = useState(0);
+  // Filter states
+  const [useDevelopmentalLevel, setUseDevelopmentalLevel] = useState(false);
+  const [chronologicalAge, setChronologicalAge] = useState('24 months'); // Prefilled from Profile
+  const [developmentalLevel, setDevelopmentalLevel] = useState('Toddler (12–36m)');
+  const [timeScope, setTimeScope] = useState('30 days');
 
-  // AI/API Integration State
-  const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
-  const [milestoneScores, setMilestoneScores] = useState<MilestoneScore[]>([]);
-  const [nlpAnalysis, setNlpAnalysis] = useState<NLPAnalysis | null>(null);
-  const [mediaAnalysis, setMediaAnalysis] = useState<MediaAnalysis | null>(null);
-  const [aiRecommendations, setAiRecommendations] = useState<AIRecommendation[]>([]);
-  const [communityBenchmarks, setCommunityBenchmarks] = useState<CommunityBenchmark[]>([
-    {
-      metric: 'Language Development',
-      average: 72,
-      range: '65-85%',
-      sampleSize: 847
-    },
-    {
-      metric: 'Motor Skills',
-      average: 68,
-      range: '60-78%',
-      sampleSize: 723
-    },
-    {
-      metric: 'Social Interaction',
-      average: 65,
-      range: '58-75%',
-      sampleSize: 612
-    },
-    {
-      metric: 'Cognitive Development',
-      average: 70,
-      range: '63-80%',
-      sampleSize: 534
-    }
-  ]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMessage, setProcessingMessage] = useState('');
-  
-  // Responsive & Performance State
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(true);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [lazyLoadedCharts, setLazyLoadedCharts] = useState(false);
-  const [debouncedJournalEntry, setDebouncedJournalEntry] = useState('');
-
-  // Mock child profile data
-  const [childProfile] = useState<ChildProfile>({
-    name: "Emma Johnson",
-    age: "8 years, 3 months",
-    condition: "Down Syndrome",
-    lastUpdated: "2024-03-15"
+  // Add Skill form state
+  const [addSkillForm, setAddSkillForm] = useState<AddSkillForm>({
+    step: 1,
+    selectedDomain: '',
+    selectedSkill: '',
+    status: 'observed',
+    dateObserved: new Date().toISOString().split('T')[0],
+    supports: [],
+    context: [],
+    notes: ''
   });
 
-  // Progress data
-  const [progressData] = useState<ProgressData>({
-    typicalProgress: 75,
-    pmsProgress: 68,
-    currentAge: 8.25,
-    targetAge: 9
-  });
+  // Skill filtering state
+  const [showAllSkills, setShowAllSkills] = useState(false);
 
-  // Recent milestone badges
-  const [recentBadges] = useState<MilestoneBadge[]>([
-    { id: '1', title: 'Climbed stairs!', date: '2024-03-14', icon: '🏃‍♀️', category: 'physical' },
-    { id: '2', title: 'Read 3 words', date: '2024-03-12', icon: '📚', category: 'cognitive' },
-    { id: '3', title: 'Shared toys', date: '2024-03-10', icon: '🤝', category: 'social' },
-    { id: '4', title: 'Expressed feelings', date: '2024-03-08', icon: '😊', category: 'emotional' },
-  ]);
+  // Loading and empty states
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMilestones, setHasMilestones] = useState(false);
 
-  // Survey questions
-  const [surveyQuestions] = useState<SurveyQuestion[]>([
-    {
-      id: '1',
-      question: 'How well does Emma follow 2-step instructions?',
-      type: 'scale',
-      options: ['Not at all', 'Sometimes', 'Usually', 'Always'],
-      domain: 'cognitive'
-    },
-    {
-      id: '2',
-      question: 'Does Emma initiate conversations with peers?',
-      type: 'multiple-choice',
-      options: ['Never', 'Rarely', 'Sometimes', 'Often', 'Always'],
-      domain: 'social'
-    },
-    {
-      id: '3',
-      question: 'Can Emma dress herself independently?',
-      type: 'multiple-choice',
-      options: ['Needs full help', 'Needs some help', 'Can do most', 'Fully independent'],
-      domain: 'adaptive'
-    },
-    {
-      id: '4',
-      question: 'How would you rate Emma\'s current language development?',
-      type: 'scale',
-      options: ['Below average', 'Average', 'Above average'],
-      domain: 'language'
-    },
-    {
-      id: '5',
-      question: 'Any specific observations about Emma\'s motor skills this week?',
-      type: 'text',
-      domain: 'motor'
-    }
-  ]);
+  const ageOptions = [
+    '6 months', '12 months', '18 months', '24 months', '30 months', '36 months',
+    '4 years', '5 years', '6 years', '7 years', '8 years', '9 years', '10 years'
+  ];
 
-  // Domain data
-  const [domains] = useState<DomainData[]>([
+  const developmentalLevels = [
+    'Early (0–12m)',
+    'Toddler (12–36m)', 
+    'Preschool (3–5y)',
+    'School-age (5+)'
+  ];
+
+  const timeScopeOptions = [
+    'This week',
+    '30 days',
+    '90 days', 
+    'Custom'
+  ];
+
+  // Domain data - this would come from API in real implementation
+  const domains: DomainData[] = [
     {
       id: 'motor',
       name: 'Motor',
-      icon: '🏃‍♀️',
-      strengths: ['Good balance', 'Can climb stairs', 'Fine motor coordination'],
-      challenges: ['Running speed', 'Complex movements'],
-      progressData: {
-        typical: 72,
-        pms: 65,
-        timeline: [
-          { date: '2024-01', typical: 68, pms: 60 },
-          { date: '2024-02', typical: 70, pms: 62 },
-          { date: '2024-03', typical: 72, pms: 65 }
-        ]
-      },
-      nextMilestones: [
-        {
-          title: 'Jump with both feet',
-          description: 'Able to jump off ground with both feet simultaneously',
-          timeline: '2-3 months',
-          tips: ['Practice on trampoline', 'Use visual cues', 'Celebrate small jumps']
-        },
-        {
-          title: 'Ride a bike with training wheels',
-          description: 'Maintain balance while pedaling with support',
-          timeline: '4-6 months',
-          tips: ['Start with balance bike', 'Practice in safe area', 'Use helmet']
-        }
-      ]
+      icon: '🏃',
+      observedSkills: 8,
+      suggestedSkills: 12,
+      lastSkillName: 'Walks independently',
+      lastSkillDate: '2024-01-15'
     },
     {
-      id: 'language',
-      name: 'Language',
+      id: 'communication',
+      name: 'Communication',
       icon: '💬',
-      strengths: ['Good vocabulary', 'Clear pronunciation', 'Follows directions'],
-      challenges: ['Complex sentences', 'Abstract concepts'],
-      progressData: {
-        typical: 78,
-        pms: 70,
-        timeline: [
-          { date: '2024-01', typical: 74, pms: 66 },
-          { date: '2024-02', typical: 76, pms: 68 },
-          { date: '2024-03', typical: 78, pms: 70 }
-        ]
-      },
-      nextMilestones: [
-        {
-          title: 'Use compound sentences',
-          description: 'Combine two simple sentences with connecting words',
-          timeline: '1-2 months',
-          tips: ['Model sentence structure', 'Use picture books', 'Ask open questions']
-        },
-        {
-          title: 'Tell simple stories',
-          description: 'Narrate events in sequence with beginning, middle, end',
-          timeline: '3-4 months',
-          tips: ['Use story prompts', 'Practice with familiar events', 'Record and replay']
-        }
-      ]
+      observedSkills: 5,
+      suggestedSkills: 10,
+      lastSkillName: 'Says "mama" and "dada"',
+      lastSkillDate: '2024-01-10'
     },
     {
-      id: 'social',
-      name: 'Social',
-      icon: '🤝',
-      strengths: ['Friendly with adults', 'Shares toys', 'Shows empathy'],
-      challenges: ['Peer interactions', 'Group activities'],
-      progressData: {
-        typical: 70,
-        pms: 62,
-        timeline: [
-          { date: '2024-01', typical: 66, pms: 58 },
-          { date: '2024-02', typical: 68, pms: 60 },
-          { date: '2024-03', typical: 70, pms: 62 }
-        ]
-      },
-      nextMilestones: [
-        {
-          title: 'Initiate play with peers',
-          description: 'Approach other children and suggest play activities',
-          timeline: '2-3 months',
-          tips: ['Practice at home', 'Role-play scenarios', 'Start with familiar peers']
-        },
-        {
-          title: 'Take turns in conversations',
-          description: 'Listen and respond appropriately in group discussions',
-          timeline: '3-4 months',
-          tips: ['Use visual cues', 'Practice with family', 'Set conversation rules']
-        }
-      ]
-    },
-    {
-      id: 'adaptive',
-      name: 'Adaptive',
-      icon: '🎯',
-      strengths: ['Dresses independently', 'Follows routines', 'Self-care skills'],
-      challenges: ['Time management', 'Problem-solving'],
-      progressData: {
-        typical: 75,
-        pms: 68,
-        timeline: [
-          { date: '2024-01', typical: 71, pms: 64 },
-          { date: '2024-02', typical: 73, pms: 66 },
-          { date: '2024-03', typical: 75, pms: 68 }
-        ]
-      },
-      nextMilestones: [
-        {
-          title: 'Use a calendar',
-          description: 'Understand and track daily/weekly schedules',
-          timeline: '1-2 months',
-          tips: ['Start with visual calendar', 'Mark special events', 'Review daily']
-        },
-        {
-          title: 'Complete multi-step tasks',
-          description: 'Follow 3-4 step instructions independently',
-          timeline: '2-3 months',
-          tips: ['Break down tasks', 'Use checklists', 'Provide visual aids']
-        }
-      ]
+      id: 'social-emotional',
+      name: 'Social-Emotional',
+      icon: '😊',
+      observedSkills: 6,
+      suggestedSkills: 8,
+      lastSkillName: 'Shows affection',
+      lastSkillDate: '2024-01-12'
     },
     {
       id: 'cognitive',
-      name: 'Cognitive',
-      icon: '🧠',
-      strengths: ['Good memory', 'Pattern recognition', 'Visual learning'],
-      challenges: ['Abstract thinking', 'Mathematical concepts'],
-      progressData: {
-        typical: 80,
-        pms: 72,
-        timeline: [
-          { date: '2024-01', typical: 76, pms: 68 },
-          { date: '2024-02', typical: 78, pms: 70 },
-          { date: '2024-03', typical: 80, pms: 72 }
-        ]
-      },
-      nextMilestones: [
-        {
-          title: 'Solve simple word problems',
-          description: 'Understand and solve basic addition/subtraction problems',
-          timeline: '2-3 months',
-          tips: ['Use manipulatives', 'Draw pictures', 'Connect to real life']
-        },
-        {
-          title: 'Make predictions',
-          description: 'Predict outcomes based on patterns and observations',
-          timeline: '3-4 months',
-          tips: ['Ask "what if" questions', 'Use experiments', 'Discuss cause-effect']
-        }
-      ]
+      name: 'Cognitive/Play',
+      icon: '🧩',
+      observedSkills: 4,
+      suggestedSkills: 9,
+      lastSkillName: 'Stacks 2 blocks',
+      lastSkillDate: '2024-01-08'
+    },
+    {
+      id: 'adaptive',
+      name: 'Adaptive/Self-Help',
+      icon: '👕',
+      observedSkills: 3,
+      suggestedSkills: 7,
+      lastSkillName: 'Feeds self with fingers',
+      lastSkillDate: '2024-01-05'
     }
-  ]);
+  ];
 
-  const [growthData] = useState<GrowthData[]>([
-    { date: '2024-01-15', height: 165, weight: 58, notes: 'Regular checkup' },
-    { date: '2024-02-15', height: 166, weight: 59, notes: 'Good progress' },
-    { date: '2024-03-15', height: 167, weight: 60, notes: 'Steady growth' },
-  ]);
+  // Sample skills data - this would come from API in real implementation
+  const allSkills: SkillData[] = [
+    // Motor skills - 0-6 months
+    { id: 'm1', name: 'Rolls both ways', domain: 'motor', ageRange: '3-6 months', description: 'Rolls from back to tummy and tummy to back', ageBand: '0-6' },
+    { id: 'm2', name: 'Sits briefly without support', domain: 'motor', ageRange: '4-7 months', description: 'Sits independently for short periods', ageBand: '0-6' },
+    { id: 'm3', name: 'Pulls to stand', domain: 'motor', ageRange: '6-10 months', description: 'Pulls self up to standing position', ageBand: '6-12' },
+    { id: 'm4', name: 'Cruises along furniture', domain: 'motor', ageRange: '8-12 months', description: 'Walks while holding onto furniture', ageBand: '6-12' },
+    { id: 'm5', name: 'Walks with support', domain: 'motor', ageRange: '9-12 months', description: 'Takes steps while holding hands', ageBand: '6-12' },
+    { id: 'm6', name: 'Pincer grasp', domain: 'motor', ageRange: '9-12 months', description: 'Picks up small objects with thumb and finger', ageBand: '6-12' },
+    { id: 'm7', name: 'Stacks 2 blocks', domain: 'motor', ageRange: '15-18 months', description: 'Stacks 2 blocks on top of each other', ageBand: '12-18' },
+    { id: 'm8', name: 'Throws ball forward', domain: 'motor', ageRange: '18-24 months', description: 'Throws ball in forward direction', ageBand: '18-24' },
+    { id: 'm9', name: 'Runs with coordination', domain: 'motor', ageRange: '18-24 months', description: 'Runs with good balance and coordination', ageBand: '18-24' },
+    { id: 'm10', name: 'Climbs stairs with help', domain: 'motor', ageRange: '18-24 months', description: 'Climbs stairs while holding railing or hand', ageBand: '18-24' },
+    { id: 'm11', name: 'Stands on one foot', domain: 'motor', ageRange: '24-30 months', description: 'Balances on one foot briefly', ageBand: '24-30' },
+    { id: 'm12', name: 'Jumps with both feet', domain: 'motor', ageRange: '24-30 months', description: 'Jumps off ground with both feet', ageBand: '24-30' },
+    { id: 'm13', name: 'Pedals tricycle', domain: 'motor', ageRange: '30-36 months', description: 'Pedals tricycle independently', ageBand: '30-36' },
+    { id: 'm14', name: 'Catches large ball', domain: 'motor', ageRange: '30-36 months', description: 'Catches large ball with arms', ageBand: '30-36' },
+    { id: 'm15', name: 'Hops on one foot', domain: 'motor', ageRange: '36-48 months', description: 'Hops on one foot multiple times', ageBand: '36-48' },
+    
+    // Communication skills - 0-6 months
+    { id: 'c1', name: 'Babbles with consonants', domain: 'communication', ageRange: '4-7 months', description: 'Makes consonant sounds like "ba", "da", "ma"', ageBand: '0-6' },
+    { id: 'c2', name: 'Responds to name', domain: 'communication', ageRange: '4-7 months', description: 'Turns head when name is called', ageBand: '0-6' },
+    { id: 'c3', name: 'Says "mama" and "dada"', domain: 'communication', ageRange: '9-12 months', description: 'Uses mama and dada specifically', ageBand: '6-12' },
+    { id: 'c4', name: 'Points to request', domain: 'communication', ageRange: '9-12 months', description: 'Points to objects they want', ageBand: '6-12' },
+    { id: 'c5', name: 'Uses 5-10 words', domain: 'communication', ageRange: '12-15 months', description: 'Uses 5-10 recognizable words', ageBand: '12-18' },
+    { id: 'c6', name: 'Follows 1-step directions', domain: 'communication', ageRange: '12-15 months', description: 'Follows simple commands like "come here"', ageBand: '12-18' },
+    { id: 'c7', name: 'Names common objects', domain: 'communication', ageRange: '15-18 months', description: 'Names familiar objects like ball, cup, dog', ageBand: '12-18' },
+    { id: 'c8', name: 'Combines 2 words', domain: 'communication', ageRange: '18-24 months', description: 'Combines two words together', ageBand: '18-24' },
+    { id: 'c9', name: 'Names body parts', domain: 'communication', ageRange: '18-24 months', description: 'Names 3-5 body parts', ageBand: '18-24' },
+    { id: 'c10', name: 'Uses 50+ words', domain: 'communication', ageRange: '24-30 months', description: 'Uses 50 or more words', ageBand: '24-30' },
+    { id: 'c11', name: 'Asks questions', domain: 'communication', ageRange: '24-30 months', description: 'Asks "what" and "where" questions', ageBand: '24-30' },
+    { id: 'c12', name: 'Uses 3-word sentences', domain: 'communication', ageRange: '30-36 months', description: 'Uses 3-word sentences', ageBand: '30-36' },
+    { id: 'c13', name: 'Tells simple stories', domain: 'communication', ageRange: '36-48 months', description: 'Tells simple stories or events', ageBand: '36-48' },
+    
+    // Social-Emotional skills - 0-6 months
+    { id: 's1', name: 'Social smile', domain: 'social-emotional', ageRange: '1-3 months', description: 'Smiles in response to faces and voices', ageBand: '0-6' },
+    { id: 's2', name: 'Joint attention', domain: 'social-emotional', ageRange: '6-9 months', description: 'Looks where you point and follows gaze', ageBand: '6-12' },
+    { id: 's3', name: 'Waves bye', domain: 'social-emotional', ageRange: '9-12 months', description: 'Waves goodbye when prompted', ageBand: '6-12' },
+    { id: 's4', name: 'Brings item to show', domain: 'social-emotional', ageRange: '12-15 months', description: 'Brings objects to show to others', ageBand: '12-18' },
+    { id: 's5', name: 'Shows affection', domain: 'social-emotional', ageRange: '12-18 months', description: 'Shows affection to familiar people', ageBand: '12-18' },
+    { id: 's6', name: 'Parallel play', domain: 'social-emotional', ageRange: '18-24 months', description: 'Plays near other children', ageBand: '18-24' },
+    { id: 's7', name: 'Takes turns briefly', domain: 'social-emotional', ageRange: '18-24 months', description: 'Takes turns in simple games', ageBand: '18-24' },
+    { id: 's8', name: 'Shows empathy', domain: 'social-emotional', ageRange: '24-30 months', description: 'Shows concern for others', ageBand: '24-30' },
+    { id: 's9', name: 'Shares toys', domain: 'social-emotional', ageRange: '30-36 months', description: 'Shares toys with prompting', ageBand: '30-36' },
+    { id: 's10', name: 'Plays cooperatively', domain: 'social-emotional', ageRange: '36-48 months', description: 'Plays cooperatively with others', ageBand: '36-48' },
+    
+    // Cognitive/Play skills - 0-6 months
+    { id: 'cp1', name: 'Bangs two objects', domain: 'cognitive', ageRange: '6-9 months', description: 'Bangs two objects together', ageBand: '6-12' },
+    { id: 'cp2', name: 'Puts objects in/out', domain: 'cognitive', ageRange: '9-12 months', description: 'Puts objects in and takes them out of containers', ageBand: '6-12' },
+    { id: 'cp3', name: 'Cause-and-effect toy play', domain: 'cognitive', ageRange: '9-12 months', description: 'Plays with toys that respond to actions', ageBand: '6-12' },
+    { id: 'cp4', name: 'Stacks 2 blocks', domain: 'cognitive', ageRange: '15-18 months', description: 'Stacks 2 blocks on top of each other', ageBand: '12-18' },
+    { id: 'cp5', name: 'Matches shapes', domain: 'cognitive', ageRange: '18-24 months', description: 'Matches simple shapes', ageBand: '18-24' },
+    { id: 'cp6', name: 'Completes 3-piece puzzle', domain: 'cognitive', ageRange: '18-24 months', description: 'Completes simple 3-piece puzzles', ageBand: '18-24' },
+    { id: 'cp7', name: 'Pretend feeds doll', domain: 'cognitive', ageRange: '18-24 months', description: 'Engages in pretend play feeding dolls', ageBand: '18-24' },
+    { id: 'cp8', name: 'Imitates actions', domain: 'cognitive', ageRange: '18-24 months', description: 'Imitates adult actions', ageBand: '18-24' },
+    { id: 'cp9', name: 'Pretend play', domain: 'cognitive', ageRange: '24-30 months', description: 'Engages in pretend play', ageBand: '24-30' },
+    { id: 'cp10', name: 'Counts to 3', domain: 'cognitive', ageRange: '24-30 months', description: 'Counts objects to 3', ageBand: '24-30' },
+    { id: 'cp11', name: 'Names colors', domain: 'cognitive', ageRange: '30-36 months', description: 'Names 3-4 colors', ageBand: '30-36' },
+    { id: 'cp12', name: 'Completes puzzles', domain: 'cognitive', ageRange: '30-36 months', description: 'Completes 3-4 piece puzzles', ageBand: '30-36' },
+    
+    // Adaptive/Self-Help skills - 0-6 months
+    { id: 'a1', name: 'Finger feeds', domain: 'adaptive', ageRange: '6-9 months', description: 'Feeds self using fingers', ageBand: '6-12' },
+    { id: 'a2', name: 'Drinks from open cup with help', domain: 'adaptive', ageRange: '6-9 months', description: 'Drinks from cup with assistance', ageBand: '6-12' },
+    { id: 'a3', name: 'Uses spoon with some spills', domain: 'adaptive', ageRange: '12-15 months', description: 'Uses spoon to feed self with some mess', ageBand: '12-18' },
+    { id: 'a4', name: 'Removes socks', domain: 'adaptive', ageRange: '12-15 months', description: 'Removes socks independently', ageBand: '12-18' },
+    { id: 'a5', name: 'Helps with dressing', domain: 'adaptive', ageRange: '15-18 months', description: 'Helps put on simple clothing items', ageBand: '12-18' },
+    { id: 'a6', name: 'Indicates wet/soiled diaper', domain: 'adaptive', ageRange: '18-24 months', description: 'Shows awareness of wet or dirty diaper', ageBand: '18-24' },
+    { id: 'a7', name: 'Sits on toilet with support', domain: 'adaptive', ageRange: '18-24 months', description: 'Sits on toilet with assistance', ageBand: '18-24' },
+    { id: 'a8', name: 'Washes hands', domain: 'adaptive', ageRange: '24-30 months', description: 'Washes hands with help', ageBand: '24-30' },
+    { id: 'a9', name: 'Puts on simple clothes', domain: 'adaptive', ageRange: '30-36 months', description: 'Puts on simple clothing items', ageBand: '30-36' },
+    { id: 'a10', name: 'Uses toilet', domain: 'adaptive', ageRange: '30-36 months', description: 'Uses toilet with help', ageBand: '30-36' }
+  ];
 
-  const [milestones] = useState<DevelopmentMilestone[]>([
-    { id: '1', title: 'Regular Exercise', description: 'Maintain 30 min daily activity', achieved: true, date: '2024-01-10' },
-    { id: '2', title: 'Balanced Nutrition', description: 'Follow recommended meal plan', achieved: true, date: '2024-02-01' },
-    { id: '3', title: 'Stress Management', description: 'Practice relaxation techniques', achieved: false },
-    { id: '4', title: 'Sleep Quality', description: 'Maintain 7-8 hours sleep', achieved: false },
-  ]);
+  const supportOptions = [
+    'Hand-over-hand',
+    'Adaptive utensil',
+    'Prompts',
+    'AAC',
+    'Brace/orthotics'
+  ];
 
-  // Personalized recommendations
-  const [recommendations] = useState<Recommendation[]>([
+  const contextOptions = [
+    'Home',
+    'School',
+    'Therapy',
+    'Community'
+  ];
+
+  // Sample milestone entries - this would come from API in real implementation
+  const milestoneEntries: MilestoneEntry[] = [
     {
       id: '1',
-      title: 'Consider AAC (Augmentative and Alternative Communication)',
-      description: 'Based on Emma\'s language development, AAC tools could enhance communication. See local speech therapists for evaluation.',
-      category: 'therapy',
-      priority: 'high',
-      evidence: 'Research shows AAC improves language development in children with Down Syndrome (McNaughton & Light, 2013)',
-      actionUrl: '#'
+      skillId: 'm7',
+      skillName: 'Stacks 2 blocks',
+      domain: 'motor',
+      domainIcon: '🏃',
+      status: 'observed',
+      dateObserved: '2024-01-15',
+      context: ['Home', 'Therapy'],
+      supports: ['Prompts'],
+      notes: 'Successfully stacked 2 blocks during playtime. Needed minimal prompting to start.',
+      caregiver: 'Mom'
     },
     {
       id: '2',
-      title: 'Physical Therapy for Motor Skills',
-      description: 'Targeted exercises to improve balance and coordination. Weekly sessions recommended.',
-      category: 'intervention',
-      priority: 'medium',
-      evidence: 'Systematic review indicates PT improves motor function in children with Down Syndrome (Martin et al., 2019)',
-      actionUrl: '#'
+      skillId: 'c5',
+      skillName: 'Uses 5-10 words',
+      domain: 'communication',
+      domainIcon: '💬',
+      status: 'emerging',
+      dateObserved: '2024-01-12',
+      context: ['Home'],
+      supports: ['AAC'],
+      notes: 'Using about 8 words consistently. AAC device helps with new words.',
+      caregiver: 'Dad'
     },
     {
       id: '3',
-      title: 'Social Skills Group',
-      description: 'Peer interaction opportunities in structured environment. Helps develop social communication.',
-      category: 'strategy',
-      priority: 'medium',
-      evidence: 'Group interventions show positive outcomes for social development (Roberts et al., 2020)',
-      actionUrl: '#'
-    }
-  ]);
-
-  // Next steps checklist
-  const [nextSteps] = useState<NextStep[]>([
-    {
-      id: '1',
-      title: 'Annual Developmental Assessment',
-      description: 'Comprehensive evaluation with developmental pediatrician',
-      dueDate: '2024-04-15',
-      status: 'scheduled',
-      type: 'assessment'
-    },
-    {
-      id: '2',
-      title: 'Vision Screening',
-      description: 'Regular eye exam to monitor vision development',
-      dueDate: '2024-05-01',
-      status: 'pending',
-      type: 'screening'
-    },
-    {
-      id: '3',
-      title: 'Speech Therapy Follow-up',
-      description: 'Review progress and adjust goals',
-      dueDate: '2024-03-25',
-      status: 'scheduled',
-      type: 'appointment'
+      skillId: 's5',
+      skillName: 'Shows affection',
+      domain: 'social-emotional',
+      domainIcon: '😊',
+      status: 'observed',
+      dateObserved: '2024-01-10',
+      context: ['Home'],
+      supports: [],
+      notes: 'Gives hugs and kisses to family members spontaneously.',
+      caregiver: 'Mom'
     },
     {
       id: '4',
-      title: 'Occupational Therapy Evaluation',
-      description: 'Assess fine motor skills and daily living activities',
-      dueDate: '2024-04-30',
-      status: 'pending',
-      type: 'assessment'
+      skillId: 'cp4',
+      skillName: 'Stacks 2 blocks',
+      domain: 'cognitive',
+      domainIcon: '🧩',
+      status: 'observed',
+      dateObserved: '2024-01-08',
+      context: ['Therapy'],
+      supports: ['Hand-over-hand'],
+      notes: 'Completed stacking task with hand-over-hand assistance initially, then independently.',
+      caregiver: 'Therapist'
+    },
+    {
+      id: '5',
+      skillId: 'a3',
+      skillName: 'Uses spoon with some spills',
+      domain: 'adaptive',
+      domainIcon: '👕',
+      status: 'emerging',
+      dateObserved: '2024-01-05',
+      context: ['Home'],
+      supports: ['Adaptive utensil'],
+      notes: 'Using adapted spoon. Still some spills but much improved coordination.',
+      caregiver: 'Mom'
+    },
+    {
+      id: '6',
+      skillId: 'm8',
+      skillName: 'Throws ball forward',
+      domain: 'motor',
+      domainIcon: '🏃',
+      status: 'not-yet',
+      dateObserved: '2024-01-03',
+      context: ['Therapy'],
+      supports: ['Hand-over-hand'],
+      notes: 'Working on ball throwing. Needs support to aim and release.',
+      caregiver: 'Therapist'
+    },
+    {
+      id: '7',
+      skillId: 'c8',
+      skillName: 'Combines 2 words',
+      domain: 'communication',
+      domainIcon: '💬',
+      status: 'not-applicable',
+      dateObserved: '2024-01-01',
+      context: ['Therapy'],
+      supports: ['AAC'],
+      notes: 'Not yet combining words. Using AAC for communication.',
+      caregiver: 'Therapist'
+    },
+    {
+      id: '8',
+      skillId: 's6',
+      skillName: 'Parallel play',
+      domain: 'social-emotional',
+      domainIcon: '😊',
+      status: 'observed',
+      dateObserved: '2023-12-28',
+      context: ['School'],
+      supports: [],
+      notes: 'Plays alongside peers at preschool. Shows interest in other children.',
+      caregiver: 'Teacher'
+    },
+    {
+      id: '9',
+      skillId: 'cp6',
+      skillName: 'Completes 3-piece puzzle',
+      domain: 'cognitive',
+      domainIcon: '🧩',
+      status: 'emerging',
+      dateObserved: '2023-12-25',
+      context: ['Home'],
+      supports: ['Prompts'],
+      notes: 'Can complete 2 pieces independently, needs prompts for 3rd piece.',
+      caregiver: 'Dad'
+    },
+    {
+      id: '10',
+      skillId: 'a6',
+      skillName: 'Indicates wet/soiled diaper',
+      domain: 'adaptive',
+      domainIcon: '👕',
+      status: 'observed',
+      dateObserved: '2023-12-22',
+      context: ['Home'],
+      supports: [],
+      notes: 'Consistently indicates when diaper needs changing.',
+      caregiver: 'Mom'
     }
-  ]);
+  ];
 
-  // Content library items
-  const [contentItems] = useState<ContentItem[]>([
-    {
-      id: '1',
-      title: 'Introduction to AAC for Children with Down Syndrome',
-      type: 'video',
-      duration: '8:45',
-      description: 'Learn about different AAC options and how to implement them at home',
-      url: '#'
-    },
-    {
-      id: '2',
-      title: 'Motor Development Milestones',
-      type: 'infographic',
-      description: 'Visual guide to typical and Down Syndrome-specific motor milestones',
-      url: '#'
-    },
-    {
-      id: '3',
-      title: 'Building Social Skills at Home',
-      type: 'video',
-      duration: '12:30',
-      description: 'Practical strategies for developing peer interaction skills',
-      url: '#'
-    },
-    {
-      id: '4',
-      title: 'Speech and Language Development Guide',
-      type: 'article',
-      description: 'Comprehensive overview of language development stages and interventions',
-      url: '#'
-    }
-  ]);
-
-  // Active goals
-  const [activeGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      title: 'Improve Balance and Coordination',
-      description: 'Practice standing on one foot for 10 seconds and walking on a straight line',
-      category: 'motor',
-      targetDate: '2024-05-15',
-      progress: 65,
-      status: 'active',
-      reminders: true,
-      aiSuggested: false,
-      createdAt: '2024-02-15'
-    },
-    {
-      id: '2',
-      title: 'Expand Vocabulary to 200 Words',
-      description: 'Learn and use 20 new words in daily conversations',
-      category: 'language',
-      targetDate: '2024-06-01',
-      progress: 45,
-      status: 'active',
-      reminders: true,
-      aiSuggested: true,
-      createdAt: '2024-03-01'
-    },
-    {
-      id: '3',
-      title: 'Initiate Play with Peers',
-      description: 'Approach other children and suggest play activities at least 3 times per week',
-      category: 'social',
-      targetDate: '2024-04-30',
-      progress: 30,
-      status: 'active',
-      reminders: true,
-      aiSuggested: false,
-      createdAt: '2024-02-20'
-    }
-  ]);
-
-  // AI suggested goals
-  const [aiSuggestions] = useState<AISuggestion[]>([
-    {
-      id: '1',
-      title: 'Use Compound Sentences',
-      description: 'Combine two simple sentences with connecting words like "and", "but", "because"',
-      category: 'language',
-      reason: 'Based on Emma\'s current language development and age-appropriate milestones'
-    },
-    {
-      id: '2',
-      title: 'Complete 3-Step Instructions',
-      description: 'Follow and complete instructions with 3 sequential steps independently',
-      category: 'cognitive',
-      reason: 'Aligns with Emma\'s cognitive development stage and daily routine needs'
-    },
-    {
-      id: '3',
-      title: 'Dress Independently',
-      description: 'Put on and take off clothes without assistance, including buttons and zippers',
-      category: 'adaptive',
-      reason: 'Supports Emma\'s growing independence and self-care skills'
-    },
-    {
-      id: '4',
-      title: 'Share Toys and Take Turns',
-      description: 'Engage in cooperative play, sharing toys and waiting for turns',
-      category: 'social',
-      reason: 'Builds on Emma\'s current social skills and peer interaction abilities'
-    }
-  ]);
-
-
-
-  // Clinical reviewers
-  const [clinicalReviewers] = useState<ClinicalReviewer[]>([
-    {
-      name: 'Dr. Sarah Johnson',
-      credentials: 'MD, PhD',
-      specialty: 'Developmental Pediatrics',
-      institution: 'Children\'s Hospital of Philadelphia'
-    },
-    {
-      name: 'Dr. Michael Chen',
-      credentials: 'PhD, CCC-SLP',
-      specialty: 'Speech-Language Pathology',
-      institution: 'University of California, San Francisco'
-    },
-    {
-      name: 'Dr. Emily Rodriguez',
-      credentials: 'OTD, OTR/L',
-      specialty: 'Occupational Therapy',
-      institution: 'Boston Children\'s Hospital'
-    },
-    {
-      name: 'Dr. David Thompson',
-      credentials: 'PhD, BCBA-D',
-      specialty: 'Applied Behavior Analysis',
-      institution: 'Vanderbilt University'
-    }
-  ]);
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'physical': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'cognitive': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'social': return 'bg-green-100 text-green-700 border-green-200';
-      case 'emotional': return 'bg-pink-100 text-pink-700 border-pink-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
+  const handleOpenDomain = (domainId: string) => {
+    setCurrentDomain(domainId);
+    setShowDomainDetail(true);
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-700 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-700 border-green-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
+  const handleCloseDomainDetail = () => {
+    setShowDomainDetail(false);
+    setCurrentDomain(null);
   };
 
-  const getStatusColor = (status: string) => {
+  const handleViewMilestone = (milestone: MilestoneEntry) => {
+    setSelectedMilestone(milestone);
+    setShowMilestoneDetail(true);
+  };
+
+  const handleViewAllMilestones = () => {
+    // Navigate to Journal filtered to Milestones type
+    console.log('Navigate to Journal > Milestones filter');
+  };
+
+  const handleOpenSettings = () => {
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = () => {
+    // Save settings to localStorage or backend
+    localStorage.setItem('milestoneSettings', JSON.stringify(milestoneSettings));
+    setShowSettingsModal(false);
+    showToast('success', 'Settings saved.');
+  };
+
+  const handleCancelSettings = () => {
+    setShowSettingsModal(false);
+  };
+
+  const handleOpenReportModal = () => {
+    setShowReportModal(true);
+    setReportReady(false);
+  };
+
+  const handleCloseReportModal = () => {
+    setShowReportModal(false);
+    setIsGeneratingReport(false);
+    setReportReady(false);
+  };
+
+  const handleGeneratePDF = () => {
+    setIsGeneratingReport(true);
+    // Simulate PDF generation
+    setTimeout(() => {
+      setIsGeneratingReport(false);
+      setReportReady(true);
+    }, 2000);
+  };
+
+  const handleSaveToVisitPacket = () => {
+    // Add report to visit packet
+    console.log('Adding milestone report to visit packet');
+    showToast('success', 'Report added to Visit Packet');
+    handleCloseReportModal();
+  };
+
+  const handleDomainToggle = (domainId: string) => {
+    setReportOptions(prev => ({
+      ...prev,
+      includeDomains: prev.includeDomains.includes(domainId)
+        ? prev.includeDomains.filter(id => id !== domainId)
+        : [...prev.includeDomains, domainId]
+    }));
+  };
+
+  const handleOpenAISuggestions = () => {
+    setShowAISuggestionsModal(true);
+  };
+
+  const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'scheduled': return 'bg-blue-100 text-blue-700';
-      case 'pending': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'observed': return 'bg-green-100 text-green-800';
+      case 'emerging': return 'bg-yellow-100 text-yellow-800';
+      case 'not-yet': return 'bg-gray-100 text-gray-800';
+      case 'not-applicable': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getGoalCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'motor': return '🏃‍♀️';
-      case 'language': return '💬';
-      case 'social': return '🤝';
-      case 'cognitive': return '🧠';
-      case 'adaptive': return '🎯';
-      default: return '📋';
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'observed': return 'Observed';
+      case 'emerging': return 'Emerging';
+      case 'not-yet': return 'Not yet';
+      case 'not-applicable': return 'N/A';
+      default: return status;
     }
   };
 
-  const getGoalCategoryColor = (category: string) => {
-    switch (category) {
-      case 'motor': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'language': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'social': return 'bg-green-100 text-green-700 border-green-200';
-      case 'cognitive': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-      case 'adaptive': return 'bg-orange-100 text-orange-700 border-orange-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 80) return 'bg-green-500';
-    if (progress >= 60) return 'bg-blue-500';
-    if (progress >= 40) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const activeDomain = domains.find(domain => domain.id === activeTab);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      
-      // Analyze media content
-      const analysis = await analyzeMediaUpload(file);
-      setMediaAnalysis(analysis);
-      
-      // Generate updated recommendations
-      if (milestoneScores.length > 0) {
-        const recommendations = await generateAIRecommendations(milestoneScores, nlpAnalysis);
-        setAiRecommendations(recommendations);
-      }
-    }
-  };
-
-
-
-  const handleJournalSubmit = async () => {
-    if (journalEntry.trim()) {
-      // Analyze journal entry with NLP
-      const analysis = await analyzeJournalEntry(journalEntry);
-      setNlpAnalysis(analysis);
-      
-      // Generate updated recommendations if we have milestone scores
-      if (milestoneScores.length > 0) {
-        const recommendations = await generateAIRecommendations(milestoneScores, analysis);
-        setAiRecommendations(recommendations);
-      }
-      
-      setJournalEntry('');
-      setUserFlowStep('recommendations');
-      setInteractionCount(prev => prev + 1);
-    }
-  };
-
-  // User flow interaction handlers
-  const handleDomainTabClick = (domainId: string) => {
-    setActiveTab(domainId);
-    setUserFlowStep('domain');
-    setInteractionCount(prev => prev + 1);
-  };
-
-  const handleUpdateProgressClick = () => {
-    setShowSurvey(true);
-    setUserFlowStep('update');
-    setInteractionCount(prev => prev + 1);
-  };
-
-  const handleSurveySubmit = async () => {
-    // Process survey responses through AI
-    const responses: SurveyResponse[] = surveyQuestions.map(q => ({
-      questionId: q.id,
-      response: 'sample response', // In real app, this would be actual user responses
-      timestamp: new Date()
-    }));
-    
-    const scores = await processSurveyResponses(responses);
-    setMilestoneScores(scores);
-    
-    // Generate AI recommendations
-    const recommendations = await generateAIRecommendations(scores, nlpAnalysis);
-    setAiRecommendations(recommendations);
-    
-    setShowSurvey(false);
-    setUserFlowStep('recommendations');
-    setInteractionCount(prev => prev + 1);
-  };
-
-  const handleGoalAddClick = () => {
-    setShowGoalModal(true);
-    setUserFlowStep('goals');
-    setInteractionCount(prev => prev + 1);
-  };
-
-  const handleExportClick = () => {
-    setShowExportModal(true);
-    setUserFlowStep('share');
-    setInteractionCount(prev => prev + 1);
-  };
-
-  const handleFeedbackSubmit = (isHelpful: boolean) => {
-    setFeedbackSubmitted(true);
-    setUserFlowStep('feedback');
-    setInteractionCount(prev => prev + 1);
-  };
-
-  const handleTransparencyClick = () => {
-    setShowTransparencyModal(true);
-    setInteractionCount(prev => prev + 1);
-  };
-
-  // AI/API Service Functions
-  const processSurveyResponses = async (responses: SurveyResponse[]): Promise<MilestoneScore[]> => {
-    setIsProcessing(true);
-    setProcessingMessage('Analyzing survey responses...');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const scores: MilestoneScore[] = responses.map(response => ({
-      domain: surveyQuestions.find(q => q.id === response.questionId)?.domain || 'general',
-      score: Math.floor(Math.random() * 40) + 60, // Mock score 60-100
-      percentile: Math.floor(Math.random() * 40) + 30, // Mock percentile 30-70
-      flagged: Math.random() > 0.7, // 30% chance of flagging
-      confidence: Math.random() * 0.3 + 0.7 // Confidence 70-100%
-    }));
-    
-    setIsProcessing(false);
-    setProcessingMessage('');
-    return scores;
-  };
-
-  const analyzeJournalEntry = async (entry: string): Promise<NLPAnalysis> => {
-    setIsProcessing(true);
-    setProcessingMessage('Analyzing journal entry...');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const analysis: NLPAnalysis = {
-      sentiment: entry.toLowerCase().includes('great') || entry.toLowerCase().includes('improved') ? 'positive' : 
-                entry.toLowerCase().includes('struggle') || entry.toLowerCase().includes('difficult') ? 'negative' : 'neutral',
-      keywords: entry.toLowerCase().split(' ').filter(word => word.length > 4).slice(0, 5),
-      flags: entry.toLowerCase().includes('regression') ? ['Potential regression detected'] : [],
-      suggestions: entry.toLowerCase().includes('speech') ? ['Consider speech therapy consultation'] : [],
-      confidence: Math.random() * 0.3 + 0.7
-    };
-    
-    setIsProcessing(false);
-    setProcessingMessage('');
-    return analysis;
-  };
-
-  const analyzeMediaUpload = async (file: File): Promise<MediaAnalysis> => {
-    setIsProcessing(true);
-    setProcessingMessage('Analyzing media content...');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    const analysis: MediaAnalysis = {
-      type: file.type.startsWith('video') ? 'video' : 'audio',
-      duration: Math.floor(Math.random() * 120) + 30, // 30-150 seconds
-      developmentalCues: [
-        'Clear eye contact observed',
-        'Vocalization patterns detected',
-        'Motor coordination visible'
-      ],
-      milestoneVerification: [
-        {
-          milestone: 'Social interaction',
-          confidence: 0.85,
-          verified: true
-        },
-        {
-          milestone: 'Language development',
-          confidence: 0.72,
-          verified: false
-        }
-      ],
-      feedback: 'Good quality recording. Consider capturing more structured activities for better analysis.'
-    };
-    
-    setIsProcessing(false);
-    setProcessingMessage('');
-    return analysis;
-  };
-
-  const generateAIRecommendations = async (scores: MilestoneScore[], analysis: NLPAnalysis | null): Promise<AIRecommendation[]> => {
-    setIsProcessing(true);
-    setProcessingMessage('Generating personalized recommendations...');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
-    const recommendations: AIRecommendation[] = [
-      {
-        id: '1',
-        type: 'intervention',
-        title: 'Speech Therapy Consultation',
-        description: 'Based on language development scores, consider scheduling a speech therapy evaluation.',
-        priority: 'high',
-        confidence: 0.88,
-        reasoning: 'Language scores are below expected range for age group',
-        evidence: ['CDC Language Development Guidelines', 'PMS Research Database']
-      },
-      {
-        id: '2',
-        type: 'assessment',
-        title: 'Occupational Therapy Screening',
-        description: 'Motor skills assessment recommended for fine motor development.',
-        priority: 'medium',
-        confidence: 0.75,
-        reasoning: 'Motor coordination patterns suggest need for evaluation',
-        evidence: ['Developmental Milestone Database', 'Clinical Guidelines']
-      }
-    ];
-    
-    setIsProcessing(false);
-    setProcessingMessage('');
-    return recommendations;
-  };
-
-  const fetchCommunityBenchmarks = async (): Promise<CommunityBenchmark[]> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return [
-      {
-        metric: 'Language Development',
-        average: 72,
-        range: '65-85%',
-        sampleSize: 847
-      },
-      {
-        metric: 'Motor Skills',
-        average: 68,
-        range: '60-78%',
-        sampleSize: 723
-      },
-      {
-        metric: 'Social Interaction',
-        average: 65,
-        range: '58-75%',
-        sampleSize: 612
-      },
-      {
-        metric: 'Cognitive Development',
-        average: 70,
-        range: '63-80%',
-        sampleSize: 534
-      }
-    ];
-  };
-
-  const exportReport = async (data: ExportData): Promise<string> => {
-    setIsProcessing(true);
-    setProcessingMessage('Generating report...');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    setIsProcessing(false);
-    setProcessingMessage('');
-    return `growth_development_report_${new Date().toISOString().split('T')[0]}.${data.format}`;
-  };
-
-  const inviteClinician = async (invite: ClinicianInvite): Promise<boolean> => {
-    setIsProcessing(true);
-    setProcessingMessage('Sending invitation...');
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsProcessing(false);
-    setProcessingMessage('');
-    return true;
-  };
-
-  // Responsive Behavior & Performance Hooks
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
-      setIsDesktop(width >= 1024);
-    };
-
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    // Initialize responsive state
-    handleResize();
-
-    // Add event listeners
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', handleScroll);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
-
-  // Lazy load charts when component is visible
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLazyLoadedCharts(true);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Debounce journal entry for API calls
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedJournalEntry(journalEntry);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [journalEntry]);
-
-  // Memoized responsive classes
-  const responsiveClasses = useMemo(() => ({
-    container: isMobile ? 'max-w-full px-4' : isTablet ? 'max-w-3xl mx-auto px-6' : 'max-w-4xl mx-auto px-8',
-    grid: isMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 lg:grid-cols-3',
-    tabs: isMobile ? 'flex-col space-y-2' : 'flex-row space-x-2',
-    modal: isMobile ? 'w-full mx-4' : isTablet ? 'w-11/12 max-w-2xl' : 'w-3/4 max-w-4xl',
-    stickyFooter: isMobile ? 'fixed bottom-0 left-0 right-0' : 'sticky bottom-0'
-  }), [isMobile, isTablet, isDesktop]);
-
-  // Performance optimized handlers
-  const debouncedHandleJournalSubmit = useCallback(async () => {
-    if (debouncedJournalEntry.trim()) {
-      const analysis = await analyzeJournalEntry(debouncedJournalEntry);
-      setNlpAnalysis(analysis);
-      
-      if (milestoneScores.length > 0) {
-        const recommendations = await generateAIRecommendations(milestoneScores, analysis);
-        setAiRecommendations(recommendations);
-      }
-      
-      setJournalEntry('');
-      setUserFlowStep('recommendations');
-      setInteractionCount(prev => prev + 1);
-    }
-  }, [debouncedJournalEntry, milestoneScores]);
-
-  // Lazy load components
-  const LazyChart = useMemo(() => {
-    if (!lazyLoadedCharts) {
-      return () => (
-        <div className="animate-pulse bg-gray-200 rounded-lg h-32 flex items-center justify-center">
-          <span className="text-gray-500">Loading chart...</span>
+  // Skeleton components for loading states
+  const DomainSkeleton = () => (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gray-200 rounded"></div>
+          <div className="h-5 bg-gray-200 rounded w-20"></div>
         </div>
-      );
-    }
-    return () => (
-      <div className="bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg h-32 flex items-center justify-center">
-        <span className="text-blue-600 font-medium">Progress Timeline Chart</span>
       </div>
-    );
-  }, [lazyLoadedCharts]);
+      <div className="flex items-center justify-center mb-4">
+        <div className="w-20 h-20 bg-gray-200 rounded-full"></div>
+      </div>
+      <div className="h-4 bg-gray-200 rounded mb-3"></div>
+      <div className="h-3 bg-gray-200 rounded mb-4 w-3/4"></div>
+      <div className="h-8 bg-gray-200 rounded"></div>
+    </div>
+  );
+
+  const MilestoneEntrySkeleton = () => (
+    <div className="px-6 py-4 animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3 flex-1">
+          <div className="w-6 h-6 bg-gray-200 rounded mt-1"></div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-1">
+              <div className="h-4 bg-gray-200 rounded w-32"></div>
+              <div className="h-5 bg-gray-200 rounded-full w-16"></div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="h-3 bg-gray-200 rounded w-16"></div>
+              <div className="h-3 bg-gray-200 rounded w-20"></div>
+              <div className="h-3 bg-gray-200 rounded w-12"></div>
+            </div>
+          </div>
+        </div>
+        <div className="ml-4 w-12 h-6 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+  );
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const calculateProgress = (observed: number, suggested: number) => {
+    return Math.min((observed / suggested) * 100, 100);
+  };
+
+  // Add Skill form handlers
+  const handleNextStep = () => {
+    if (addSkillForm.step < 6) {
+      setAddSkillForm(prev => ({ ...prev, step: prev.step + 1 }));
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (addSkillForm.step > 1) {
+      setAddSkillForm(prev => ({ ...prev, step: prev.step - 1 }));
+    }
+  };
+
+  const handleSave = (saveAndAddAnother = false) => {
+    // Validate required fields
+    if (!addSkillForm.selectedDomain || !addSkillForm.selectedSkill) {
+      showToast('error', 'Please complete all required fields');
+      return;
+    }
+
+    // Save skill logic would go here
+    console.log('Saving skill:', addSkillForm);
+    
+    showToast('success', 'Skill saved. View it in Journal or the domain page.');
+    
+    if (!saveAndAddAnother) {
+      setShowQuickAddSheet(false);
+      // Reset form
+      setAddSkillForm({
+        step: 1,
+        selectedDomain: '',
+        selectedSkill: '',
+        status: 'observed',
+        dateObserved: new Date().toISOString().split('T')[0],
+        supports: [],
+        context: [],
+        notes: ''
+      });
+      setShowAllSkills(false);
+    } else {
+      // Reset form but keep domain selection
+      setAddSkillForm(prev => ({
+        step: 2,
+        selectedDomain: prev.selectedDomain,
+        selectedSkill: '',
+        status: 'observed',
+        dateObserved: new Date().toISOString().split('T')[0],
+        supports: [],
+        context: [],
+        notes: ''
+      }));
+    }
+  };
+
+  const handleCancel = () => {
+    setShowQuickAddSheet(false);
+    // Reset form
+    setAddSkillForm({
+      step: 1,
+      selectedDomain: '',
+      selectedSkill: '',
+      status: 'observed',
+      dateObserved: new Date().toISOString().split('T')[0],
+      supports: [],
+      context: [],
+      notes: ''
+    });
+    setShowAllSkills(false);
+  };
+
+  // Filter skills by domain and age
+  const getFilteredSkills = () => {
+    const domainSkills = allSkills.filter(skill => skill.domain === addSkillForm.selectedDomain);
+    
+    if (showAllSkills) {
+      return domainSkills;
+    }
+    
+    // Get current age in months for filtering
+    const currentAgeMonths = parseInt(chronologicalAge.split(' ')[0]);
+    
+    // Filter skills within ±1 age band of current age
+    const ageBands = ['0-6', '6-12', '12-18', '18-24', '24-30', '30-36', '36-48'];
+    const currentAgeBandIndex = ageBands.findIndex(band => {
+      const [min, max] = band.split('-').map(Number);
+      return currentAgeMonths >= min && currentAgeMonths <= max;
+    });
+    
+    if (currentAgeBandIndex === -1) {
+      return domainSkills; // If age not found, show all skills
+    }
+    
+    // Get skills within ±1 band
+    const relevantBands: string[] = [];
+    if (currentAgeBandIndex > 0) relevantBands.push(ageBands[currentAgeBandIndex - 1]);
+    relevantBands.push(ageBands[currentAgeBandIndex]);
+    if (currentAgeBandIndex < ageBands.length - 1) relevantBands.push(ageBands[currentAgeBandIndex + 1]);
+    
+    return domainSkills.filter(skill => relevantBands.includes(skill.ageBand));
+  };
+
+  const filteredSkills = getFilteredSkills();
+  const suggestedSkills = showAllSkills ? filteredSkills : filteredSkills.slice(0, 10);
+
+  useEffect(() => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setHasMilestones(true); // Simulate data loading
+    }, 1000);
+  }, []);
+
+  const showToast = (type: 'success' | 'error' | 'info', message: string) => {
+    setToast({ type, message, isVisible: true });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, isVisible: false }));
+    }, 4000);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-4 md:py-6 lg:py-8">
-      {/* Responsive Container */}
-      <div className={`${responsiveClasses.container} lg:max-w-7xl lg:mx-auto`}>
-        {/* Main Card Container */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden lg:rounded-3xl"
-             style={{ 
-               maxHeight: isMobile ? 'calc(100vh - 2rem)' : 'calc(100vh - 4rem)',
-               height: isMobile ? 'calc(100vh - 2rem)' : 'auto'
-             }}>
-          {/* Processing Indicator */}
-          {isProcessing && (
-            <div className="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50 max-w-sm lg:top-8 lg:right-8">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 lg:text-base">AI Processing</p>
-                  <p className="text-xs text-gray-600 lg:text-sm">{processingMessage}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Scrollable Content Area - Now Includes Header */}
-          <div className={`overflow-y-auto ${isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[calc(100vh-100px)]'} pb-8 lg:pb-12`}>
-            {/* Enhanced Header - Now Scrollable */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8 lg:px-12 lg:py-12">
-              <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 lg:mb-6">
-                <h1 className="text-3xl font-bold text-white lg:text-4xl">Growth & Development</h1>
-                {onBack && (
                   <button
                     onClick={onBack}
-                    className="text-white hover:text-indigo-200 font-medium flex items-center space-x-2 transition-colors lg:text-lg"
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
                   >
-                    <span>←</span>
-                    <span>Back</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
                   </button>
-                )}
-              </div>
-              
-              {/* User Flow Guidance */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 mb-4 lg:p-4 lg:mb-6">
-                <div className="flex flex-col space-y-2 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 text-white">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm lg:text-base">👀</span>
-                    <span className="text-sm font-medium lg:text-base">
-                      {userFlowStep === 'overview' && 'See Progress at a Glance'}
-                      {userFlowStep === 'domain' && 'Drill Down by Domain'}
-                      {userFlowStep === 'update' && 'Update Progress'}
-                      {userFlowStep === 'recommendations' && 'Receive Recommendations'}
-                      {userFlowStep === 'goals' && 'Set or Adjust Goals'}
-                      {userFlowStep === 'share' && 'Share or Export'}
-                      {userFlowStep === 'feedback' && 'Give Feedback'}
-                    </span>
-                  </div>
-                  <div className="text-xs opacity-75 lg:text-sm">
-                    Step {interactionCount + 1} of your session
-                  </div>
+                <div>
+                <h1 className="text-xl font-semibold text-gray-900">Growth & Milestones</h1>
+                <p className="text-sm text-gray-600">Track observed skills across domains at your child's pace.</p>
                 </div>
               </div>
-              
-              {/* Child Profile Information */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 lg:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 text-white">
-                  <div>
-                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Child's Name</div>
-                    <div className="text-lg font-semibold lg:text-xl">{childProfile.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Age</div>
-                    <div className="text-lg font-semibold lg:text-xl">{childProfile.age}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Condition</div>
-                    <div className="text-lg font-semibold lg:text-xl">{childProfile.condition}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-indigo-200 lg:text-base">Last Updated</div>
-                    <div className="text-lg font-semibold lg:text-xl">{childProfile.lastUpdated}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <div className="p-6 space-y-8 lg:px-12 lg:py-12 lg:space-y-12">
-              {/* Progress Overview Section */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 lg:text-2xl lg:mb-6 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-3 lg:w-3 lg:h-8"></span>
-                  Progress Overview
-                </h2>
-                
-                {/* Dual Baseline Progress Bars */}
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200 p-6 mb-6 lg:p-8 lg:mb-8">
-                  <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 lg:mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 lg:text-xl">Development Progress</h3>
-                    
-                    {/* Desktop Layout - Side by Side Progress */}
-                    <div className="hidden lg:grid lg:grid-cols-2 lg:gap-8 lg:w-2/3">
-                      {/* Typical Development Progress */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Typical Development</span>
-                          <span className="text-sm text-gray-500">{progressData.typicalProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <div 
-                            className="bg-blue-500 h-3 rounded-full transition-all duration-500"
-                            style={{ width: `${progressData.typicalProgress}%` }}
-                          ></div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Age {progressData.currentAge} months → Target: {progressData.targetAge} months
-                        </div>
-                      </div>
-
-                      {/* PMS Development Progress */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">PMS Development</span>
-                          <span className="text-sm text-gray-500">{progressData.pmsProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <div 
-                            className="bg-purple-500 h-3 rounded-full transition-all duration-500"
-                            style={{ width: `${progressData.pmsProgress}%` }}
-                          ></div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Current: {progressData.currentAge} months → Target: {progressData.targetAge} months
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mobile Layout - Stacked Progress */}
-                    <div className="lg:hidden space-y-4">
-                      {/* Typical Development Progress */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">Typical Development</span>
-                          <span className="text-sm text-gray-500">{progressData.typicalProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${progressData.typicalProgress}%` }}
-                          ></div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Age {progressData.currentAge} months → Target: {progressData.targetAge} months
-                        </div>
-                      </div>
-
-                      {/* PMS Development Progress */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">PMS Development</span>
-                          <span className="text-sm text-gray-500">{progressData.pmsProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-purple-500 h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${progressData.pmsProgress}%` }}
-                          ></div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Current: {progressData.currentAge} months → Target: {progressData.targetAge} months
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Milestone Badges */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm lg:p-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6 flex items-center">
-                    <span className="text-2xl mr-2 lg:text-3xl">🏆</span>
-                    Recent Achievements
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-                    {recentBadges.map((badge) => (
-                      <div 
-                        key={badge.id} 
-                        className={`p-4 rounded-lg border-2 ${getCategoryColor(badge.category)} hover:scale-105 transition-transform cursor-pointer lg:p-5`}
-                      >
                         <div className="flex items-center space-x-3">
-                          <span className="text-2xl lg:text-3xl">{badge.icon}</span>
-                          <div className="flex-1">
-                            <div className="font-semibold lg:text-base">{badge.title}</div>
-                            <div className="text-sm opacity-75 lg:text-base">{badge.date}</div>
-                          </div>
-                          <div className="text-xs font-medium capitalize lg:text-sm">
-                            {badge.category}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Celebrate Wins Animation Trigger */}
-                  <div className="mt-6 text-center lg:mt-8">
-                    <button 
-                      onClick={() => {
-                        setUserFlowStep('update');
-                        setInteractionCount(prev => prev + 1);
-                      }}
-                      className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg lg:px-8 lg:py-4 lg:text-lg ${
-                        userFlowStep === 'overview' 
-                          ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white hover:from-yellow-500 hover:to-orange-600 animate-pulse' 
-                          : 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white hover:from-yellow-500 hover:to-orange-600'
-                      }`}
-                    >
-                      🎉 Log New Achievement
+              {/* Info Icon */}
+              <div className="relative group">
+                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                     </button>
-                  </div>
-                </div>
+                <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                  Not a diagnostic tool
+                  <div className="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+            </div>
               </div>
 
-              {/* Input & Observation Section */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 lg:text-2xl lg:mb-6 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-orange-500 to-red-500 rounded-full mr-3 lg:w-3 lg:h-8"></span>
-                  Input & Observation
-                </h2>
-                
-                {/* Expandable Panel */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                  {/* Panel Header */}
+              {/* Secondary Action */}
                   <button
-                    onClick={() => setIsObservationPanelExpanded(!isObservationPanelExpanded)}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors lg:px-8 lg:py-6"
+                  onClick={handleOpenReportModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl lg:text-3xl">📝</span>
-                      <span className="font-semibold text-gray-900 lg:text-lg">Add Observations & Updates</span>
-                    </div>
-                    <span className={`text-gray-500 transition-transform duration-200 ${isObservationPanelExpanded ? 'rotate-180' : ''}`}>
-                      ▼
-                    </span>
+                Generate Milestone Report
                   </button>
 
-                  {/* Panel Content */}
-                  {isObservationPanelExpanded && (
-                    <div className="px-6 pb-6 space-y-6 lg:px-8 lg:pb-8 lg:space-y-8">
-                      {/* Desktop Layout - Two Column Grid */}
-                      <div className="lg:grid lg:grid-cols-2 lg:gap-8">
-                        {/* Adaptive Survey Button */}
-                        <div className={`rounded-lg p-4 border transition-all duration-300 lg:p-6 ${
-                          userFlowStep === 'update' 
-                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-lg' 
-                            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-                        }`}>
-                          <h3 className="font-semibold text-gray-900 mb-3 flex items-center lg:text-lg lg:mb-4">
-                            <span className="text-xl mr-2 lg:text-2xl">📊</span>
-                            Quick Assessment
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-4 lg:text-base lg:mb-6">
-                            Update Emma's progress with a short, dynamic survey (Vineland/M-CHAT style, 3-5 questions max per session).
-                          </p>
+              {/* AI Suggestions Button */}
+              <button
+                onClick={handleOpenAISuggestions}
+                className="px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                aria-label="Get AI suggestions for next skills"
+              >
+                Suggest next skills (AI)
+              </button>
+
+              {/* Primary Action */}
                           <button
-                            onClick={handleUpdateProgressClick}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors lg:px-8 lg:py-3 lg:text-base"
+                onClick={() => setShowQuickAddSheet(true)}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                           >
-                            Update Progress
+                Add Skill
                           </button>
-                        </div>
+                  </div>
+                  </div>
+                </div>
+              </div>
+              
+      {/* Filter Bar */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0 lg:space-x-6">
+            {/* Age Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <label htmlFor="age-selector" className="text-sm font-medium text-gray-700">Age:</label>
+              <select
+                id="age-selector"
+                value={chronologicalAge}
+                onChange={(e) => setChronologicalAge(e.target.value)}
+                disabled={useDevelopmentalLevel}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+                aria-describedby="age-helper"
+              >
+                {ageOptions.map(age => (
+                  <option key={age} value={age}>{age}</option>
+                ))}
+              </select>
+              <p id="age-helper" className="text-xs text-gray-500 sm:hidden">
+                {useDevelopmentalLevel ? 'Disabled when using developmental level' : 'Chronological age for milestone comparison'}
+              </p>
+            </div>
 
-                        {/* Journaling Prompt */}
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 lg:p-6">
-                          <h3 className="font-semibold text-gray-900 mb-3 flex items-center lg:text-lg lg:mb-4">
-                            <span className="text-xl mr-2 lg:text-2xl">✍️</span>
-                            Daily Observations
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-3 lg:text-base lg:mb-4">Anything new or different? (Optional)</p>
-                          <textarea
-                            value={journalEntry}
-                            onChange={(e) => setJournalEntry(e.target.value)}
-                            placeholder="Share your observations about Emma's development, behavior, or achievements..."
-                            className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent lg:p-4 lg:text-base"
-                            rows={3}
-                          />
-                          <div className="mt-3 flex flex-col space-y-3 lg:flex-row lg:justify-between lg:items-center lg:space-y-0">
-                            <span className="text-xs text-gray-500 lg:text-sm">
-                              AI/NLP analysis will provide insights and suggestions
-                            </span>
-                            <button
-                              onClick={handleJournalSubmit}
-                              disabled={!journalEntry.trim()}
-                              className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed lg:px-6 lg:py-3 lg:text-base"
-                            >
-                              Save Entry
-                            </button>
-                          </div>
+            {/* Developmental Level Toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="developmental-toggle"
+                  checked={useDevelopmentalLevel}
+                  onChange={(e) => setUseDevelopmentalLevel(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  aria-describedby="developmental-helper"
+                />
+                <span className="text-sm font-medium text-gray-700">Use developmental level instead</span>
+              </label>
+              <p id="developmental-helper" className="text-xs text-gray-500 sm:hidden">
+                Switch to developmental milestones for children with different developmental timelines
+              </p>
+              
+              {useDevelopmentalLevel && (
+                <select
+                  value={developmentalLevel}
+                  onChange={(e) => setDevelopmentalLevel(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  aria-label="Select developmental level"
+                >
+                  {developmentalLevels.map(level => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Time Scope */}
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <label htmlFor="time-scope" className="text-sm font-medium text-gray-700">Time scope:</label>
+              <select
+                id="time-scope"
+                value={timeScope}
+                onChange={(e) => setTimeScope(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                {timeScopeOptions.map(scope => (
+                  <option key={scope} value={scope}>{scope}</option>
+                ))}
+              </select>
+                        </div>
+                        </div>
                         </div>
                       </div>
 
-                      {/* Media Upload - Full Width */}
-                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200 lg:p-6">
-                        <h3 className="font-semibold text-gray-900 mb-3 flex items-center lg:text-lg lg:mb-4">
-                          <span className="text-xl mr-2 lg:text-2xl">📹</span>
-                          Media Capture
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-3 lg:text-base lg:mb-4">Add a video or audio clip</p>
-                        
-                        <div className="border-2 border-dashed border-purple-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors lg:p-8 lg:text-lg lg:text-gray-600 lg:font-medium">
-                          <input
-                            type="file"
-                            accept="video/*,audio/*"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                            id="media-upload"
-                          />
-                          <label htmlFor="media-upload" className="cursor-pointer">
-                            <div className="space-y-2">
-                              <span className="text-3xl">📁</span>
-                              <div>
-                                <p className="text-sm font-medium text-gray-700">
-                                  {selectedFile ? selectedFile.name : 'Click to upload or drag and drop'}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  MP4, MOV, MP3, WAV up to 50MB
-                                </p>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex flex-col lg:flex-row lg:space-x-8">
+          {/* Main Content Area */}
+          <div className="flex-1">
+            {/* Loading State */}
+            {isLoading && (
+              <>
+                {/* Domain Tiles Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {[...Array(5)].map((_, index) => (
+                    <DomainSkeleton key={index} />
+                  ))}
+                        </div>
+                
+                {/* Milestones Journal Skeleton */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="h-6 bg-gray-200 rounded w-48"></div>
+                        </div>
+                  <div className="divide-y divide-gray-200">
+                    {[...Array(5)].map((_, index) => (
+                      <MilestoneEntrySkeleton key={index} />
+                    ))}
+                        </div>
+                      </div>
+              </>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !hasMilestones && (
+              <div className="text-center py-12">
+                <div className="max-w-md mx-auto">
+                  {/* Illustration */}
+                  <div className="mb-6">
+                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
+                      <svg className="w-12 h-12 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                        </div>
+                      </div>
+
+                  {/* Text */}
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Start tracking your child's development</h3>
+                  <p className="text-gray-600 mb-6">
+                    Begin by adding a skill you've noticed your child demonstrating. Track their progress across all developmental domains.
+                  </p>
+                  
+                  {/* CTA Button */}
+                  <button
+                    onClick={() => setShowQuickAddSheet(true)}
+                    className="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                    aria-label="Add your first skill"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Add Skill
+                  </button>
+                        </div>
+                        </div>
+            )}
+
+            {/* Content State */}
+            {!isLoading && hasMilestones && (
+              <>
+                {/* Domain Tiles Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {domains.map((domain) => {
+                    const progress = calculateProgress(domain.observedSkills, domain.suggestedSkills);
+                    return (
+                      <div
+                        key={domain.id}
+                        className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleOpenDomain(domain.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleOpenDomain(domain.id);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Open ${domain.name} domain details`}
+                      >
+                        {/* Domain Header */}
+                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                            <span className="text-2xl" aria-hidden="true">{domain.icon}</span>
+                            <h3 className="text-lg font-semibold text-gray-900">{domain.name}</h3>
+                          </div>
+                          </div>
+
+                        {/* Progress Ring */}
+                        <div className="flex items-center justify-center mb-4">
+                          <div className="relative w-20 h-20">
+                            <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                              {/* Background circle */}
+                              <path
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                fill="none"
+                                stroke="#e5e7eb"
+                                strokeWidth="2"
+                              />
+                              {/* Progress circle */}
+                              <path
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                fill="none"
+                                stroke="#3b82f6"
+                                strokeWidth="2"
+                                strokeDasharray={`${progress}, 100`}
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-gray-900">{Math.round(progress)}%</span>
+                        </div>
+                      </div>
+                  </div>
+                  
+                        {/* Progress Text */}
+                        <p className="text-sm text-gray-600 text-center mb-3">
+                          Observed {domain.observedSkills} of {domain.suggestedSkills} suggested skills
+                        </p>
+
+                        {/* Last Skill */}
+                        <p className="text-xs text-gray-500 text-center mb-4">
+                          {domain.lastSkillName ? (
+                            <>Last new skill: {domain.lastSkillName} on {formatDate(domain.lastSkillDate!)}</>
+                          ) : (
+                            'No skills yet'
+                          )}
+                        </p>
+
+                        {/* CTA Button */}
+                    <button 
+                          className="w-full px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                          aria-label={`View ${domain.name} domain details`}
+                        >
+                          Open
+                    </button>
+                  </div>
+                    );
+                  })}
+              </div>
+
+                {/* Milestones Journal Section */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-gray-900">Recent milestone entries</h2>
+                  <button
+                        onClick={handleViewAllMilestones}
+                        className="text-indigo-600 text-sm font-medium hover:text-indigo-700 transition-colors"
+                        aria-label="View all milestone entries"
+                      >
+                        View all
+                          </button>
+                    </div>
+                        </div>
+
+                  <div className="divide-y divide-gray-200">
+                    {milestoneEntries.slice(0, 10).map((entry) => (
+                      <div key={entry.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-3 flex-1">
+                            <span className="text-xl mt-1" aria-hidden="true">{entry.domainIcon}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h3 className="text-sm font-medium text-gray-900 truncate">
+                                  {entry.skillName}
+                          </h3>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(entry.status)}`}>
+                                  {getStatusLabel(entry.status)}
+                            </span>
+                              </div>
+                              <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                <span>{formatDate(entry.dateObserved)}</span>
+                                {entry.context.length > 0 && (
+                                  <span>{entry.context.join(', ')}</span>
+                                )}
+                                <span>by {entry.caregiver}</span>
                               </div>
                             </div>
-                          </label>
+                          </div>
+                            <button
+                            onClick={() => handleViewMilestone(entry)}
+                            className="ml-4 px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            aria-label={`View details for ${entry.skillName}`}
+                          >
+                            View
+                            </button>
+                          </div>
+                        </div>
+                    ))}
+                      </div>
+                              </div>
+              </>
+            )}
                         </div>
                         
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                          <p className="text-xs text-blue-800">
-                            <strong>Privacy Notice:</strong> All media is encrypted and stored securely. 
-                            Only authorized caregivers and healthcare providers can access this content.
+          {/* Right Gutter - Reserved for Care Ideas Panel (5B) */}
+          <div className="hidden lg:block w-80 flex-shrink-0">
+            <div className="sticky top-6">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Care Ideas</h3>
+                <p className="text-sm text-gray-600">
+                  Personalized care suggestions and activity ideas will appear here in Phase 5B.
                           </p>
                         </div>
                       </div>
                     </div>
-                  )}
                 </div>
               </div>
 
-              {/* Survey Modal */}
-              {showSurvey && (
+      {/* Add Skill Quick Sheet */}
+      {showQuickAddSheet && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className={`bg-white rounded-xl ${responsiveClasses.modal} max-h-[80vh] overflow-y-auto`}>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-semibold text-gray-900">Quick Assessment</h3>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col md:max-h-[90vh] md:rounded-xl">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Add Skill</h3>
+                  <p className="text-sm text-gray-600">Step {addSkillForm.step} of 6</p>
+                </div>
                         <button
-                          onClick={() => setShowSurvey(false)}
-                          className="text-gray-500 hover:text-gray-700"
+                  onClick={handleCancel}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                  aria-label="Close add skill form"
                         >
-                          ✕
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                         </button>
                       </div>
                       
-                      <div className="space-y-6">
-                        {surveyQuestions.slice(0, 3).map((question, index) => (
-                          <div key={question.id} className="space-y-3">
-                            <h4 className="font-medium text-gray-900">
-                              {index + 1}. {question.question}
-                            </h4>
-                            {question.type === 'multiple-choice' && question.options && (
-                              <div className="space-y-2">
-                                {question.options.map((option, optionIndex) => (
-                                  <label key={optionIndex} className="flex items-center space-x-3 cursor-pointer">
-                                    <input type="radio" name={question.id} className="text-blue-600" />
-                                    <span className="text-gray-700">{option}</span>
-                                  </label>
-                                ))}
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+                <div 
+                  className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(addSkillForm.step / 6) * 100}%` }}
+                  role="progressbar"
+                  aria-valuenow={addSkillForm.step}
+                  aria-valuemin={1}
+                  aria-valuemax={6}
+                  aria-label={`Step ${addSkillForm.step} of 6`}
+                ></div>
                               </div>
-                            )}
-                            {question.type === 'scale' && question.options && (
-                              <div className="flex justify-between">
-                                {question.options.map((option, optionIndex) => (
-                                  <label key={optionIndex} className="flex flex-col items-center space-y-2 cursor-pointer">
-                                    <input type="radio" name={question.id} className="text-blue-600" />
-                                    <span className="text-xs text-gray-600 text-center">{option}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            )}
-                            {question.type === 'text' && (
-                              <textarea
-                                placeholder="Enter your observations..."
-                                className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                rows={3}
-                              />
-                            )}
-                          </div>
-                        ))}
                       </div>
                       
-                      <div className="flex justify-end space-x-3 mt-6 pt-6 border-t">
-                        <button
-                          onClick={() => setShowSurvey(false)}
-                          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSurveySubmit}
-                          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          Submit Assessment
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Domain Details Section */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 lg:text-2xl lg:mb-6 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-green-500 to-blue-500 rounded-full mr-3 lg:w-3 lg:h-8"></span>
-                  Domain Details
-                </h2>
-                
-                {/* Tab Navigation */}
-                <div className="bg-white rounded-xl border border-gray-200 p-2 mb-6 lg:p-4 lg:mb-8">
-                  <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'flex-wrap gap-2'} lg:flex-row lg:space-y-0 lg:gap-3`}>
-                    {domains.map((domain) => (
-                      <button
-                        key={domain.id}
-                        onClick={() => handleDomainTabClick(domain.id)}
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 lg:px-6 lg:py-3 lg:text-base ${
-                          activeTab === domain.id
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : userFlowStep === 'domain'
-                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-2 border-blue-300'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        <span className="text-lg lg:text-xl">{domain.icon}</span>
-                        <span>{domain.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Active Domain Content */}
-                {activeDomain && (
-                  <div className="space-y-6 lg:space-y-8">
-                    {/* Spider Chart / Heatmap */}
-                    <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-gray-200 p-6 lg:p-8">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6 flex items-center">
-                        <span className="text-2xl mr-2 lg:text-3xl">{activeDomain.icon}</span>
-                        {activeDomain.name} Development Snapshot
-                      </h3>
-                      
-                      <div className={`grid ${responsiveClasses.grid} gap-6 lg:gap-8`}>
-                        {/* Strengths */}
-                        <div>
-                          <h4 className="font-semibold text-green-700 mb-3 lg:mb-4 flex items-center lg:text-lg">
-                            <span className="w-3 h-3 bg-green-500 rounded-full mr-2 lg:w-4 lg:h-4"></span>
-                            Strengths
-                          </h4>
-                          <div className="space-y-2 lg:space-y-3">
-                            {activeDomain.strengths.map((strength, index) => (
-                              <div key={index} className="flex items-center space-x-2">
-                                <span className="text-green-500 lg:text-lg">✓</span>
-                                <span className="text-gray-700 lg:text-base">{strength}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Challenges */}
-                        <div>
-                          <h4 className="font-semibold text-orange-700 mb-3 lg:mb-4 flex items-center lg:text-lg">
-                            <span className="w-3 h-3 bg-orange-500 rounded-full mr-2 lg:w-4 lg:h-4"></span>
-                            Areas for Growth
-                          </h4>
-                          <div className="space-y-2 lg:space-y-3">
-                            {activeDomain.challenges.map((challenge, index) => (
-                              <div key={index} className="flex items-center space-x-2">
-                                <span className="text-orange-500 lg:text-lg">→</span>
-                                <span className="text-gray-700 lg:text-base">{challenge}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Timeline Mini-Chart */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 lg:p-8">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 lg:text-xl lg:mb-6">Progress Timeline</h3>
-                      <LazyChart />
-                      <div className="space-y-4 mt-4 lg:space-y-6 lg:mt-6">
-                        {activeDomain.progressData.timeline.map((point, index) => (
-                          <div key={index} className="flex items-center space-x-4">
-                            <div className="w-16 text-sm font-medium text-gray-600 lg:w-20 lg:text-base">{point.date}</div>
-                            <div className="flex-1 space-y-2">
-                              <div className="flex justify-between text-xs text-gray-500 lg:text-sm">
-                                <span>Typical: {point.typical}%</span>
-                                <span>PMS: {point.pms}%</span>
-                              </div>
-                              <div className="flex space-x-2">
-                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                  <div 
-                                    className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                                    style={{ width: `${point.typical}%` }}
-                                  ></div>
-                                </div>
-                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                  <div 
-                                    className="bg-purple-500 h-2 rounded-full transition-all duration-500"
-                                    style={{ width: `${point.pms}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* What's Next Preview */}
-                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <span className="text-2xl mr-2">🎯</span>
-                        What's Next?
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        {activeDomain.nextMilestones.map((milestone, index) => (
-                          <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-indigo-100">
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h4 className="font-semibold text-gray-900">{milestone.title}</h4>
-                                <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
-                              </div>
-                              <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
-                                {milestone.timeline}
-                              </span>
-                            </div>
-                            
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 mb-2">Tips:</h5>
-                              <ul className="space-y-1">
-                                {milestone.tips.map((tip, tipIndex) => (
-                                  <li key={tipIndex} className="text-sm text-gray-600 flex items-start space-x-2">
-                                    <span className="text-indigo-500 mt-1">•</span>
-                                    <span>{tip}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Personalized Recommendations Section */}
-              <div className={`transition-all duration-300 ${
-                userFlowStep === 'recommendations' ? 'ring-2 ring-teal-300 rounded-xl p-2' : ''
-              }`}>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-teal-500 to-cyan-500 rounded-full mr-3"></span>
-                  Personalized Recommendations
-                  {userFlowStep === 'recommendations' && (
-                    <span className="ml-2 text-sm bg-teal-100 text-teal-700 px-2 py-1 rounded-full">
-                      New
-                    </span>
-                  )}
-                </h2>
-                
-                {/* AI Analysis Results */}
-                {(nlpAnalysis || mediaAnalysis) && (
-                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <span className="text-xl mr-2">🤖</span>
-                      AI Analysis Results
-                    </h3>
-                    
-                    {nlpAnalysis && (
-                      <div className="mb-4">
-                        <h4 className="font-medium text-gray-800 mb-2">Journal Analysis</h4>
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-600">Sentiment:</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              nlpAnalysis.sentiment === 'positive' ? 'bg-green-100 text-green-700' :
-                              nlpAnalysis.sentiment === 'negative' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
-                              {nlpAnalysis.sentiment}
-                            </span>
-                          </div>
-                          {nlpAnalysis.flags.length > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-gray-600">Flags:</span>
-                              <span className="text-sm text-red-600 font-medium">{nlpAnalysis.flags.join(', ')}</span>
-                            </div>
-                          )}
-                          {nlpAnalysis.suggestions.length > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-gray-600">Suggestions:</span>
-                              <span className="text-sm text-blue-600 font-medium">{nlpAnalysis.suggestions.join(', ')}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {mediaAnalysis && (
-                      <div>
-                        <h4 className="font-medium text-gray-800 mb-2">Media Analysis</h4>
-                        <div className="space-y-2">
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Duration:</span> {mediaAnalysis.duration}s
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Cues detected:</span> {mediaAnalysis.developmentalCues.length}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Feedback:</span> {mediaAnalysis.feedback}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                                  {/* Dynamic Suggestions */}
-                  <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'} mb-6`}>
-                  {(aiRecommendations.length > 0 ? aiRecommendations : recommendations).map((recommendation) => (
-                    <div key={recommendation.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="font-semibold text-gray-900">{recommendation.title}</h3>
-                            <div className="relative group">
-                              <button className="text-blue-600 hover:text-blue-700 text-sm">
-                                ℹ️
-                              </button>
-                              <div className="absolute bottom-full left-0 mb-2 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                <strong>Evidence:</strong> {recommendation.evidence}
-                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-gray-600 text-sm">{recommendation.description}</p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(recommendation.priority)}`}>
-                          {recommendation.priority} priority
-                        </span>
-                      </div>
-                                              <div className="flex justify-between items-center">
-                          <span className="text-xs text-gray-500 capitalize">
-                            {'category' in recommendation ? recommendation.category : recommendation.type}
-                          </span>
-                          <button className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-                            Learn More →
-                          </button>
-                        </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Next Steps Checklist */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="text-xl mr-2">📋</span>
-                    Next Steps Checklist
-                  </h3>
-                  
-                  <div className="space-y-3">
-                    {nextSteps.map((step) => (
-                      <div key={step.id} className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm">
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                          step.status === 'completed' 
-                            ? 'bg-green-500 border-green-500 text-white' 
-                            : 'border-gray-300'
-                        }`}>
-                          {step.status === 'completed' && '✓'}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <h4 className="font-medium text-gray-900">{step.title}</h4>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(step.status)}`}>
-                              {step.status}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600">{step.description}</p>
-                          <p className="text-xs text-gray-500">Due: {step.dueDate}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Content Library Link */}
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-                        <span className="text-xl mr-2">📚</span>
-                        Learn About Therapies & Home Strategies
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Access curated videos, infographics, and articles to support Emma's development
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowContentLibrary(true)}
-                      className="bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-                    >
-                      Open Library
-                    </button>
-                  </div>
-                </div>
-
-                {/* Goals & Reminders Section */}
-                <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <span className="text-xl mr-2">🎯</span>
-                      Goals & Reminders
-                    </h3>
-                    <button
-                      onClick={handleGoalAddClick}
-                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                    >
-                      + Add Goal
-                    </button>
-                  </div>
-
-                  {/* Active Goals List */}
-                  <div className={`grid ${isMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-2' : 'grid-cols-3'} gap-4`}>
-                    {activeGoals.map((goal) => (
-                      <div key={goal.id} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-lg">{getGoalCategoryIcon(goal.category)}</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getGoalCategoryColor(goal.category)}`}>
-                              {goal.category}
-                            </span>
-                          </div>
-                          {goal.aiSuggested && (
-                            <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                              AI Suggested
-                            </span>
-                          )}
-                        </div>
-                        
-                        <h4 className="font-semibold text-gray-900 text-sm mb-2">{goal.title}</h4>
-                        <p className="text-xs text-gray-600 mb-3">{goal.description}</p>
-                        
-                        {/* Progress Bar */}
-                        <div className="mb-3">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs text-gray-600">Progress</span>
-                            <span className="text-xs font-medium text-gray-900">{goal.progress}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(goal.progress)}`}
-                              style={{ width: `${goal.progress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Due: {goal.targetDate}</span>
-                          <div className="flex space-x-2">
-                            <button className="text-xs text-indigo-600 hover:text-indigo-700">
-                              Edit
-                            </button>
-                            <button className="text-xs text-green-600 hover:text-green-700">
-                              Complete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Content Library Modal */}
-              {showContentLibrary && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-                    <div className="p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-semibold text-gray-900">Content Library</h3>
-                        <button
-                          onClick={() => setShowContentLibrary(false)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {contentItems.map((item) => (
-                          <div key={item.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer">
-                            <div className="flex items-start space-x-3">
-                              <div className="text-2xl">
-                                {item.type === 'video' && '🎥'}
-                                {item.type === 'infographic' && '📊'}
-                                {item.type === 'article' && '📄'}
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
-                                <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500 capitalize">{item.type}</span>
-                                  {item.duration && (
-                                    <span className="text-xs text-gray-500">{item.duration}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-
-              {/* Feedback & Sharing Section */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-pink-500 to-rose-500 rounded-full mr-3"></span>
-                  Feedback & Sharing
-                </h2>
-                
-                {/* Quick Feedback */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="text-xl mr-2">💬</span>
-                    Was this helpful?
-                  </h3>
-                  
-                  {!feedbackSubmitted ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-4">
-                        <button className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
-                          <span>👍</span>
-                          <span>Yes, helpful</span>
-                        </button>
-                        <button className="flex items-center space-x-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                          <span>👎</span>
-                          <span>Not helpful</span>
-                        </button>
-                      </div>
-                      <textarea
-                        placeholder="Any additional comments or suggestions? (Optional)"
-                        className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        rows={3}
-                      />
-                      <button
-                        onClick={() => handleFeedbackSubmit(true)}
-                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                      >
-                        Submit Feedback
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <span className="text-green-600 text-lg">✅ Thank you for your feedback!</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Community Benchmark */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="text-xl mr-2">👥</span>
-                    Other parents with PMS at this age...
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {communityBenchmarks.map((benchmark) => (
-                      <div key={benchmark.metric} className="bg-white rounded-lg p-4 shadow-sm">
-                        <h4 className="font-medium text-gray-900 mb-2">{benchmark.metric}</h4>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-2xl font-bold text-indigo-600">{benchmark.average}%</div>
-                            <div className="text-sm text-gray-600">Average</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-gray-900">{benchmark.range}</div>
-                            <div className="text-xs text-gray-500">Range</div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                          Based on {benchmark.sampleSize} anonymous responses
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">
-                      All data is anonymized and aggregated for privacy
-                    </span>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                      Opt out of sharing
-                    </button>
-                  </div>
-                </div>
-
-                {/* Export/Share Options */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  {/* Export Report */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <span className="text-xl mr-2">📄</span>
-                      Export Report
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Generate a comprehensive report for clinicians or IEP meetings
-                    </p>
-                    <div className="space-y-3">
-                      <button
-                        onClick={handleExportClick}
-                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
-                      >
-                        Export PDF Report
-                      </button>
-                      <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                        Export CSV Data
-                      </button>
-                    </div>
-                    <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                      <strong>Privacy:</strong> You control what data is included in exports
-                    </div>
-                  </div>
-
-                  {/* Invite Clinician */}
-                  <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <span className="text-xl mr-2">👨‍⚕️</span>
-                      Invite Clinician
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Share Emma's progress securely with healthcare providers
-                    </p>
-                    <div className="space-y-3">
-                      <input
-                        type="email"
-                        placeholder="Provider's email address"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                      <button className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
-                        Send Secure Invite
-                      </button>
-                    </div>
-                    <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                      <strong>Secure:</strong> Providers access data through encrypted, time-limited links
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Transparency & Rigor Section */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full mr-3"></span>
-                  Transparency & Rigor
-                </h2>
-                
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <span className="text-xl mr-2">🔬</span>
-                      How Recommendations Are Made
-                    </h3>
-                    <button
-                      onClick={handleTransparencyClick}
-                      className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
-                    >
-                      How this works →
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-lg p-4 text-center">
-                      <div className="text-2xl mb-2">📚</div>
-                      <h4 className="font-medium text-gray-900 mb-1">Evidence-Based</h4>
-                      <p className="text-xs text-gray-600">Peer-reviewed research and clinical guidelines</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-4 text-center">
-                      <div className="text-2xl mb-2">👥</div>
-                      <h4 className="font-medium text-gray-900 mb-1">Expert Reviewed</h4>
-                      <p className="text-xs text-gray-600">Validated by developmental specialists</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-4 text-center">
-                      <div className="text-2xl mb-2">🎯</div>
-                      <h4 className="font-medium text-gray-900 mb-1">Personalized</h4>
-                      <p className="text-xs text-gray-600">Tailored to Emma's specific needs and progress</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Transparency Modal */}
-      {showTransparencyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">How This Works</h3>
-                <button
-                  onClick={() => setShowTransparencyModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Step Content */}
               <div className="space-y-6">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Our Process</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-emerald-600 font-bold">1.</span>
-                      <div>
-                        <p className="text-gray-900">We analyze Emma's development data against evidence-based milestones</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-emerald-600 font-bold">2.</span>
-                      <div>
-                        <p className="text-gray-900">AI algorithms identify patterns and suggest relevant interventions</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-emerald-600 font-bold">3.</span>
-                      <div>
-                        <p className="text-gray-900">Recommendations are validated against clinical research and expert knowledge</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <span className="text-emerald-600 font-bold">4.</span>
-                      <div>
-                        <p className="text-gray-900">Personalized suggestions are presented with clear explanations and evidence</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Clinical Reviewers</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {clinicalReviewers.map((reviewer) => (
-                      <div key={reviewer.name} className="bg-gray-50 rounded-lg p-4">
-                        <h5 className="font-medium text-gray-900">{reviewer.name}</h5>
-                        <p className="text-sm text-gray-600">{reviewer.credentials}</p>
-                        <p className="text-sm text-gray-600">{reviewer.specialty}</p>
-                        <p className="text-xs text-gray-500">{reviewer.institution}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Key References</h4>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p>• American Academy of Pediatrics. (2022). Developmental Surveillance and Screening</p>
-                    <p>• Centers for Disease Control and Prevention. (2023). Developmental Milestones</p>
-                    <p>• Down Syndrome Medical Interest Group. (2021). Health Supervision Guidelines</p>
-                    <p>• World Health Organization. (2022). Child Growth Standards</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Export Modal */}
-      {showExportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Export Report</h3>
-                <button
-                  onClick={() => setShowExportModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Select Data to Include</h4>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-3">
-                      <input type="checkbox" defaultChecked className="text-indigo-600" />
-                      <span className="text-gray-700">Growth measurements and trends</span>
-                    </label>
-                    <label className="flex items-center space-x-3">
-                      <input type="checkbox" defaultChecked className="text-indigo-600" />
-                      <span className="text-gray-700">Development milestones and progress</span>
-                    </label>
-                    <label className="flex items-center space-x-3">
-                      <input type="checkbox" defaultChecked className="text-indigo-600" />
-                      <span className="text-gray-700">Goals and achievements</span>
-                    </label>
-                    <label className="flex items-center space-x-3">
-                      <input type="checkbox" className="text-indigo-600" />
-                      <span className="text-gray-700">Personal observations and notes</span>
-                    </label>
-                    <label className="flex items-center space-x-3">
-                      <input type="checkbox" className="text-indigo-600" />
-                      <span className="text-gray-700">Recommendations and next steps</span>
-                    </label>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <button
-                    onClick={() => setShowExportModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                    Generate Report
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-
-      {/* Goal Setting Modal */}
-      {showGoalModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`bg-white rounded-xl ${responsiveClasses.modal} max-h-[80vh] overflow-y-auto`}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Set a New Goal</h3>
-                <button
-                  onClick={() => setShowGoalModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                {/* AI Suggestions */}
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-gray-900">AI Suggested Goals</h4>
-                    <button
-                      onClick={() => setShowAISuggestions(!showAISuggestions)}
-                      className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-                    >
-                      {showAISuggestions ? 'Hide' : 'Show'} Suggestions
-                    </button>
-                  </div>
-                  
-                  {showAISuggestions && (
-                    <div className="space-y-3">
-                      {aiSuggestions.map((suggestion) => (
-                        <div key={suggestion.id} className="bg-white rounded-lg p-3 border border-purple-200 hover:border-purple-300 transition-colors cursor-pointer">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-900 text-sm">{suggestion.title}</h5>
-                              <p className="text-xs text-gray-600 mt-1">{suggestion.description}</p>
-                              <p className="text-xs text-purple-600 mt-2 italic">"{suggestion.reason}"</p>
-                            </div>
-                            <button className="text-purple-600 hover:text-purple-700 text-sm font-medium ml-2">
-                              Use This
-                            </button>
+                {/* Step 1: Choose Domain */}
+                {addSkillForm.step === 1 && (
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Choose Domain *</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {domains.map((domain) => (
+                        <button
+                          key={domain.id}
+                          onClick={() => {
+                            setAddSkillForm(prev => ({ ...prev, selectedDomain: domain.id }));
+                            setShowAllSkills(false); // Reset to age-appropriate view when domain changes
+                          }}
+                          className={`p-4 rounded-lg border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                            addSkillForm.selectedDomain === domain.id
+                              ? 'border-indigo-500 bg-indigo-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                          aria-pressed={addSkillForm.selectedDomain === domain.id}
+                          aria-label={`Select ${domain.name} domain`}
+                        >
+                          <div className="text-center">
+                            <span className="text-2xl block mb-2" aria-hidden="true">{domain.icon}</span>
+                            <span className="text-sm font-medium text-gray-900">{domain.name}</span>
                           </div>
-                        </div>
+                        </button>
                       ))}
-                    </div>
-                  )}
+                  </div>
+                </div>
+              )}
+
+                {/* Step 2: Select Skill */}
+                {addSkillForm.step === 2 && (
+              <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Select Skill *</h4>
+                    <div className="space-y-4">
+                      <div className="text-sm text-gray-600 mb-4">
+                        {showAllSkills 
+                          ? `All skills in ${domains.find(d => d.id === addSkillForm.selectedDomain)?.name} domain:`
+                          : `Skills for ${chronologicalAge} (±1 age band):`
+                        }
+                      </div>
+                      
+                      {/* AI Skill Picker Button */}
+                      <div className="flex justify-center mb-4">
+                      <button
+                          disabled
+                          className="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
+                          title="Coming soon"
+                        >
+                          Use AI to pick skill
+                      </button>
                 </div>
 
-                {/* Custom Goal Form */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-gray-900">Create Custom Goal</h4>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Goal Title</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Improve balance and coordination"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea
-                      placeholder="Describe what you want to achieve..."
-                      className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                      <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-                        <option value="motor">Motor</option>
-                        <option value="language">Language</option>
-                        <option value="social">Social</option>
-                        <option value="cognitive">Cognitive</option>
-                        <option value="adaptive">Adaptive</option>
-                      </select>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {suggestedSkills.map((skill) => (
+                          <button
+                            key={skill.id}
+                            onClick={() => setAddSkillForm(prev => ({ ...prev, selectedSkill: skill.id }))}
+                            className={`w-full p-3 rounded-lg border text-left transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                              addSkillForm.selectedSkill === skill.id
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                            aria-pressed={addSkillForm.selectedSkill === skill.id}
+                            aria-label={`Select skill: ${skill.name}`}
+                          >
+                            <div className="font-medium text-gray-900">{skill.name}</div>
+                            <div className="text-sm text-gray-600">{skill.description}</div>
+                            <div className="text-xs text-gray-500 mt-1">Age: {skill.ageRange}</div>
+                          </button>
+                        ))}
+                        </div>
+                        
+                      {filteredSkills.length > 10 && (
+                        <div className="flex justify-center">
+                          <button 
+                            onClick={() => setShowAllSkills(!showAllSkills)}
+                            className="text-indigo-600 text-sm font-medium hover:text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            aria-label={showAllSkills 
+                              ? `Show age-appropriate skills only (${Math.min(10, filteredSkills.length)} skills)`
+                              : `Show all skills in ${domains.find(d => d.id === addSkillForm.selectedDomain)?.name} domain (${filteredSkills.length} skills)`
+                            }
+                          >
+                            {showAllSkills 
+                              ? `Show age-appropriate skills only (${Math.min(10, filteredSkills.length)} skills)`
+                              : `Show all skills in ${domains.find(d => d.id === addSkillForm.selectedDomain)?.name} domain (${filteredSkills.length} skills)`
+                            }
+                          </button>
+                              </div>
+                      )}
+
+                      {suggestedSkills.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No skills found for the selected domain and age range.</p>
+                          <button 
+                            onClick={() => setShowAllSkills(true)}
+                            className="text-indigo-600 text-sm font-medium hover:text-indigo-700 mt-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            aria-label="Show all skills in this domain"
+                          >
+                            Show all skills in this domain
+                          </button>
+                              </div>
+                      )}
+                                </div>
+                                </div>
+                )}
+
+                {/* Step 3: Mark Status */}
+                {addSkillForm.step === 3 && (
+                              <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Mark Status *</h4>
+                    <div className="space-y-3">
+                      {[
+                        { value: 'observed', label: 'Observed', description: 'Child demonstrates this skill consistently' },
+                        { value: 'emerging', label: 'Emerging', description: 'Child shows some signs of this skill' },
+                        { value: 'not-yet', label: 'Not yet', description: 'Child has not shown this skill yet' },
+                        { value: 'not-applicable', label: 'Not applicable', description: 'This skill is not relevant for this child' }
+                      ].map((status) => (
+                        <label key={status.value} className="flex items-start space-x-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="status"
+                            value={status.value}
+                            checked={addSkillForm.status === status.value}
+                            onChange={(e) => setAddSkillForm(prev => ({ ...prev, status: e.target.value as any }))}
+                            className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                            aria-describedby={`status-${status.value}-description`}
+                          />
+                            <div>
+                            <div className="font-medium text-gray-900">{status.label}</div>
+                            <div id={`status-${status.value}-description`} className="text-sm text-gray-600">{status.description}</div>
+                            </div>
+                        </label>
+                        ))}
                     </div>
-                    
+                  </div>
+                )}
+
+                {/* Step 4: Date Observed */}
+                {addSkillForm.step === 4 && (
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Date Observed *</h4>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Target Date</label>
+                      <label htmlFor="date-observed" className="block text-sm font-medium text-gray-700 mb-2">
+                        When did you observe this skill?
+                      </label>
                       <input
+                        id="date-observed"
                         type="date"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        value={addSkillForm.dateObserved}
+                        onChange={(e) => setAddSkillForm(prev => ({ ...prev, dateObserved: e.target.value }))}
+                        max={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        aria-describedby="date-helper"
                       />
-                    </div>
+                      <p id="date-helper" className="text-xs text-gray-500 mt-1">Select the date when you observed this skill</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                {/* Step 5: Supports Used */}
+                {addSkillForm.step === 5 && (
+                      <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-4">Supports Used (Optional)</h4>
+                    <p className="text-sm text-gray-600 mb-4">What supports helped the child demonstrate this skill?</p>
+                    <div className="flex flex-wrap gap-2">
+                      {supportOptions.map((support) => (
+                        <button
+                          key={support}
+                          onClick={() => {
+                            const newSupports = addSkillForm.supports.includes(support)
+                              ? addSkillForm.supports.filter(s => s !== support)
+                              : [...addSkillForm.supports, support];
+                            setAddSkillForm(prev => ({ ...prev, supports: newSupports }));
+                          }}
+                          className={`px-3 py-2 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                            addSkillForm.supports.includes(support)
+                              ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                          }`}
+                          aria-pressed={addSkillForm.supports.includes(support)}
+                          aria-label={`${addSkillForm.supports.includes(support) ? 'Remove' : 'Add'} ${support} support`}
+                        >
+                          {support}
+                        </button>
+                      ))}
+                          </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <input type="checkbox" id="reminders" className="text-indigo-600 focus:ring-indigo-500" />
-                    <label htmlFor="reminders" className="text-sm text-gray-700">
-                      Enable reminders for this goal
-                    </label>
+                )}
+
+                {/* Step 6: Context and Notes */}
+                {addSkillForm.step === 6 && (
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-md font-medium text-gray-900 mb-4">Context (Optional)</h4>
+                      <p className="text-sm text-gray-600 mb-4">Where did you observe this skill?</p>
+                      <div className="flex flex-wrap gap-2">
+                        {contextOptions.map((context) => (
+                          <button
+                            key={context}
+                            onClick={() => {
+                              const newContext = addSkillForm.context.includes(context)
+                                ? addSkillForm.context.filter(c => c !== context)
+                                : [...addSkillForm.context, context];
+                              setAddSkillForm(prev => ({ ...prev, context: newContext }));
+                            }}
+                            className={`px-3 py-2 rounded-full text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                              addSkillForm.context.includes(context)
+                                ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                            }`}
+                            aria-pressed={addSkillForm.context.includes(context)}
+                            aria-label={`${addSkillForm.context.includes(context) ? 'Remove' : 'Add'} ${context} context`}
+                          >
+                            {context}
+                              </button>
+                        ))}
+                      </div>
+                </div>
+
+                    <div>
+                      <label htmlFor="skill-notes" className="block text-sm font-medium text-gray-700 mb-2">
+                        Notes (Optional)
+                      </label>
+                      <textarea
+                        id="skill-notes"
+                        value={addSkillForm.notes}
+                        onChange={(e) => setAddSkillForm(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="Add any additional notes about this skill observation..."
+                        maxLength={200}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                        aria-describedby="notes-counter"
+                      />
+                      <div id="notes-counter" className="text-xs text-gray-500 mt-1 text-right">
+                        {addSkillForm.notes.length}/200
+                        </div>
+                          </div>
+                        </div>
+                )}
                   </div>
                 </div>
+
+            {/* Sticky Navigation Bar */}
+            <div className="border-t border-gray-200 bg-white p-6 flex-shrink-0">
+              <div className="flex justify-between">
+                    <button
+                  onClick={handlePrevStep}
+                  disabled={addSkillForm.step === 1}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Go to previous step"
+                >
+                  Previous
+                    </button>
+
+                <div className="flex space-x-3">
+                  {addSkillForm.step === 6 ? (
+                    <>
+                    <button
+                        onClick={() => handleSave(true)}
+                        className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        aria-label="Save skill and add another"
+                    >
+                        Save & Add Another
+                    </button>
+                      <button
+                        onClick={() => handleSave(false)}
+                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        aria-label="Save skill"
+                      >
+                        Save
+                            </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleNextStep}
+                      disabled={
+                        (addSkillForm.step === 1 && !addSkillForm.selectedDomain) ||
+                        (addSkillForm.step === 2 && !addSkillForm.selectedSkill)
+                      }
+                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Go to next step"
+                    >
+                      Next
+                            </button>
+                  )}
+                          </div>
+                        </div>
+                      </div>
+                  </div>
+                </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                    <div className="p-6">
+              {/* Header */}
+                      <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Milestone Report (last 30 days)</h3>
+                        <button
+                  onClick={handleCloseReportModal}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                  aria-label="Close report modal"
+                        >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                        </button>
+                      </div>
+                      
+              {/* Report Options */}
+              <div className="space-y-6">
+                {/* Include Domains */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Include domains
+                  </label>
+                  <div className="space-y-2">
+                    {domains.map((domain) => (
+                      <label key={domain.id} className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={reportOptions.includeDomains.includes(domain.id)}
+                          onChange={() => handleDomainToggle(domain.id)}
+                          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        />
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg" aria-hidden="true">{domain.icon}</span>
+                          <span className="text-sm font-medium text-gray-900">{domain.name}</span>
+                              </div>
+                      </label>
+                        ))}
+                      </div>
+                    </div>
+
+                {/* Include Emerging Skills */}
+              <div>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Include Emerging skills</div>
+                      <div className="text-sm text-gray-600">Show skills that are still developing</div>
+                      </div>
+                    <input
+                      type="checkbox"
+                      checked={reportOptions.includeEmergingSkills}
+                      onChange={(e) => setReportOptions(prev => ({ ...prev, includeEmergingSkills: e.target.checked }))}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                  </label>
+                </div>
+
+                {/* Include Notes */}
+                          <div>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Include Notes</div>
+                      <div className="text-sm text-gray-600">Include caregiver notes and observations</div>
+                          </div>
+                    <input
+                      type="checkbox"
+                      checked={reportOptions.includeNotes}
+                      onChange={(e) => setReportOptions(prev => ({ ...prev, includeNotes: e.target.checked }))}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                  </label>
+                          </div>
+                  </div>
+                  
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 mt-8 pt-6 border-t border-gray-200">
+                {!reportReady ? (
+                  <>
+                    <button
+                      onClick={handleCloseReportModal}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      Cancel
+                    </button>
+                      <button
+                      onClick={handleGeneratePDF}
+                      disabled={isGeneratingReport || reportOptions.includeDomains.length === 0}
+                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      {isGeneratingReport ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate PDF'
+                      )}
+                      </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSaveToVisitPacket}
+                      className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      Save to Visit Packet
+                      </button>
+                    <button
+                      onClick={handleCloseReportModal}
+                      className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    >
+                      Download Ready
+                      </button>
+                  </>
+                )}
+                    </div>
+                    </div>
+                  </div>
+                </div>
+      )}
+
+      {/* Toast */}
+      {toast.isVisible && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
+          <div className={`border rounded-lg p-4 shadow-lg ${
+            toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+            toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                {toast.type === 'success' && (
+                  <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                )}
+                {toast.type === 'error' && (
+                  <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                )}
+                {toast.type === 'info' && (
+                  <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium">{toast.message}</p>
+              </div>
+              <div className="ml-4 flex-shrink-0">
+                    <button
+                  onClick={() => setToast(prev => ({ ...prev, isVisible: false }))}
+                  className="inline-flex text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                    >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                    </button>
+                  </div>
+                    </div>
+                    </div>
+                    </div>
+      )}
+
+      {/* Milestone Detail Modal */}
+      {showMilestoneDetail && selectedMilestone && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">{selectedMilestone.domainIcon}</span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{selectedMilestone.skillName}</h3>
+                    <p className="text-sm text-gray-600">{domains.find(d => d.id === selectedMilestone.domain)?.name} Domain</p>
+              </div>
+                </div>
+                <button
+                  onClick={() => setShowMilestoneDetail(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
               
-              <div className="flex justify-end space-x-3 mt-6 pt-6 border-t">
+              {/* Status Badge */}
+              <div className="mb-6">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(selectedMilestone.status)}`}>
+                  {getStatusLabel(selectedMilestone.status)}
+                </span>
+                      </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Date Observed</h4>
+                  <p className="text-sm text-gray-600">{formatDate(selectedMilestone.dateObserved)}</p>
+                      </div>
+                      <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Caregiver</h4>
+                  <p className="text-sm text-gray-600">{selectedMilestone.caregiver}</p>
+                      </div>
+                    </div>
+                    
+              {/* Context */}
+              {selectedMilestone.context.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Context</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMilestone.context.map((context) => (
+                      <span key={context} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                        {context}
+                      </span>
+                    ))}
+                      </div>
+                    </div>
+              )}
+
+              {/* Supports Used */}
+              {selectedMilestone.supports.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Supports Used</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMilestone.supports.map((support) => (
+                      <span key={support} className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">
+                        {support}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {selectedMilestone.notes && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Notes</h4>
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    {selectedMilestone.notes}
+                  </p>
+        </div>
+      )}
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                 <button
-                  onClick={() => setShowGoalModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={() => setShowMilestoneDetail(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  Close
+                </button>
+                  <button
+                  onClick={() => {
+                    setShowMilestoneDetail(false);
+                    // This would open edit mode in a real implementation
+                    console.log('Edit milestone:', selectedMilestone.id);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  Edit
+                  </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Milestone Settings</h3>
+                <button
+                  onClick={handleCancelSettings}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                  aria-label="Close settings"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Settings Form */}
+              <div className="space-y-6">
+                {/* Default View */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Default View
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="defaultView"
+                        value="age-based"
+                        checked={milestoneSettings.defaultView === 'age-based'}
+                        onChange={(e) => setMilestoneSettings(prev => ({ ...prev, defaultView: e.target.value as 'age-based' | 'developmental-level' }))}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">Age-based</div>
+                        <div className="text-sm text-gray-600">Show milestones based on chronological age</div>
+                  </div>
+                    </label>
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="defaultView"
+                        value="developmental-level"
+                        checked={milestoneSettings.defaultView === 'developmental-level'}
+                        onChange={(e) => setMilestoneSettings(prev => ({ ...prev, defaultView: e.target.value as 'age-based' | 'developmental-level' }))}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">Developmental level</div>
+                        <div className="text-sm text-gray-600">Show milestones based on developmental stage</div>
+                            </div>
+                    </label>
+                          </div>
+                </div>
+
+                {/* Show Skills Beyond Level */}
+                  <div>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Show skills beyond current level</div>
+                      <div className="text-sm text-gray-600">Display skills that may be emerging or not yet achieved</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={milestoneSettings.showSkillsBeyondLevel}
+                      onChange={(e) => setMilestoneSettings(prev => ({ ...prev, showSkillsBeyondLevel: e.target.checked }))}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                  </label>
+                  </div>
+                  
+                {/* Weekly Reminder */}
+                  <div>
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Weekly reminder to review milestones</div>
+                      <div className="text-sm text-gray-600">Get notified to check your child's progress weekly</div>
+                    </div>
+                      <input
+                      type="checkbox"
+                      checked={milestoneSettings.weeklyReminder}
+                      onChange={(e) => setMilestoneSettings(prev => ({ ...prev, weeklyReminder: e.target.checked }))}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                  </label>
+                    </div>
+                  </div>
+                  
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleCancelSettings}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  onClick={handleSaveSettings}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
-                  Create Goal
+                  Save
+                </button>
+                  </div>
+                </div>
+              </div>
+        </div>
+      )}
+              
+      {/* Page Footer */}
+      <div className="bg-white border-t border-gray-200 mt-12">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-center">
+                <button
+              onClick={handleOpenSettings}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-lg px-3 py-1"
+              aria-label="Open milestone settings"
+                >
+              Milestone settings
+                </button>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Suggestions Modal */}
+      {showAISuggestionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">AI Skill Suggestions</h3>
+                <button
+                  onClick={() => setShowAISuggestionsModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                  aria-label="Close AI suggestions"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Coming soon</h4>
+                <p className="text-gray-600 mb-6">
+                  We'll use your recent milestones and age/level to propose 3–5 next-step skills.
+                </p>
+                <button
+                  onClick={() => setShowAISuggestionsModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Domain Detail View */}
+      {showDomainDetail && currentDomain && (
+        <div className="fixed inset-0 bg-white z-40 overflow-y-auto">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={handleCloseDomainDetail}
+                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                    aria-label="Back to milestones overview"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-900">
+                      {domains.find(d => d.id === currentDomain)?.name}
+                    </h1>
+                    <p className="text-sm text-gray-600">Track skills and explore care ideas.</p>
+                  </div>
+                </div>
+
+                {/* Progress Chip */}
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="relative w-6 h-6">
+                      <svg className="w-6 h-6 transform -rotate-90" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M12 2 a 10 10 0 0 1 0 20 a 10 10 0 0 1 0 -20"
+                          fill="none"
+                          stroke="#e5e7eb"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M12 2 a 10 10 0 0 1 0 20 a 10 10 0 0 1 0 -20"
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="2"
+                          strokeDasharray={`${calculateProgress(
+                            domains.find(d => d.id === currentDomain)?.observedSkills || 0,
+                            domains.find(d => d.id === currentDomain)?.suggestedSkills || 1
+                          )}, 100`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">
+                      Observed {domains.find(d => d.id === currentDomain)?.observedSkills} of {domains.find(d => d.id === currentDomain)?.suggestedSkills} suggested skills
+                    </span>
+                  </div>
+
+                  {/* Right Actions */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setShowQuickAddSheet(true);
+                        setAddSkillForm(prev => ({ ...prev, selectedDomain: currentDomain, step: 1 }));
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      Add Skill
+                    </button>
+                    <button
+                      disabled
+                      className="px-3 py-2 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-60"
+                      title="Coming soon"
+                    >
+                      Suggest next skills (AI)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowReportModal(true);
+                        setReportOptions(prev => ({ ...prev, includeDomains: [currentDomain] }));
+                      }}
+                      className="px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      Export domain report
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Domain Detail Content */}
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-24 h-24 mx-auto bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-4xl" aria-hidden="true">
+                    {domains.find(d => d.id === currentDomain)?.icon}
+                  </span>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {domains.find(d => d.id === currentDomain)?.name} Domain Detail
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  This view will contain the skill checklist, care ideas, and progress timeline in Phase 5B.
+                </p>
+                <button
+                  onClick={handleCloseDomainDetail}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Overview
                 </button>
               </div>
             </div>

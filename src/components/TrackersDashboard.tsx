@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import QuickLog from './QuickLog';
+import Journal from './Journal';
 
 // Icon components
 const SymptomIcon = () => (
@@ -38,6 +40,55 @@ const TrackersDashboard: React.FC<TrackersDashboardProps> = ({
   onNavigateToMedicationTracker,
   onBack
 }) => {
+  // State for segmented control - remember last choice per user
+  const [activeSegment, setActiveSegment] = useState<'quickLog' | 'journal'>('quickLog');
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Load last choice from localStorage on component mount
+  useEffect(() => {
+    const savedSegment = localStorage.getItem('logTrackSegment');
+    if (savedSegment === 'journal' || savedSegment === 'quickLog') {
+      setActiveSegment(savedSegment);
+    }
+  }, []);
+
+  // Save choice to localStorage when it changes
+  const handleSegmentChange = (segment: 'quickLog' | 'journal') => {
+    setActiveSegment(segment);
+    localStorage.setItem('logTrackSegment', segment);
+  };
+
+  // Handle QuickLog save
+  const handleQuickLogSave = (data: any) => {
+    console.log('QuickLog saved:', data);
+    // TODO: Implement actual save logic
+  };
+
+  // Handle QuickLog cancel
+  const handleQuickLogCancel = () => {
+    // Stay on the same segment, just close the QuickLog form
+    console.log('QuickLog cancelled');
+  };
+
+  // Help tips data
+  const helpTips = [
+    {
+      id: 1,
+      title: 'Pin your most-used tiles',
+      description: 'Customize your dashboard by pinning the trackers you use most frequently for quick access.'
+    },
+    {
+      id: 2,
+      title: 'Use voice notes or photos',
+      description: 'Coming soon! You\'ll be able to record voice notes or take photos to capture symptoms and observations faster.',
+      comingSoon: true
+    },
+    {
+      id: 3,
+      title: 'Save drafts if you\'re interrupted',
+      description: 'Don\'t lose your progress - save drafts and come back to complete your entries later.'
+    }
+  ];
   const trackers = [
     {
       id: 'symptom',
@@ -88,79 +139,176 @@ const TrackersDashboard: React.FC<TrackersDashboardProps> = ({
             </svg>
           </button>
           <div className="flex-1 text-center">
-            <h1 className="text-lg font-semibold text-gray-900">Daily Care Hub</h1>
-            <p className="text-sm text-gray-600">Monitor and manage Jamie's care</p>
+            <h1 className="text-lg font-semibold text-gray-900">Log & Track</h1>
+            <p className="text-sm text-gray-600">Capture today's care in seconds.</p>
           </div>
-          <div className="w-10"></div> {/* Spacer for centering */}
+          
+                     {/* Right Actions - Desktop */}
+           <div className="hidden sm:flex items-center space-x-3">
+             <button
+               onClick={onNavigateToSymptomTracker}
+               className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+               aria-label="Quick log a symptom"
+             >
+               Quick Log
+             </button>
+             <button
+               onClick={() => {
+                 if (activeSegment === 'journal') {
+                   // TODO: Trigger export in Journal component
+                   console.log('Export from Journal via header button');
+                 } else {
+                   // Switch to Journal segment and then export
+                   handleSegmentChange('journal');
+                 }
+               }}
+               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+               aria-label="Export data"
+             >
+               Export
+             </button>
+             
+             {/* Help Button */}
+             <button
+               onClick={() => setShowHelpModal(true)}
+               className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 relative group"
+               aria-label="Tips for logging faster"
+               title="Tips for logging faster"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+               </svg>
+               
+               {/* Tooltip */}
+               <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                 Tips for logging faster
+                 <div className="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+               </div>
+             </button>
+           </div>
+           
+           {/* Mobile Overflow Menu */}
+           <div className="sm:hidden">
+             <button
+               onClick={() => {
+                 // TODO: Implement mobile overflow menu
+                 console.log('Mobile overflow menu - to be implemented');
+               }}
+               className="p-2 text-gray-600 hover:text-gray-800 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+               aria-label="More options"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+               </svg>
+             </button>
+           </div>
         </div>
-      </header>
+             </header>
 
-      {/* Main Content */}
-      <main className="px-4 py-6">
-        <div className="space-y-4">
-          {trackers.map((tracker) => (
-            <button
-              key={tracker.id}
-              onClick={tracker.onClick}
-              className={`w-full p-6 bg-white rounded-xl border ${tracker.borderColor} shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
-            >
-              <div className="flex items-center space-x-4">
-                {/* Icon */}
-                <div className={`p-3 rounded-lg ${tracker.color} text-white`}>
-                  {tracker.icon}
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 text-left">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                    {tracker.title}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {tracker.description}
-                  </p>
-                </div>
-                
-                {/* Chevron */}
-                <div className={`${tracker.textColor}`}>
-                  <ChevronRightIcon />
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+       {/* Segmented Control */}
+       <div className="bg-white border-b border-gray-200 px-4 py-3">
+         <div className="max-w-md mx-auto">
+           <div className="bg-gray-100 rounded-lg p-1 flex">
+             <button
+               onClick={() => handleSegmentChange('quickLog')}
+               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                 activeSegment === 'quickLog'
+                   ? 'bg-white text-indigo-700 shadow-sm'
+                   : 'text-gray-600 hover:text-gray-900'
+               }`}
+               aria-label="Quick Log segment"
+               aria-pressed={activeSegment === 'quickLog'}
+             >
+               Quick Log
+             </button>
+             <button
+               onClick={() => handleSegmentChange('journal')}
+               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                 activeSegment === 'journal'
+                   ? 'bg-white text-indigo-700 shadow-sm'
+                   : 'text-gray-600 hover:text-gray-900'
+               }`}
+               aria-label="Journal segment"
+               aria-pressed={activeSegment === 'journal'}
+             >
+               Journal
+             </button>
+           </div>
+         </div>
+       </div>
 
-        {/* Quick Actions Section */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={onNavigateToSymptomTracker}
-              className="p-4 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-            >
-              <div className="text-center">
-                <div className="text-red-600 mb-2">
-                  <SymptomIcon />
-                </div>
-                <span className="text-sm font-medium text-red-700">Log Symptom</span>
-              </div>
-            </button>
-            
-            <button
-              onClick={onNavigateToNutritionTracker}
-              className="p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            >
-              <div className="text-center">
-                <div className="text-green-600 mb-2">
-                  <NutritionIcon />
-                </div>
-                <span className="text-sm font-medium text-green-700">Plan Meal</span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-};
+               {/* Main Content */}
+        {activeSegment === 'quickLog' ? (
+          <QuickLog 
+            onSave={handleQuickLogSave}
+            onCancel={handleQuickLogCancel}
+          />
+        ) : (
+          <Journal onExport={() => {
+            // TODO: Handle export from Journal
+            console.log('Export from Journal');
+          }} />
+        )}
+
+       {/* Help Modal */}
+       {showHelpModal && (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+           <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+             {/* Modal Header */}
+             <div className="flex items-center justify-between p-6 border-b border-gray-200">
+               <h2 className="text-lg font-semibold text-gray-900">Tips for logging faster</h2>
+               <button
+                 onClick={() => setShowHelpModal(false)}
+                 className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                 aria-label="Close help modal"
+               >
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                 </svg>
+               </button>
+             </div>
+
+             {/* Modal Content */}
+             <div className="p-6">
+               <div className="space-y-6">
+                 {helpTips.map((tip) => (
+                   <div key={tip.id} className="flex items-start space-x-3">
+                     {/* Tip Number */}
+                     <div className="flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                       <span className="text-sm font-semibold text-indigo-700">{tip.id}</span>
+                     </div>
+                     
+                     {/* Tip Content */}
+                     <div className="flex-1">
+                       <h3 className="text-sm font-medium text-gray-900 mb-1">
+                         {tip.title}
+                         {tip.comingSoon && (
+                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                             Coming soon
+                           </span>
+                         )}
+                       </h3>
+                       <p className="text-sm text-gray-600">{tip.description}</p>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+
+             {/* Modal Footer */}
+             <div className="flex justify-end p-6 border-t border-gray-200">
+               <button
+                 onClick={() => setShowHelpModal(false)}
+                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+               >
+                 Got it
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   );
+ };
 
 export default TrackersDashboard; 

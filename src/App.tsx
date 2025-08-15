@@ -176,12 +176,6 @@ function App() {
       {currentView === 'growthDevelopment' && (
         <GrowthDevelopmentScreen
           onBack={handleNavigateBackFromGrowthDevelopment}
-          onNavigateToNutrition={handleNavigateToNutrition}
-          onNavigateToSymptomLogs={() => {
-            // For now, navigate to home where symptoms can be logged
-            // In a full implementation, this would go to a symptom logs screen
-            setCurrentView('home');
-          }}
         />
       )}
       {currentView === 'log' && (
