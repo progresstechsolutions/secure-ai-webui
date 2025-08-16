@@ -10,10 +10,12 @@ import GrowthDevelopmentScreen from './components/GrowthDevelopmentScreen';
 import LogAndTrackScreen from './components/LogAndTrackScreen';
 import TrackersDashboard from './components/TrackersDashboard';
 import MedicationTracker from './components/MedicationTracker';
+import DomainDetailScreen from './components/DomainDetailScreen';
 import AppLayout from './components/AppLayout';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log' | 'trackersDashboard' | 'medicationTracker'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log' | 'trackersDashboard' | 'medicationTracker' | 'domainDetail'>('home');
+  const [domainDetailData, setDomainDetailData] = useState<{ domain: string } | null>(null);
   const [previousView, setPreviousView] = useState<'home' | 'trackersDashboard'>('home');
   const [recipeLibraryMealType, setRecipeLibraryMealType] = useState<string | undefined>();
   const [insightData, setInsightData] = useState<{
@@ -121,6 +123,16 @@ function App() {
     setCurrentView('trackersDashboard');
   };
 
+  const handleNavigateToDomainDetail = (domain: string) => {
+    setDomainDetailData({ domain });
+    setCurrentView('domainDetail');
+  };
+
+  const handleNavigateBackFromDomainDetail = () => {
+    setCurrentView('growthDevelopment');
+    setDomainDetailData(null);
+  };
+
   return (
     <AppLayout
       currentView={currentView}
@@ -174,9 +186,7 @@ function App() {
         />
       )}
       {currentView === 'growthDevelopment' && (
-        <GrowthDevelopmentScreen
-          onBack={handleNavigateBackFromGrowthDevelopment}
-        />
+        <GrowthDevelopmentScreen />
       )}
       {currentView === 'log' && (
         <LogAndTrackScreen
@@ -194,6 +204,12 @@ function App() {
       {currentView === 'medicationTracker' && (
         <MedicationTracker
           onBack={handleNavigateBackFromMedicationTracker}
+        />
+      )}
+      {currentView === 'domainDetail' && domainDetailData && (
+        <DomainDetailScreen
+          onBack={handleNavigateBackFromDomainDetail}
+          domain={domainDetailData.domain}
         />
       )}
     </AppLayout>
