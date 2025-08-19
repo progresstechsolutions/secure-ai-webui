@@ -176,9 +176,7 @@ function App() {
         />
       )}
       {currentView === 'careTeam' && (
-        <CareTeamScreen
-          onBack={handleNavigateBackFromCareTeam}
-        />
+        <CareTeamScreen />
       )}
       {currentView === 'profile' && (
         <ProfileSettingsScreen

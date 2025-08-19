@@ -14,6 +14,21 @@ const GrowthDevelopmentScreen: React.FC = () => {
   // Overview tab state
   const [overviewDateRange, setOverviewDateRange] = useState('30 days');
   
+  // Ideas Library state
+  const [savedIdeas, setSavedIdeas] = useState<string[]>([]);
+  const [showPracticePlanDrawer, setShowPracticePlanDrawer] = useState(false);
+  const [practicePlanItems, setPracticePlanItems] = useState<Array<{
+    id: string;
+    ideaId: string;
+    title: string;
+    environment: string;
+    time: string;
+    domain: string;
+    notes: string;
+  }>>([]);
+  const [showSavePlanModal, setShowSavePlanModal] = useState(false);
+  const [savedPlans, setSavedPlans] = useState<Array<{name: string, items: any[]}>>([]);
+  
   // Settings state
   const [defaultView, setDefaultView] = useState<'age-based' | 'developmental'>('age-based');
   const [showSkillsBeyondLevel, setShowSkillsBeyondLevel] = useState(true);
@@ -493,6 +508,835 @@ const GrowthDevelopmentScreen: React.FC = () => {
     setShowReportModal(false);
     // TODO: Show toast: "Report downloaded"
   };
+
+  // Ideas Library handlers
+  const handleSaveIdea = (ideaId: string) => {
+    if (savedIdeas.includes(ideaId)) {
+      setSavedIdeas(prev => prev.filter(id => id !== ideaId));
+    } else {
+      setSavedIdeas(prev => [...prev, ideaId]);
+    }
+  };
+
+  const handleAddToPracticePlan = (ideaId: string) => {
+    const idea = sampleIdeas.find(i => i.id === ideaId);
+    if (idea) {
+      const newItem = {
+        id: `plan-${Date.now()}`,
+        ideaId: idea.id,
+        title: idea.title,
+        environment: idea.environment[0] || 'Home',
+        time: idea.timeNeeded,
+        domain: idea.domain,
+        notes: ''
+      };
+      setPracticePlanItems(prev => [...prev, newItem]);
+      setShowPracticePlanDrawer(true);
+    }
+  };
+
+  const handleRemoveFromPlan = (itemId: string) => {
+    setPracticePlanItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleUpdatePlanItemNotes = (itemId: string, notes: string) => {
+    setPracticePlanItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, notes } : item
+    ));
+  };
+
+  const handlePrintPlan = () => {
+    // TODO: Implement print functionality
+    console.log('Printing practice plan...');
+  };
+
+  const handleSharePlan = () => {
+    // TODO: Implement share functionality
+    console.log('Sharing practice plan...');
+  };
+
+  const handleSavePlan = () => {
+    setShowSavePlanModal(true);
+  };
+
+  const handleClearPlan = () => {
+    setPracticePlanItems([]);
+  };
+
+  // Sample ideas data - Expanded with 6-10 ideas per domain across levels
+  const sampleIdeas = [
+    // MOTOR DOMAIN - 8 ideas across levels
+    {
+      id: 'motor-1',
+      title: 'Tummy Time with Mirror',
+      domain: 'Motor',
+      subdomain: 'Gross Motor',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '10–15 min',
+      materials: ['Baby-safe mirror', 'Soft blanket', 'Favorite toys'],
+      steps: [
+        'Place baby on tummy on a soft blanket',
+        'Position mirror at eye level, about 8-12 inches away',
+        'Place favorite toys just out of reach to encourage reaching',
+        'Talk to baby and make faces in the mirror',
+        'Gradually increase time spent in position'
+      ],
+      adaptations: ['Visual support', 'Sensory breaks'],
+      environment: ['Home'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'motor-2',
+      title: 'Crawling Obstacle Course',
+      domain: 'Motor',
+      subdomain: 'Gross Motor',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '15 min',
+      materials: ['Pillows', 'Soft blocks', 'Tunnels', 'Favorite toys'],
+      steps: [
+        'Create a simple obstacle course with pillows and blocks',
+        'Place favorite toys at the end as motivation',
+        'Encourage crawling through and over obstacles',
+        'Celebrate each successful navigation',
+        'Gradually increase complexity'
+      ],
+      adaptations: ['Visual markers', 'Physical guidance'],
+      environment: ['Home'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'motor-3',
+      title: 'Ball Rolling Games',
+      domain: 'Motors',
+      subdomain: 'Gross Motor',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '10 min',
+      materials: ['Soft balls', 'Ramps', 'Targets'],
+      steps: [
+        'Set up simple ramps or inclines',
+        'Show child how to roll balls down ramps',
+        'Add targets to aim for',
+        'Encourage different rolling techniques',
+        'Take turns and celebrate hits'
+      ],
+      adaptations: ['Adaptive grips', 'Visual targets'],
+      environment: ['Home', 'Therapy'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+    {
+      id: 'motor-4',
+      title: 'Fine Motor Bead Stringing',
+      domain: 'Motor',
+      subdomain: 'Fine Motor',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '15 min',
+      materials: ['Large beads', 'Thick string', 'Pattern cards'],
+      steps: [
+        'Start with large, easy-to-grasp beads',
+        'Show simple patterns to follow',
+        'Guide hand-over-hand if needed',
+        'Celebrate each bead added',
+        'Gradually use smaller beads'
+      ],
+      adaptations: ['Adaptive grips', 'Visual patterns'],
+      environment: ['Home', 'School'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+    {
+      id: 'motor-5',
+      title: 'Pincer Grasp Practice',
+      domain: 'Motor',
+      subdomain: 'Fine Motor',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '10 min',
+      materials: ['Cheerios', 'Small containers', 'Tweezers'],
+      steps: [
+        'Place small items in one container',
+        'Show pincer grasp technique',
+        'Practice picking up items one by one',
+        'Transfer to another container',
+        'Use tweezers for advanced practice'
+      ],
+      adaptations: ['Adaptive utensils', 'Visual guides'],
+      environment: ['Home'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+    {
+      id: 'motor-6',
+      title: 'Drawing and Coloring',
+      domain: 'Motor',
+      subdomain: 'Fine Motor',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '20 min',
+      materials: ['Large crayons', 'Paper', 'Coloring books'],
+      steps: [
+        'Provide large, easy-to-grasp crayons',
+        'Start with simple shapes and lines',
+        'Encourage free drawing and exploration',
+        'Praise all attempts and efforts',
+        'Gradually introduce more complex patterns'
+      ],
+      adaptations: ['Adaptive grips', 'Visual guides'],
+      environment: ['Home', 'School'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+    {
+      id: 'motor-7',
+      title: 'Building with Mega Blocks',
+      domain: 'Motor',
+      subdomain: 'Fine Motor',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '25 min',
+      materials: ['Mega blocks', 'Picture cards', 'Base plates'],
+      steps: [
+        'Show simple structure pictures',
+        'Start with basic stacking',
+        'Encourage following visual guides',
+        'Build together and celebrate success',
+        'Add complexity gradually'
+      ],
+      adaptations: ['Visual guides', 'Physical support'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'motor-8',
+      title: 'Play Dough Activities',
+      domain: 'Motor',
+      subdomain: 'Fine Motor',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '20 min',
+      materials: ['Play dough', 'Rolling pins', 'Cookie cutters'],
+      steps: [
+        'Start with simple rolling and squishing',
+        'Introduce cookie cutters for shapes',
+        'Practice making balls and snakes',
+        'Create simple objects together',
+        'Encourage imaginative play'
+      ],
+      adaptations: ['Adaptive tools', 'Visual guides'],
+      environment: ['Home'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+
+    // COMMUNICATION DOMAIN - 8 ideas across levels
+    {
+      id: 'comm-1',
+      title: 'Sound and Movement Game',
+      domain: 'Communication',
+      subdomain: 'Expressive Language',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '5 min',
+      materials: ['Musical instruments', 'Pictures of animals'],
+      steps: [
+        'Show child pictures of different animals',
+        'Make the animal sound together',
+        'Add movement that matches the animal',
+        'Encourage child to imitate sounds and movements',
+        'Take turns choosing animals'
+      ],
+      adaptations: ['AAC support', 'Visual cues'],
+      environment: ['Home', 'Therapy'],
+      supports: ['AAC', 'Visuals']
+    },
+    {
+      id: 'comm-2',
+      title: 'Picture Exchange Communication',
+      domain: 'Communication',
+      subdomain: 'Expressive Language',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '10 min',
+      materials: ['Picture cards', 'Reinforcing items', 'Communication book'],
+      steps: [
+        'Start with highly motivating items',
+        'Show picture and item together',
+        'Guide hand to give picture',
+        'Immediately give the item',
+        'Gradually increase picture vocabulary'
+      ],
+      adaptations: ['AAC system', 'Visual supports'],
+      environment: ['Home', 'Therapy'],
+      supports: ['AAC', 'Visuals']
+    },
+    {
+      id: 'comm-3',
+      title: 'Sign Language Basics',
+      domain: 'Communication',
+      subdomain: 'Expressive Language',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '15 min',
+      materials: ['Sign language cards', 'Mirror', 'Favorite objects'],
+      steps: [
+        'Start with basic signs (more, please, thank you)',
+        'Show sign while saying word',
+        'Practice in mirror together',
+        'Use signs during daily routines',
+        'Reinforce with praise and objects'
+      ],
+      adaptations: ['Visual guides', 'Physical prompts'],
+      environment: ['Home', 'Therapy'],
+      supports: ['AAC', 'Visuals']
+    },
+    {
+      id: 'comm-4',
+      title: 'Receptive Language Games',
+      domain: 'Communication',
+      subdomain: 'Receptive Language',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '10 min',
+      materials: ['Common objects', 'Picture cards', 'Basket'],
+      steps: [
+        'Place several objects in front of child',
+        'Ask child to find specific items',
+        'Start with familiar name recognition',
+        'Add simple commands (put in basket)',
+        'Gradually increase complexity'
+      ],
+      adaptations: ['Visual cues', 'Physical prompts'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'comm-5',
+      title: 'Story Time with Props',
+      domain: 'Communication',
+      subdomain: 'Receptive Language',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '15 min',
+      materials: ['Simple storybooks', 'Props', 'Puppets'],
+      steps: [
+        'Choose books with repetitive text',
+        'Use props to act out story',
+        'Point to pictures while reading',
+        'Ask simple questions about story',
+        'Encourage child to retell parts'
+      ],
+      adaptations: ['Visual supports', 'AAC integration'],
+      environment: ['Home', 'School'],
+      supports: ['AAC', 'Visuals']
+    },
+    {
+      id: 'comm-6',
+      title: 'Turn-Taking Conversations',
+      domain: 'Communication',
+      subdomain: 'Social Communication',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '10 min',
+      materials: ['Timer', 'Favorite toys', 'Picture cards'],
+      steps: [
+        'Set up structured turn-taking activity',
+        'Use timer to show turn length',
+        'Model waiting and taking turns',
+        'Praise good turn-taking behavior',
+        'Gradually increase conversation complexity'
+      ],
+      adaptations: ['Visual timer', 'Social stories'],
+      environment: ['Home', 'School'],
+      supports: ['Timer', 'Visuals']
+    },
+    {
+      id: 'comm-7',
+      title: 'Emotion Vocabulary Building',
+      domain: 'Communication',
+      subdomain: 'Social Communication',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '12 min',
+      materials: ['Emotion cards', 'Mirror', 'Real photos'],
+      steps: [
+        'Show emotion cards with faces',
+        'Practice making faces in mirror',
+        'Talk about when we feel each emotion',
+        'Use real photos to identify',
+        'Practice expressing emotions appropriately'
+      ],
+      adaptations: ['Visual supports', 'Social stories'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'comm-8',
+      title: 'Requesting with Choices',
+      domain: 'Communication',
+      subdomain: 'Expressive Language',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '8 min',
+      materials: ['Choice boards', 'Preferred items', 'Timer'],
+      steps: [
+        'Present two clear choices',
+        'Wait for child to indicate choice',
+        'Honor the choice immediately',
+        'Gradually increase choice options',
+        'Add language modeling'
+      ],
+      adaptations: ['Choice boards', 'Visual supports'],
+      environment: ['Home', 'Therapy'],
+      supports: ['AAC', 'Visuals']
+    },
+
+    // SOCIAL-EMOTIONAL DOMAIN - 8 ideas across levels
+    {
+      id: 'social-1',
+      title: 'Emotion Matching Game',
+      domain: 'Social-Emotional',
+      subdomain: 'Emotional Regulation',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '15 min',
+      materials: ['Emotion cards', 'Mirror', 'Timer'],
+      steps: [
+        'Show child pictures of different emotion cards',
+        'Make the emotion face together in mirror',
+        'Talk about when we feel this emotion',
+        'Practice calming strategies for each emotion',
+        'Use timer for structured play time'
+      ],
+      adaptations: ['Sensory breaks', 'Visual schedule'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Timer', 'Sensory breaks']
+    },
+    {
+      id: 'social-2',
+      title: 'Calming Strategies Practice',
+      domain: 'Social-Emotional',
+      subdomain: 'Emotional Regulation',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '10 min',
+      materials: ['Calming cards', 'Timer', 'Quiet space'],
+      steps: [
+        'Introduce calming strategies when calm',
+        'Practice deep breathing together',
+        'Use visual timer for practice duration',
+        'Reinforce with praise and rewards',
+        'Apply during real emotional moments'
+      ],
+      adaptations: ['Visual guides', 'Sensory tools'],
+      environment: ['Home', 'School'],
+      supports: ['Timer', 'Visuals', 'Sensory breaks']
+    },
+    {
+      id: 'social-3',
+      title: 'Social Skills Role Play',
+      domain: 'Social-Emotional',
+      subdomain: 'Social Skills',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '20 min',
+      materials: ['Puppets', 'Social story cards', 'Props'],
+      steps: [
+        'Choose social situation to practice',
+        'Use puppets to act out scenario',
+        'Practice appropriate responses',
+        'Role play different outcomes',
+        'Reinforce positive social behaviors'
+      ],
+      adaptations: ['Social stories', 'Visual scripts'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'social-4',
+      title: 'Friendship Building Activities',
+      domain: 'Social-Emotional',
+      subdomain: 'Social Skills',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '15 min',
+      materials: ['Cooperative games', 'Sharing toys', 'Timer'],
+      steps: [
+        'Start with simple sharing activities',
+        'Use timer for turn-taking',
+        'Praise sharing and cooperation',
+        'Gradually increase complexity',
+        'Practice with peers when possible'
+      ],
+      adaptations: ['Visual timers', 'Social stories'],
+      environment: ['Home', 'School'],
+      supports: ['Timer', 'Visuals']
+    },
+    {
+      id: 'social-5',
+      title: 'Self-Awareness Mirror Work',
+      domain: 'Social-Emotional',
+      subdomain: 'Self-Awareness',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '12 min',
+      materials: ['Mirror', 'Body markers', 'Picture cards'],
+      steps: [
+        'Practice making different faces',
+        'Point to body parts in mirror',
+        'Practice different expressions',
+        'Talk about how we look when we feel certain ways',
+        'Celebrate self-recognition'
+      ],
+      adaptations: ['Visual guides', 'Physical prompts'],
+      environment: ['Home'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'social-6',
+      title: 'Empathy Building Activities',
+      domain: 'Social-Emotional',
+      subdomain: 'Empathy',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '15 min',
+      materials: ['Emotion cards', 'Real photos', 'Stories'],
+      steps: [
+        'Show photos of people with different emotions',
+        'Talk about what they might be feeling',
+        'Discuss why they might feel that way',
+        'Practice appropriate responses',
+        'Model empathy in daily interactions'
+      ],
+      adaptations: ['Visual supports', 'Social stories'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'social-7',
+      title: 'Confidence Building Games',
+      domain: 'Social-Emotional',
+      subdomain: 'Self-Confidence',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '18 min',
+      materials: ['Achievement chart', 'Stickers', 'Simple tasks'],
+      steps: [
+        'Break activities into small steps',
+        'Celebrate each small success',
+        'Use visual achievement chart',
+        'Provide specific praise',
+        'Gradually increase challenge level'
+      ],
+      adaptations: ['Visual charts', 'Adaptive tools'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Adaptive utensils']
+    },
+    {
+      id: 'social-8',
+      title: 'Conflict Resolution Practice',
+      domain: 'Social-Emotional',
+      subdomain: 'Social Skills',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '15 min',
+      materials: ['Conflict scenario cards', 'Timer', 'Solution cards'],
+      steps: [
+        'Present simple conflict scenarios',
+        'Discuss different solutions',
+        'Practice using words instead of actions',
+        'Role play appropriate responses',
+        'Reinforce positive conflict resolution'
+      ],
+      adaptations: ['Visual guides', 'Social stories'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Timer']
+    },
+
+    // COGNITIVE/PLAY DOMAIN - 8 ideas across levels
+    {
+      id: 'cog-1',
+      title: 'Building with Blocks',
+      domain: 'Cognitive/Play',
+      subdomain: 'Problem Solving',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '20+ min',
+      materials: ['Building blocks', 'Picture cards of structures'],
+      steps: [
+        'Show child a simple structure to build',
+        'Start with basic stacking and building',
+        'Encourage problem-solving when blocks fall',
+        'Add complexity as child progresses',
+        'Celebrate successful building attempts'
+      ],
+      adaptations: ['Adaptive utensils', 'Visual support'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Adaptive utensils']
+    },
+    {
+      id: 'cog-2',
+      title: 'Simple Puzzle Activities',
+      domain: 'Cognitive/Play',
+      subdomain: 'Problem Solving',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '15 min',
+      materials: ['Large puzzle pieces', 'Puzzle board', 'Picture guide'],
+      steps: [
+        'Start with 3-4 piece puzzles',
+        'Show completed picture first',
+        'Guide hand to correct placement',
+        'Celebrate each piece placed',
+        'Gradually increase piece count'
+      ],
+      adaptations: ['Adaptive grips', 'Visual guides'],
+      environment: ['Home', 'School'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+    {
+      id: 'cog-3',
+      title: 'Memory Matching Games',
+      domain: 'Cognitive/Play',
+      subdomain: 'Memory',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '12 min',
+      materials: ['Picture cards', 'Timer', 'Reward items'],
+      steps: [
+        'Start with 4-6 cards face up',
+        'Show briefly, then turn over',
+        'Ask child to find matches',
+        'Use timer for structured play',
+        'Celebrate successful matches'
+      ],
+      adaptations: ['Visual supports', 'Adaptive tools'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Timer']
+    },
+    {
+      id: 'cog-4',
+      title: 'Imaginative Play Scenarios',
+      domain: 'Cognitive/Play',
+      subdomain: 'Imaginative Play',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '25 min',
+      materials: ['Dress-up clothes', 'Props', 'Picture prompts'],
+      steps: [
+        'Set up simple play scenarios',
+        'Use props to encourage imagination',
+        'Join in and model pretend play',
+        'Follow child\'s lead and ideas',
+        'Expand on their imaginative ideas'
+      ],
+      adaptations: ['Visual prompts', 'Physical props'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'cog-5',
+      title: 'Sorting and Categorizing',
+      domain: 'Cognitive/Play',
+      subdomain: 'Classification',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '18 min',
+      materials: ['Various objects', 'Sorting containers', 'Category cards'],
+      steps: [
+        'Start with simple categories (colors, shapes)',
+        'Show sorting containers with labels',
+        'Guide hand to sort items',
+        'Praise correct sorting',
+        'Gradually increase complexity'
+      ],
+      adaptations: ['Visual labels', 'Adaptive containers'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Adaptive utensils']
+    },
+    {
+      id: 'cog-6',
+      title: 'Cause and Effect Games',
+      domain: 'Cognitive/Play',
+      subdomain: 'Scientific Thinking',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '15 min',
+      materials: ['Pop-up toys', 'Musical instruments', 'Light switches'],
+      steps: [
+        'Demonstrate cause and effect',
+        'Let child explore independently',
+        'Talk about what happens and why',
+        'Encourage prediction',
+        'Celebrate discoveries'
+      ],
+      adaptations: ['Adaptive switches', 'Visual cues'],
+      environment: ['Home', 'Therapy'],
+      supports: ['Adaptive utensils', 'Visuals']
+    },
+    {
+      id: 'cog-7',
+      title: 'Pattern Recognition',
+      domain: 'Cognitive/Play',
+      subdomain: 'Mathematical Thinking',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '20 min',
+      materials: ['Pattern blocks', 'Pattern cards', 'Timer'],
+      steps: [
+        'Start with simple AB patterns',
+        'Show pattern and let child continue',
+        'Use visual and verbal cues',
+        'Gradually increase pattern complexity',
+        'Celebrate pattern completion'
+      ],
+      adaptations: ['Visual patterns', 'Adaptive tools'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Adaptive utensils', 'Timer']
+    },
+    {
+      id: 'cog-8',
+      title: 'Sequencing Activities',
+      domain: 'Cognitive/Play',
+      subdomain: 'Sequencing',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '15 min',
+      materials: ['Sequencing cards', 'Real objects', 'Picture guides'],
+      steps: [
+        'Start with 3-step sequences',
+        'Show completed sequence first',
+        'Mix up cards and ask to order',
+        'Use real objects when possible',
+        'Gradually increase steps'
+      ],
+      adaptations: ['Visual guides', 'Adaptive tools'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Adaptive utensils']
+    },
+
+    // ADAPTIVE/SELF-HELP DOMAIN - 8 ideas across levels
+    {
+      id: 'adaptive-1',
+      title: 'Self-Feeding Practice',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Self-Care',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '10–15 min',
+      materials: ['Child-sized utensils', 'Easy-to-grasp foods', 'Bib'],
+      steps: [
+        'Set up child-friendly eating area',
+        'Provide easy-to-grasp foods (cubes, strips)',
+        'Demonstrate proper utensil use',
+        'Encourage independent attempts',
+        'Provide positive reinforcement for effort'
+      ],
+      adaptations: ['Adaptive utensils', 'Visual cues'],
+      environment: ['Home'],
+      supports: ['Visuals']
+    },
+    {
+      id: 'adaptive-2',
+      title: 'Dressing Skills Practice',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Self-Care',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '20 min',
+      materials: ['Large-button shirts', 'Elastic pants', 'Dressing board'],
+      steps: [
+        'Start with simple clothing items',
+        'Break down dressing into steps',
+        'Use dressing board for practice',
+        'Provide physical guidance as needed',
+        'Celebrate each step completed'
+      ],
+      adaptations: ['Adaptive clothing', 'Visual guides'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Adaptive utensils']
+    },
+    {
+      id: 'adaptive-3',
+      title: 'Toileting Independence',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Self-Care',
+      levelTag: 'Foundations' as const,
+      timeNeeded: 'Varies',
+      materials: ['Potty chair', 'Timer', 'Reward system'],
+      steps: [
+        'Establish regular toileting schedule',
+        'Use timer for structured attempts',
+        'Provide visual and verbal cues',
+        'Celebrate all attempts and successes',
+        'Gradually increase independence'
+      ],
+      adaptations: ['Visual schedule', 'Adaptive equipment'],
+      environment: ['Home'],
+      supports: ['Timer', 'Visuals']
+    },
+    {
+      id: 'adaptive-4',
+      title: 'Hand Washing Routine',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Self-Care',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '8 min',
+      materials: ['Step-by-step pictures', 'Timer', 'Soap'],
+      steps: [
+        'Post visual steps near sink',
+        'Guide through each step',
+        'Use timer for adequate washing time',
+        'Model proper technique',
+        'Reinforce with praise'
+      ],
+      adaptations: ['Visual guides', 'Adaptive soap dispensers'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Timer']
+    },
+    {
+      id: 'adaptive-5',
+      title: 'Cleaning Up After Play',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Daily Living',
+      levelTag: 'Stretch' as const,
+      timeNeeded: '10 min',
+      materials: ['Clean-up song', 'Picture labels', 'Timer'],
+      steps: [
+        'Use clean-up song as signal',
+        'Show where items belong',
+        'Make it a game or race',
+        'Provide specific instructions',
+        'Celebrate completion'
+      ],
+      adaptations: ['Visual labels', 'Adaptive containers'],
+      environment: ['Home', 'School'],
+      supports: ['Timer', 'Visuals']
+    },
+    {
+      id: 'adaptive-6',
+      title: 'Setting the Table',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Daily Living',
+      levelTag: 'Foundations' as const,
+      timeNeeded: '15 min',
+      materials: ['Placemat with outlines', 'Child-sized dishes', 'Picture guide'],
+      steps: [
+        'Use placemat with item outlines',
+        'Start with one item at a time',
+        'Show picture of completed table',
+        'Guide hand to correct placement',
+        'Gradually add more items'
+      ],
+      adaptations: ['Visual guides', 'Adaptive utensils'],
+      environment: ['Home'],
+      supports: ['Visuals', 'Adaptive utensils']
+    },
+    {
+      id: 'adaptive-7',
+      title: 'Making Simple Choices',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Decision Making',
+      levelTag: 'Suggested now' as const,
+      timeNeeded: '5 min',
+      materials: ['Choice boards', 'Preferred items', 'Timer'],
+      steps: [
+        'Present two clear options',
+        'Wait for child to indicate choice',
+        'Honor choice immediately',
+        'Gradually increase options',
+        'Add language modeling'
+      ],
+      adaptations: ['Choice boards', 'Visual supports'],
+      environment: ['Home', 'School'],
+      supports: ['Visuals', 'Timer']
+    },
+    {
+      id: 'adaptive-8',
+      title: 'Following Daily Routines',
+      domain: 'Adaptive/Self-Help',
+      subdomain: 'Daily Living',
+      levelTag: 'Stretch' as const,
+      timeNeeded: 'Varies',
+      materials: ['Visual schedule', 'Timer', 'Reward system'],
+      steps: [
+        'Create visual daily routine',
+        'Use timer for transitions',
+        'Provide clear expectations',
+        'Celebrate routine completion',
+        'Gradually increase independence'
+      ],
+      adaptations: ['Visual schedules', 'Adaptive timers'],
+      environment: ['Home', 'School'],
+      supports: ['Timer', 'Visuals']
+    }
+  ];
+
+
 
   const handleSkillStatusChange = (skillId: string, status: string) => {
     // TODO: Update skill status in database
@@ -1999,6 +2843,15 @@ const GrowthDevelopmentScreen: React.FC = () => {
                   <option value="90 days">90 days</option>
                   <option value="Custom">Custom</option>
                 </select>
+                
+                {/* AI Placeholder */}
+                <button
+                  disabled
+                  title="Coming soon"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-md cursor-not-allowed"
+                >
+                  AI: suggest next 5 skills focus
+                </button>
               </div>
             </div>
             
@@ -2067,6 +2920,621 @@ const GrowthDevelopmentScreen: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Domain Heatmap */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Domain Progress Heatmap</h3>
+              <div className="flex items-center space-x-3">
+                <label className="text-sm font-medium text-gray-700">Time unit:</label>
+                <select
+                  value={overviewDateRange === 'This week' ? 'weeks' : 'months'}
+                  onChange={(e) => setOverviewDateRange(e.target.value === 'weeks' ? 'This week' : '30 days')}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="weeks">Weeks (last 12)</option>
+                  <option value="months">Months (last 6)</option>
+                </select>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-max">
+                <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(13, minmax(0, 1fr))' }}>
+                  {/* Header row */}
+                  <div className="text-xs text-gray-500 text-center py-2">Domain</div>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <div key={i} className="text-xs text-gray-500 text-center py-2">
+                      W{i + 1}
+                    </div>
+                  ))}
+                  
+                  {/* Domain rows */}
+                  {['Motor', 'Communication', 'Social-Emotional', 'Cognitive/Play', 'Adaptive/Self-Help'].map((domain) => (
+                    <div key={domain} className="contents">
+                      <div className="text-sm font-medium text-gray-700 py-2">{domain}</div>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const count = Math.floor(Math.random() * 6); // Mock data
+                        const intensity = Math.min(count / 5, 1);
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => {/* TODO: Open filtered entries drawer */}}
+                            className={`w-8 h-8 rounded text-xs font-medium text-white transition-colors hover:ring-2 hover:ring-blue-300 ${
+                              count === 0 ? 'bg-gray-100 text-gray-400' :
+                              intensity < 0.3 ? 'bg-blue-200' :
+                              intensity < 0.6 ? 'bg-blue-400' :
+                              intensity < 0.8 ? 'bg-blue-600' : 'bg-blue-800'
+                            }`}
+                            title={`${count} skills observed in ${domain} - Week ${i + 1}`}
+                          >
+                            {count}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Cumulative Progress Chart */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Cumulative Progress</h3>
+            <div className="h-64 flex items-end justify-center space-x-2">
+              {Array.from({ length: 12 }, (_, i) => {
+                const observed = Math.floor(Math.random() * 20) + 10;
+                const emerging = Math.floor(Math.random() * 15) + 5;
+                return (
+                  <div key={i} className="relative">
+                    <div
+                      className="w-4 bg-blue-600 rounded-t transition-all duration-300 hover:bg-blue-700"
+                      style={{ height: `${observed}px` }}
+                      title={`Week ${i + 1}: ${observed} observed, ${emerging} emerging`}
+                    />
+                    <div
+                      className="w-4 bg-yellow-400 rounded-t opacity-60"
+                      style={{ height: `${emerging}px` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm font-medium text-blue-900">Hover over bars to see details</p>
+              <p className="text-sm text-blue-700">Blue bars: Observed skills, Yellow bars: Emerging skills</p>
+            </div>
+          </div>
+
+          {/* Coverage by Domain Ladder */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Coverage by Domain</h3>
+            <div className="space-y-4">
+              {[
+                { name: 'Motor', observedPercent: 75, emergingPercent: 15 },
+                { name: 'Communication', observedPercent: 60, emergingPercent: 25 },
+                { name: 'Social-Emotional', observedPercent: 80, emergingPercent: 10 },
+                { name: 'Cognitive/Play', observedPercent: 65, emergingPercent: 20 },
+                { name: 'Adaptive/Self-Help', observedPercent: 70, emergingPercent: 20 }
+              ].map((domain) => (
+                <div key={domain.name} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">{domain.name}</span>
+                    <button
+                      onClick={() => {/* TODO: Open domain */}}
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Open domain
+                    </button>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div className="flex h-4 rounded-full overflow-hidden">
+                      <div
+                        className="bg-green-500 h-4 transition-all duration-300"
+                        style={{ width: `${domain.observedPercent}%` }}
+                        title={`${domain.observedPercent}% observed`}
+                      />
+                      <div
+                        className="bg-yellow-500 h-4 transition-all duration-300"
+                        style={{ width: `${domain.emergingPercent}%` }}
+                        title={`${domain.emergingPercent}% emerging`}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Observed: {domain.observedPercent}%</span>
+                    <span>Emerging: {domain.emergingPercent}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Subdomain Distribution Panel */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Subdomain Distribution</h3>
+              <div className="flex items-center space-x-3">
+                <label className="text-sm font-medium text-gray-700">View:</label>
+                <select
+                  defaultValue="counts"
+                  className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="counts">Counts</option>
+                  <option value="percentages">Percentages</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                { name: 'Gross Motor', observed: 12, emerging: 3, observedPercent: 80, emergingPercent: 20 },
+                { name: 'Fine Motor', observed: 8, emerging: 4, observedPercent: 67, emergingPercent: 33 },
+                { name: 'Expressive Language', observed: 10, emerging: 5, observedPercent: 67, emergingPercent: 33 },
+                { name: 'Receptive Language', observed: 15, emerging: 2, observedPercent: 88, emergingPercent: 12 }
+              ].map((subdomain) => (
+                <div key={subdomain.name} className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-700">{subdomain.name}</span>
+                    <span className="text-gray-500">
+                      {subdomain.observed} observed, {subdomain.emerging} emerging
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="flex h-3 rounded-full overflow-hidden">
+                      <div
+                        className="bg-green-500 h-3 transition-all duration-300"
+                        style={{ width: `${subdomain.observedPercent}%` }}
+                      />
+                      <div
+                        className="bg-yellow-500 h-3 transition-all duration-300"
+                        style={{ width: `${subdomain.emergingPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skills Velocity Tile */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skills Velocity</h3>
+            <div className="flex items-center space-x-4">
+              <div className="text-3xl font-bold text-gray-900">3.2</div>
+              <div className="text-2xl text-green-500">↗</div>
+              <div className="text-sm text-gray-600">
+                <p>New Observed skills per 30 days</p>
+                <p className="text-xs text-gray-500 mt-1">Context and supports can influence pace</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ideas Library Tab Content */}
+      {activeGrowthTab === 'ideas' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Filter/Search Bar */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="space-y-4">
+              {/* Search Box */}
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search ideas..."
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <svg className="absolute left-3 top-2.5 h-5 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-medium text-gray-700">Sort:</label>
+                  <select className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="relevance">Relevance</option>
+                    <option value="time">Time needed</option>
+                    <option value="alphabetical">A–Z</option>
+                  </select>
+                  
+                  {/* AI Placeholder */}
+                  <button
+                    disabled
+                    title="Coming soon"
+                    className="px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-md cursor-not-allowed"
+                  >
+                    AI: build weekly plan
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter Chips */}
+              <div className="flex flex-wrap gap-2">
+                <button className="px-3 py-1.5 text-sm rounded-full border bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200">
+                  Domain
+                  <svg className="ml-1 w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <button className="px-3 py-1.5 text-sm rounded-full border bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200">
+                  Subdomain
+                  <svg className="ml-1 w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <button className="px-3 py-1.5 text-sm rounded-full border bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200">
+                  Level band
+                  <svg className="ml-1 w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <button className="px-3 py-1.5 text-sm rounded-full border bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200">
+                  Environment
+                  <svg className="ml-1 w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <button className="px-3 py-1.5 text-sm rounded-full border bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200">
+                  Time available
+                  <svg className="ml-1 w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Supports Available Chips */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Supports available</label>
+                <div className="flex flex-wrap gap-2">
+                  {['Visuals', 'AAC', 'Adaptive utensils', 'Orthotics', 'Timer', 'Sensory breaks'].map((support) => (
+                    <button
+                      key={support}
+                      className="px-3 py-1.5 text-sm rounded-full border bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                    >
+                      {support}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Ideas Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {sampleIdeas.map((idea) => (
+              <div key={idea.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                {/* Card Header */}
+                <div className="p-6 border-b border-gray-100">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 pr-4">{idea.title}</h3>
+                    <button
+                      onClick={() => handleSaveIdea(idea.id)}
+                      className={`p-2 rounded-full transition-colors ${
+                        savedIdeas.includes(idea.id)
+                          ? 'text-yellow-600 bg-yellow-50'
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill={savedIdeas.includes(idea.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                      {idea.domain}
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                      {idea.subdomain}
+                    </span>
+                  </div>
+
+                  {/* Level Tag */}
+                  <div className="mb-3">
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      idea.levelTag === 'Suggested now'
+                        ? 'bg-green-100 text-green-800'
+                        : idea.levelTag === 'Stretch'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {idea.levelTag}
+                    </span>
+                  </div>
+
+                  {/* Time and Materials */}
+                  <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {idea.timeNeeded}
+                    </span>
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 00-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      {idea.materials.length} materials
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-6">
+                  {/* Steps */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Steps</h4>
+                    <ul className="space-y-1">
+                      {idea.steps.map((step, index) => (
+                        <li key={index} className="text-sm text-gray-600 flex items-start">
+                          <span className="text-blue-500 mr-2 mt-0.5">•</span>
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Adaptations */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Adaptations</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {idea.adaptations.map((adaptation, index) => (
+                        <span key={index} className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">
+                          {adaptation}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <button
+                      onClick={() => handleAddToPracticePlan(idea.id)}
+                      className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+                    >
+                      Add to Practice Plan
+                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {/* TODO: Implement print */}}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                        title="Print"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => {/* TODO: Implement share */}}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+                        title="Share"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Reports Tab Content */}
+      {activeGrowthTab === 'reports' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Template Selector */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">Report Templates</h2>
+              
+              {/* AI Placeholder */}
+              <button
+                disabled
+                title="Coming soon"
+                className="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-md cursor-not-allowed"
+              >
+                AI: auto-select sections
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <button
+                onClick={() => {/* TODO: Select template */}}
+                className="p-6 text-left border rounded-lg transition-colors border-gray-200 hover:border-gray-300"
+              >
+                <div className="text-2xl mb-3">🏥</div>
+                <h3 className="font-medium text-gray-900 mb-2">Pediatric Visit Summary</h3>
+                <p className="text-sm text-gray-600">Comprehensive summary for pediatric appointments</p>
+              </button>
+              
+              <button
+                onClick={() => {/* TODO: Select template */}}
+                className="p-6 text-left border rounded-lg transition-colors border-gray-200 hover:border-gray-300"
+              >
+                <div className="text-2xl mb-3">🧠</div>
+                <h3 className="font-medium text-gray-900 mb-2">Early Intervention/Therapist Summary</h3>
+                <p className="text-sm text-gray-600">Detailed progress for therapy sessions</p>
+              </button>
+              
+              <button
+                onClick={() => {/* TODO: Select template */}}
+                className="p-6 text-left border rounded-lg transition-colors border-gray-200 hover:border-gray-300"
+              >
+                <div className="text-2xl mb-3">🎓</div>
+                <h3 className="font-medium text-gray-900 mb-2">School/IEP Snapshot</h3>
+                <p className="text-sm text-gray-600">Key information for educational planning</p>
+              </button>
+            </div>
+          </div>
+
+          {/* Report Builder */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Report Builder</h3>
+            <div className="lg:flex lg:space-x-8">
+              {/* Left Column - Options */}
+              <div className="lg:w-1/3 space-y-6">
+                {/* Date Range */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                  <select className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option>Last 30 days</option>
+                    <option>Last 90 days</option>
+                    <option>Last 6 months</option>
+                    <option>Custom range</option>
+                  </select>
+                </div>
+
+                {/* Domains to Include */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Domains to Include</label>
+                  <div className="space-y-2">
+                    {['Motor', 'Communication', 'Social-Emotional', 'Cognitive/Play', 'Adaptive/Self-Help'].map((domain) => (
+                      <label key={domain} className="flex items-center">
+                        <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                        <span className="text-sm text-gray-700">{domain}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Include Options */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Include</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Observed skills</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Emerging skills</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Notes</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Supports used</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Contexts</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Visuals */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Visuals</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Overview heatmap</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Coverage bars</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input type="checkbox" defaultChecked className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Cumulative chart</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Care Ideas Snapshot */}
+                <div>
+                  <label className="flex items-center">
+                    <input type="checkbox" className="mr-2 text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm text-gray-700">Add "Care Ideas snapshot"</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">Includes 3 ideas per domain based on Not yet/Emerging</p>
+                </div>
+
+                {/* Header Info */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Header Information</label>
+                  <div className="space-y-3">
+                    <input type="text" placeholder="Child's name" className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" placeholder="Date of birth" className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" placeholder="MRN (if available)" className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="flex items-center">
+                      <input type="checkbox" className="mr-2 text-blue-600 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Include caregiver contact</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Live Preview */}
+              <div className="lg:w-2/3">
+                <div className="bg-gray-50 rounded-lg p-6 min-h-96">
+                  <h4 className="text-lg font-medium text-gray-900 mb-4">Live Preview</h4>
+                  <div className="space-y-4">
+                    <div className="bg-white p-4 rounded border">
+                      <h5 className="font-medium text-gray-900 mb-2">Sample Report Header</h5>
+                      <p className="text-sm text-gray-600">Report preview will appear here based on selected options</p>
+                    </div>
+                    <div className="bg-white p-4 rounded border">
+                      <h5 className="font-medium text-gray-900 mb-2">Progress Summary</h5>
+                      <p className="text-sm text-gray-600">Metrics and visualizations will be rendered here</p>
+                    </div>
+                    <div className="bg-white p-4 rounded border">
+                      <h5 className="font-medium text-gray-900 mb-2">Skills Breakdown</h5>
+                      <p className="text-sm text-gray-600">Domain-specific skill details will appear here</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Generate & Share</h3>
+            <div className="flex flex-wrap gap-4">
+              <button
+                onClick={() => {/* TODO: Generate PDF */}}
+                className="px-6 py-3 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Generate PDF
+              </button>
+              <button
+                onClick={() => {/* TODO: Save template */}}
+                className="px-6 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Save template
+              </button>
+              <button
+                onClick={() => {/* TODO: Share */}}
+                className="px-6 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Share
+              </button>
+            </div>
+          </div>
+
+          {/* One-page Overview Quick Action */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 mb-2">One-page Overview</h4>
+              <p className="text-sm text-blue-700 mb-4">Generate a single-page summary with metrics strip, coverage ladder, and top 5 recent skills</p>
+              <button
+                onClick={() => {/* TODO: Generate one-page overview */}}
+                className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 border border-blue-300 rounded-md hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Generate a page
+              </button>
             </div>
           </div>
         </div>
@@ -4199,6 +5667,178 @@ const GrowthDevelopmentScreen: React.FC = () => {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Practice Plan Drawer */}
+      {showPracticePlanDrawer && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Practice Plan</h2>
+              <button
+                onClick={() => setShowPracticePlanDrawer(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {practicePlanItems.length === 0 ? (
+                <div className="p-6 text-center">
+                  <div className="text-gray-400 mb-4">
+                    <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Practice Plan
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    Add ideas from the library to build your practice plan.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-6 space-y-4">
+                  {practicePlanItems.map((item, index) => (
+                    <div key={item.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      {/* Item Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-gray-900 mb-1">{item.title}</h3>
+                          <div className="flex items-center space-x-3 text-xs text-gray-600 mb-2">
+                            <span className="flex items-center">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {item.environment}
+                            </span>
+                            <span className="flex items-center">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {item.time}
+                            </span>
+                          </div>
+                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                            {item.domain}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFromPlan(item.id)}
+                          className="text-gray-400 hover:text-red-600 p-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Notes */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                        <textarea
+                          value={item.notes}
+                          onChange={(e) => handleUpdatePlanItemNotes(item.id, e.target.value)}
+                          placeholder="Add notes for this activity..."
+                          maxLength={100}
+                          className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                          rows={2}
+                        />
+                        <div className="text-xs text-gray-500 text-right mt-1">
+                          {item.notes.length}/100
+                        </div>
+                      </div>
+
+                      {/* Drag Handle */}
+                      <div className="mt-3 flex items-center justify-center">
+                        <div className="w-8 h-1 bg-gray-300 rounded-full cursor-move"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Actions Footer */}
+            {practicePlanItems.length > 0 && (
+              <div className="border-t border-gray-200 p-6 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handlePrintPlan}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Print plan
+                  </button>
+                  <button
+                    onClick={handleSharePlan}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Share with school/therapist
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleSavePlan}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Save as weekly plan
+                  </button>
+                  <button
+                    onClick={handleClearPlan}
+                    className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Clear plan
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Save Plan Modal */}
+      {showSavePlanModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-6 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Save Weekly Plan</h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Plan Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Week 12"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  id="plan-name"
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowSavePlanModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const planName = (document.getElementById('plan-name') as HTMLInputElement)?.value;
+                    if (planName) {
+                      setSavedPlans(prev => [...prev, { name: planName, items: practicePlanItems }]);
+                      setShowSavePlanModal(false);
+                      // TODO: Show toast message
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
