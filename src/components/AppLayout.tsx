@@ -8,6 +8,7 @@ interface AppLayoutProps {
   onNavigateToGrowthDevelopment: () => void;
   onNavigateToCareTeam: () => void;
   onNavigateToProfile: () => void;
+  onNavigateToProfileScreen?: () => void;
   onLogSymptom?: () => void;
 }
 
@@ -18,6 +19,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   onNavigateToGrowthDevelopment,
   onNavigateToCareTeam,
   onNavigateToProfile,
+  onNavigateToProfileScreen,
   onLogSymptom
 }) => {
   const getActiveTab = (): 'home' | 'growthDevelopment' | 'careTeam' | 'profile' | 'log' => {
@@ -29,6 +31,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
       case 'careTeam':
         return 'careTeam';
       case 'profile':
+      case 'profileScreen':
         return 'profile';
       case 'log':
       case 'trackersDashboard':
@@ -112,7 +115,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             className={`flex flex-col items-center py-2 px-3 transition-colors ${
               activeTab === 'profile' ? 'text-indigo-600' : 'text-gray-400'
             }`}
-            onClick={onNavigateToProfile}
+            onClick={onNavigateToProfileScreen || onNavigateToProfile}
           >
             <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

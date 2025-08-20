@@ -9,6 +9,14 @@ const CareTeamScreen: React.FC = () => {
   const [showSchoolIEPBuilder, setShowSchoolIEPBuilder] = useState(false);
   const [showEmergencyInfoBuilder, setShowEmergencyInfoBuilder] = useState(false);
   const [showVisitPacketBuilder, setShowVisitPacketBuilder] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedFolder, setSelectedFolder] = useState<string>('general');
+  const [preSelectedRecipient, setPreSelectedRecipient] = useState<string>('');
+  const [preSelectedAppointment, setPreSelectedAppointment] = useState<string>('');
+  const [showLinkToAppointmentModal, setShowLinkToAppointmentModal] = useState(false);
+  const [selectedDocumentForLinking, setSelectedDocumentForLinking] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'contacts' | 'appointments' | 'shareCenter' | 'packets' | 'documents'>('contacts');
   const [showMoreMenu, setShowMoreMenu] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
@@ -1442,15 +1450,15 @@ const CareTeamScreen: React.FC = () => {
 
                       {/* Quick Actions */}
                       <div className="flex space-x-2 pt-4 border-t border-gray-100">
-                        <button 
-                          onClick={() => {
-                            setActiveTab('shareCenter');
-                            // TODO: Pre-filter Share Center for this contact
-                          }}
-                          className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          Share
-                        </button>
+                                                  <button 
+                            onClick={() => {
+                              setPreSelectedRecipient(contact.name);
+                              setActiveTab('shareCenter');
+                            }}
+                            className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            Share
+                          </button>
                         <button className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                           Add Note
                         </button>
@@ -1725,6 +1733,19 @@ const CareTeamScreen: React.FC = () => {
                   </div>
                   {/* Selected Recipients */}
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {preSelectedRecipient && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {preSelectedRecipient}
+                        <button 
+                          onClick={() => setPreSelectedRecipient('')}
+                          className="ml-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    )}
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       Dr. Sarah Chen
                       <button className="ml-1 text-blue-600 hover:text-blue-800">
@@ -1734,6 +1755,11 @@ const CareTeamScreen: React.FC = () => {
                       </button>
                     </span>
                   </div>
+                  {preSelectedRecipient && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      ✓ {preSelectedRecipient} pre-selected from contact
+                    </p>
+                  )}
                 </div>
 
                 {/* Choose Content to Share */}
@@ -2107,9 +2133,309 @@ const CareTeamScreen: React.FC = () => {
         )}
         
         {activeTab === 'documents' && (
-          <div className="text-center text-gray-500">
-            <h2 className="text-lg font-medium text-gray-900 mb-2">Documents</h2>
-            <p>Documents content will be implemented in the next steps</p>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">Documents</h3>
+              <button 
+                onClick={() => setShowUploadModal(true)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Upload Document
+              </button>
+            </div>
+            
+            <div className="flex space-x-6">
+              {/* Left: Folders */}
+              <div className="w-64 bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-4">Folders</h4>
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => setSelectedFolder('general')}
+                    className={`w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                      selectedFolder === 'general' 
+                        ? 'text-gray-700 bg-blue-50 border border-blue-200' 
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className={`w-4 h-4 ${selectedFolder === 'general' ? 'text-blue-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span>General</span>
+                  </button>
+                  <button 
+                    onClick={() => setSelectedFolder('school')}
+                    className={`w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                      selectedFolder === 'school' 
+                        ? 'text-gray-700 bg-blue-50 border border-blue-200' 
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className={`w-4 h-4 ${selectedFolder === 'school' ? 'text-blue-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span>School</span>
+                  </button>
+                  <button 
+                    onClick={() => setSelectedFolder('medical')}
+                    className={`w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                      selectedFolder === 'medical' 
+                        ? 'text-gray-700 bg-blue-50 border border-blue-200' 
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className={`w-4 h-4 ${selectedFolder === 'medical' ? 'text-blue-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                    <span>Medical</span>
+                  </button>
+                  <button 
+                    onClick={() => setSelectedFolder('insurance')}
+                    className={`w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-md transition-colors ${
+                      selectedFolder === 'insurance' 
+                        ? 'text-gray-700 bg-blue-50 border border-blue-200' 
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className={`w-4 h-4 ${selectedFolder === 'insurance' ? 'text-blue-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Insurance</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: File List */}
+              <div className="flex-1 bg-white border border-gray-200 rounded-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-900">Files</h4>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Added</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Linked to</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">IEP_2024.pdf</div>
+                              <div className="text-sm text-gray-500">2.3 MB</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">PDF</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Dec 10, 2024</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Dr. Sarah Chen</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button className="text-blue-600 hover:text-blue-900">View</button>
+                            <button className="text-gray-600 hover:text-gray-900">Rename</button>
+                            <button className="text-gray-600 hover:text-gray-900">Move</button>
+                            <button 
+                              onClick={() => {
+                                setSelectedDocumentForLinking('IEP_2024.pdf');
+                                setShowLinkToAppointmentModal(true);
+                              }}
+                              className="text-gray-600 hover:text-gray-900"
+                            >
+                              Link
+                            </button>
+                            <button className="text-red-600 hover:text-red-900">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">Insurance_Card.jpg</div>
+                              <div className="text-sm text-gray-500">1.1 MB</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Image</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Dec 8, 2024</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">-</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button className="text-blue-600 hover:text-blue-900">View</button>
+                            <button className="text-gray-600 hover:text-gray-900">Rename</button>
+                            <button className="text-gray-600 hover:text-gray-900">Move</button>
+                            <button className="text-gray-600 hover:text-gray-900">Link</button>
+                            <button className="text-red-600 hover:text-red-900">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">Medical_Records.docx</div>
+                              <div className="text-sm text-gray-500">3.7 MB</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Document</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Dec 5, 2024</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Neurology Visit</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button className="text-blue-600 hover:text-blue-900">View</button>
+                            <button className="text-gray-600 hover:text-gray-900">Rename</button>
+                            <button className="text-gray-600 hover:text-gray-900">Move</button>
+                            <button 
+                              onClick={() => {
+                                setSelectedDocumentForLinking('Medical_Records.docx');
+                                setShowLinkToAppointmentModal(true);
+                              }}
+                              className="text-gray-600 hover:text-gray-900"
+                            >
+                              Link
+                            </button>
+                            <button className="text-red-600 hover:text-red-900">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <svg className="w-5 h-5 text-orange-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">Prescription_List.pdf</div>
+                              <div className="text-sm text-gray-500">0.8 MB</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">PDF</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Dec 3, 2024</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">-</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button className="text-blue-600 hover:text-blue-900">View</button>
+                            <button className="text-gray-600 hover:text-gray-900">Rename</button>
+                            <button className="text-gray-600 hover:text-gray-900">Move</button>
+                            <button 
+                              onClick={() => {
+                                setSelectedDocumentForLinking('Prescription_List.pdf');
+                                setShowLinkToAppointmentModal(true);
+                              }}
+                              className="text-gray-600 hover:text-gray-900"
+                            >
+                              Link
+                            </button>
+                            <button className="text-red-600 hover:text-red-900">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            
+            {/* Templates Section */}
+            <div className="mt-8">
+              <h4 className="text-sm font-medium text-gray-900 mb-4">Templates</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* School Medication Permission Template */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900">School Medication Permission</h5>
+                      <p className="text-xs text-gray-500">Blank template</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedTemplate('school-medication');
+                      setShowTemplateModal(true);
+                    }}
+                    className="w-full px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Create Document
+                  </button>
+                </div>
+
+                {/* Therapy Plan of Care Template */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900">Therapy Plan of Care</h5>
+                      <p className="text-xs text-gray-500">Blank template</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedTemplate('therapy-plan');
+                      setShowTemplateModal(true);
+                    }}
+                    className="w-full px-3 py-2 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    Create Document
+                  </button>
+                </div>
+
+                {/* Release of Information Template */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-900">Release of Information</h5>
+                      <p className="text-xs text-gray-500">Blank template</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedTemplate('release-info');
+                      setShowTemplateModal(true);
+                    }}
+                    className="w-full px-3 py-2 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                  >
+                    Create Document
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -2959,9 +3285,18 @@ const CareTeamScreen: React.FC = () => {
                             </label>
                           ))}
                         </div>
-                        <div className="mt-3">
+                        <div className="mt-3 space-y-2">
                           <button className="text-sm text-blue-600 hover:text-blue-800 underline">
                             Link from Documents library
+                          </button>
+                          <button 
+                            onClick={() => {
+                              closePrepChecklist();
+                              setActiveTab('packets');
+                            }}
+                            className="block text-sm text-green-600 hover:text-green-800 underline"
+                          >
+                            📋 Attach Visit Packet (if exists)
                           </button>
                         </div>
                       </div>
@@ -3006,9 +3341,9 @@ const CareTeamScreen: React.FC = () => {
 
       {/* School/IEP Packet Builder Modal */}
       {showSchoolIEPBuilder && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-5 mx-auto p-6 border max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-5 mx-auto p-4 border max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] flex flex-col">
+              <div className="flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-medium text-gray-900">School/IEP Packet Builder</h3>
                 <button 
@@ -3228,9 +3563,11 @@ const CareTeamScreen: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Actions Footer */}
-              <div className="mt-8 flex space-x-3">
+            </div>
+            
+            {/* Actions Footer - Fixed at bottom */}
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 mt-4">
+              <div className="flex space-x-3">
                 <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                   Save Draft
                 </button>
@@ -3255,8 +3592,8 @@ const CareTeamScreen: React.FC = () => {
       {/* Emergency Info Builder Modal */}
       {showEmergencyInfoBuilder && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-5 mx-auto p-6 border max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+          <div className="relative top-5 mx-auto p-4 border max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] flex flex-col">
+            <div className="flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-medium text-gray-900">Emergency Info Card</h3>
                 <button 
@@ -3457,9 +3794,11 @@ const CareTeamScreen: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Actions Footer */}
-              <div className="mt-8 flex space-x-3">
+            </div>
+            
+            {/* Actions Footer - Fixed at bottom */}
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 mt-4">
+              <div className="flex space-x-3">
                 <button className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                   Generate Wallet Card (mini)
                 </button>
@@ -3484,8 +3823,8 @@ const CareTeamScreen: React.FC = () => {
       {/* Visit Packet Builder Modal */}
       {showVisitPacketBuilder && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-5 mx-auto p-6 border max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+          <div className="relative top-5 mx-auto p-4 border max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] flex flex-col">
+            <div className="flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-medium text-gray-900">Visit Packet Builder</h3>
                 <button 
@@ -3502,7 +3841,15 @@ const CareTeamScreen: React.FC = () => {
               <div className="mb-6">
                 <h4 className="text-lg font-medium text-gray-900 mb-3">Current "Draft Visit Packet"</h4>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-sm text-green-700 font-medium">Review accuracy before sharing.</p>
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h5 className="text-sm font-medium text-green-800">Review Required</h5>
+                      <p className="text-sm text-green-700 mt-1">Review accuracy before sharing.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -3656,9 +4003,11 @@ const CareTeamScreen: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Actions Footer */}
-              <div className="mt-8 flex space-x-3">
+            </div>
+            
+            {/* Actions Footer - Fixed at bottom */}
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 mt-4">
+              <div className="flex space-x-3">
                 <button className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                   Edit Contents
                 </button>
@@ -3674,6 +4023,310 @@ const CareTeamScreen: React.FC = () => {
                 >
                   Share
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Document Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-6 border max-w-md shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-medium text-gray-900">Upload Document</h3>
+                <button 
+                  onClick={() => setShowUploadModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* File Upload Area */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select File</label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <div className="mt-4">
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <span className="mt-2 block text-sm font-medium text-gray-900">Upload Document</span>
+                        <span className="mt-1 block text-xs text-gray-500">PDF, JPG, PNG up to 10MB</span>
+                      </label>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          // Handle file selection
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            console.log('File selected:', file.name);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Link to Appointment Option */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Link to appointment now</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select an appointment (optional)</option>
+                    <option value="neurology-1">Neurology Follow-up - Dec 15, 2024</option>
+                    <option value="therapy-1">OT Session - Dec 18, 2024</option>
+                    <option value="school-1">IEP Meeting - Dec 20, 2024</option>
+                    <option value="pediatric-1">Pediatric Check-up - Dec 22, 2024</option>
+                  </select>
+                </div>
+
+                {/* Actions */}
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setToastMessage('Document uploaded');
+                      setShowToast(true);
+                    }}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Upload
+                  </button>
+                  <button 
+                    onClick={() => setShowUploadModal(false)}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-5 mx-auto p-6 border max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-medium text-gray-900">
+                  {selectedTemplate === 'school-medication' && 'School Medication Permission'}
+                  {selectedTemplate === 'therapy-plan' && 'Therapy Plan of Care'}
+                  {selectedTemplate === 'release-info' && 'Release of Information'}
+                </h3>
+                <button 
+                  onClick={() => setShowTemplateModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {selectedTemplate === 'school-medication' && (
+                  <div className="space-y-4">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">School Medication Permission Form</h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                            <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter student name" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                            <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Medication Name</label>
+                          <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter medication name" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Dosage Instructions</label>
+                          <textarea rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter dosage instructions"></textarea>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
+                          <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter emergency contact" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedTemplate === 'therapy-plan' && (
+                  <div className="space-y-4">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">Therapy Plan of Care</h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
+                            <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter patient name" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Therapy Type</label>
+                            <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                              <option>Select therapy type</option>
+                              <option>Occupational Therapy</option>
+                              <option>Physical Therapy</option>
+                              <option>Speech Therapy</option>
+                              <option>Behavioral Therapy</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Goals</label>
+                          <textarea rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter therapy goals"></textarea>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Plan</label>
+                          <textarea rows={4} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter treatment plan"></textarea>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                          <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="e.g., 2x per week" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedTemplate === 'release-info' && (
+                  <div className="space-y-4">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">Release of Information</h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
+                            <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter patient name" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                            <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Information to be Released</label>
+                          <textarea rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Describe information to be released"></textarea>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Name/Organization</label>
+                          <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter recipient name or organization" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Purpose of Release</label>
+                          <textarea rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Enter purpose of information release"></textarea>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date</label>
+                          <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Actions Footer - Fixed at bottom */}
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 mt-4">
+              <div className="flex space-x-3">
+                <button 
+                  onClick={() => {
+                    setShowTemplateModal(false);
+                    setToastMessage('Document saved to Documents');
+                    setShowToast(true);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Save to Documents
+                </button>
+                <button 
+                  onClick={() => setShowTemplateModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link to Appointment Modal */}
+      {showLinkToAppointmentModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-6 border max-w-md shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-medium text-gray-900">Link Document to Appointment</h3>
+                <button 
+                  onClick={() => setShowLinkToAppointmentModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Document Info */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Document</label>
+                  <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                    <p className="text-sm font-medium text-gray-900">{selectedDocumentForLinking}</p>
+                    <p className="text-xs text-gray-500">Will be added to appointment's prep checklist</p>
+                  </div>
+                </div>
+
+                {/* Choose Appointment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Choose Appointment</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select an appointment</option>
+                    <option value="neurology-1">Neurology Follow-up - Dec 15, 2024</option>
+                    <option value="therapy-1">OT Session - Dec 18, 2024</option>
+                    <option value="school-1">IEP Meeting - Dec 20, 2024</option>
+                    <option value="pediatric-1">Pediatric Check-up - Dec 22, 2024</option>
+                  </select>
+                </div>
+
+                {/* Actions */}
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={() => {
+                      setShowLinkToAppointmentModal(false);
+                      setToastMessage('Document linked to appointment');
+                      setShowToast(true);
+                    }}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Link Document
+                  </button>
+                  <button 
+                    onClick={() => setShowLinkToAppointmentModal(false)}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>

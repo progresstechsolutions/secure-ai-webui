@@ -11,10 +11,11 @@ import LogAndTrackScreen from './components/LogAndTrackScreen';
 import TrackersDashboard from './components/TrackersDashboard';
 import MedicationTracker from './components/MedicationTracker';
 import DomainDetailScreen from './components/DomainDetailScreen';
+import ProfileScreen from './components/ProfileScreen';
 import AppLayout from './components/AppLayout';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'growthDevelopment' | 'log' | 'trackersDashboard' | 'medicationTracker' | 'domainDetail'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'nutrition' | 'recipeLibrary' | 'symptomInsights' | 'alerts' | 'careTeam' | 'profile' | 'profileScreen' | 'growthDevelopment' | 'log' | 'trackersDashboard' | 'medicationTracker' | 'domainDetail'>('home');
   const [domainDetailData, setDomainDetailData] = useState<{ domain: string } | null>(null);
   const [previousView, setPreviousView] = useState<'home' | 'trackersDashboard'>('home');
   const [recipeLibraryMealType, setRecipeLibraryMealType] = useState<string | undefined>();
@@ -74,6 +75,14 @@ function App() {
   };
 
   const handleNavigateBackFromProfile = () => {
+    setCurrentView('home');
+  };
+
+  const handleNavigateToProfileScreen = () => {
+    setCurrentView('profileScreen');
+  };
+
+  const handleNavigateBackFromProfileScreen = () => {
     setCurrentView('home');
   };
 
@@ -140,6 +149,7 @@ function App() {
       onNavigateToGrowthDevelopment={handleNavigateToGrowthDevelopment}
       onNavigateToCareTeam={handleNavigateToCareTeam}
       onNavigateToProfile={handleNavigateToProfile}
+      onNavigateToProfileScreen={handleNavigateToProfileScreen}
       onLogSymptom={handleNavigateToTrackersDashboard}
     >
       {currentView === 'home' && (
@@ -181,6 +191,11 @@ function App() {
       {currentView === 'profile' && (
         <ProfileSettingsScreen
           onBack={handleNavigateBackFromProfile}
+        />
+      )}
+      {currentView === 'profileScreen' && (
+        <ProfileScreen
+          onBack={handleNavigateBackFromProfileScreen}
         />
       )}
       {currentView === 'growthDevelopment' && (
