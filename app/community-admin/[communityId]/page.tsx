@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { apiClient } from "@/lib/api-client";
 import { 
   Users, 
@@ -27,7 +29,9 @@ import {
   UserPlus,
   Crown,
   AlertTriangle,
-  ArrowLeft
+  ArrowLeft,
+  Search,
+  UserCheck
 } from "lucide-react";
 import { useUserCommunities } from "@/hooks/use-api";
 
@@ -90,6 +94,12 @@ export default function CommunityAdminPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [friendsList, setFriendsList] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [metrics, setMetrics] = useState({
     totalPosts: 0,
     totalMembers: 0,
@@ -97,37 +107,130 @@ export default function CommunityAdminPage() {
     totalReactions: 0,
     weeklyGrowth: 0,
     activeMembers: 0,
-    recentActivity: [] as Array<{action: string, user: string, time: string}>
+    recentActivity: [] as Array<{action: string, user: string, time: string}>,
+    memberRetention: 0,
+    postEngagement: 0,
+    communityHealth: 0,
+    memberSatisfaction: 0,
+    contentQuality: 0,
+    postsThisWeek: 0,
+    commentsThisWeek: 0,
+    activeMembersToday: 0
   });
 
   // Fetch communities from API - must be called before conditional returns
   const { communities, loading: communitiesLoading, error: communitiesError } = useUserCommunities();
 
-  // All useCallback hooks must be defined before conditional returns
-  const calculateMetrics = useCallback((community: any) => {
-    // Mock metrics calculation - in real app, this would come from your database
-    const creatorName = community?.createdBy?.name || community?.createdBy?.email || "Admin";
-    const memberNames = community.members?.map((m: any) => m.name || m.email) || [];
-    const adminNames = community.admins?.map((a: any) => a.name || a.email) || [];
-    const creatorNameFromCommunity = community.createdBy?.name || community.createdBy?.email;
-    const allMembers = [...new Set([...memberNames, ...adminNames, creatorNameFromCommunity].filter(Boolean))];
+  // Mock friends data - in real app, this would come from your friends API
+  const mockFriends = [
+    { id: 'friend-1', name: 'Alice Johnson', email: 'alice@example.com', avatar: '/placeholder-user.jpg', status: 'online' },
+    { id: 'friend-2', name: 'Bob Smith', email: 'bob@example.com', avatar: '/placeholder-user.jpg', status: 'offline' },
+    { id: 'friend-3', name: 'Carol Davis', email: 'carol@example.com', avatar: '/placeholder-user.jpg', status: 'online' },
+    { id: 'friend-4', name: 'David Wilson', email: 'david@example.com', avatar: '/placeholder-user.jpg', status: 'away' },
+    { id: 'friend-5', name: 'Emma Brown', email: 'emma@example.com', avatar: '/placeholder-user.jpg', status: 'online' },
+  ];
+
+  // Mock search function - in real app, this would be an API call
+  const searchUsers = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
     
-    const mockMetrics = {
-      totalPosts: community.posts || Math.floor(Math.random() * 50) + 10,
-      totalMembers: community.memberCount || allMembers.length + Math.floor(Math.random() * 20),
-      totalViews: Math.floor(Math.random() * 1000) + 200,
-      totalReactions: Math.floor(Math.random() * 200) + 50,
-      weeklyGrowth: Math.floor(Math.random() * 20) - 5, // Can be negative
-      activeMembers: Math.floor(allMembers.length * 0.7),
-      recentActivity: [
-        { action: "New member joined", user: "user123", time: "2 hours ago" },
-        { action: "New post created", user: creatorName, time: "5 hours ago" },
-        { action: "Comment added", user: "member456", time: "1 day ago" },
-        { action: "Post liked", user: "visitor789", time: "2 days ago" },
-      ]
-    };
-    setMetrics(mockMetrics);
-  }, []); // Empty dependency array since we're using parameters
+    // Simulate API delay
+    setTimeout(() => {
+      const mockUsers = [
+        { id: 'user-101', name: 'Sarah Mitchell', email: 'sarah.mitchell@example.com', avatar: '/placeholder-user.jpg' },
+        { id: 'user-102', name: 'Dr. Jennifer Park', email: 'j.park@example.com', avatar: '/placeholder-user.jpg' },
+        { id: 'user-103', name: 'Michael Chen', email: 'michael.chen@example.com', avatar: '/placeholder-user.jpg' },
+        { id: 'user-104', name: 'Lisa Rodriguez', email: 'lisa.r@example.com', avatar: '/placeholder-user.jpg' },
+        { id: 'user-105', name: 'James Wilson', email: 'james.w@example.com', avatar: '/placeholder-user.jpg' },
+      ];
+
+      const filtered = mockUsers.filter(user => 
+        user.name.toLowerCase().includes(query.toLowerCase()) ||
+        user.email.toLowerCase().includes(query.toLowerCase())
+      );
+
+      setSearchResults(filtered);
+      setIsSearching(false);
+    }, 500);
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery) {
+        searchUsers(searchQuery);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, searchUsers]);
+
+  // All useCallback hooks must be defined before conditional returns
+  const calculateMetrics = useCallback(async (community: any) => {
+    try {
+      // Fetch real metrics from API
+      const response = await apiClient.getCommunityMetrics(community._id || community.id);
+      if (response.data) {
+        setMetrics(response.data);
+      } else {
+        // Fallback to mock metrics if API fails
+        const mockMetrics = {
+          totalPosts: community.posts || Math.floor(Math.random() * 50) + 10,
+          totalMembers: community.memberCount || Math.floor(Math.random() * 20) + 5,
+          totalViews: Math.floor(Math.random() * 1000) + 200,
+          totalReactions: Math.floor(Math.random() * 200) + 50,
+          weeklyGrowth: Math.floor(Math.random() * 20) - 5,
+          activeMembers: Math.floor((community.memberCount || 5) * 0.7),
+          recentActivity: [
+            { action: "New member joined", user: "user123", time: "2 hours ago" },
+            { action: "New post created", user: community.createdBy?.name || "Admin", time: "5 hours ago" },
+            { action: "Comment added", user: "member456", time: "1 day ago" },
+            { action: "Post liked", user: "visitor789", time: "2 days ago" },
+          ],
+          memberRetention: 85,
+          postEngagement: 12.3,
+          communityHealth: 85,
+          memberSatisfaction: 92,
+          contentQuality: 78,
+          postsThisWeek: Math.floor((community.posts || 10) * 0.3),
+          commentsThisWeek: Math.floor(Math.random() * 50),
+          activeMembersToday: Math.floor((community.memberCount || 5) * 0.6)
+        };
+        setMetrics(mockMetrics);
+      }
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      // Fallback to mock metrics on error
+      const mockMetrics = {
+        totalPosts: community.posts || Math.floor(Math.random() * 50) + 10,
+        totalMembers: community.memberCount || Math.floor(Math.random() * 20) + 5,
+        totalViews: Math.floor(Math.random() * 1000) + 200,
+        totalReactions: Math.floor(Math.random() * 200) + 50,
+        weeklyGrowth: Math.floor(Math.random() * 20) - 5,
+        activeMembers: Math.floor((community.memberCount || 5) * 0.7),
+        recentActivity: [
+          { action: "New member joined", user: "user123", time: "2 hours ago" },
+          { action: "New post created", user: community.createdBy?.name || "Admin", time: "5 hours ago" },
+          { action: "Comment added", user: "member456", time: "1 day ago" },
+          { action: "Post liked", user: "visitor789", time: "2 days ago" },
+        ],
+        memberRetention: 85,
+        postEngagement: 12.3,
+        communityHealth: 85,
+        memberSatisfaction: 92,
+        contentQuality: 78,
+        postsThisWeek: Math.floor((community.posts || 10) * 0.3),
+        commentsThisWeek: Math.floor(Math.random() * 50),
+        activeMembersToday: Math.floor((community.memberCount || 5) * 0.6)
+      };
+      setMetrics(mockMetrics);
+    }
+  }, []);
 
   const handleSave = useCallback(async () => {
     try {
@@ -158,20 +261,36 @@ export default function CommunityAdminPage() {
   }, [router]);
 
   // Mock member management - TODO: Implement proper API calls
-  const handleAddMember = useCallback(async () => {
-    const newMember = prompt("Enter username to add as member:");
-    if (newMember && !members.includes(newMember)) {
-      try {
-        // TODO: Implement add member API call
-        const updatedMembers = [...members, newMember];
-        setMembers(updatedMembers);
-        console.log("Member added successfully");
-      } catch (error) {
-        console.error("Failed to add member:", error);
-        setError("Failed to add member. Please try again.");
-      }
+  const handleAddMember = useCallback(() => {
+    setShowAddMemberModal(true);
+    setFriendsList(mockFriends);
+  }, []);
+
+  const handleAddSelectedMembers = useCallback(async () => {
+    if (selectedUsers.length === 0) return;
+
+    try {
+      // TODO: Implement add members API call
+      const updatedMembers = [...members, ...selectedUsers];
+      setMembers(updatedMembers);
+      setSelectedUsers([]);
+      setSearchQuery("");
+      setSearchResults([]);
+      setShowAddMemberModal(false);
+      console.log(`Added ${selectedUsers.length} members successfully`);
+    } catch (error) {
+      console.error("Failed to add members:", error);
+      setError("Failed to add members. Please try again.");
     }
-  }, [members]);
+  }, [members, selectedUsers]);
+
+  const toggleUserSelection = useCallback((userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  }, []);
 
   const handleRemoveMember = useCallback(async (username: string) => {
     if (!confirm(`Remove ${username} from community?`)) return;
@@ -216,30 +335,34 @@ export default function CommunityAdminPage() {
   useEffect(() => {
     if (!user) return; // Wait for user data
     
-    // Find community from API data
-    if (communities && communities.length > 0) {
-      const found = communities.find((c: any) => c._id === communityId || c.id === communityId);
-      if (found) {
-        setCommunity(found);
-        setEditData(found);
-        // Set members from the community data
-        const memberNames = found.members?.map((m: any) => m.name || m.email) || [];
-        const adminNames = found.admins?.map((a: any) => a.name || a.email) || [];
-        const creatorName = found.createdBy?.name || found.createdBy?.email;
-        const allMembers = [...new Set([...memberNames, ...adminNames, creatorName].filter(Boolean))];
-        setMembers(allMembers);
-        setIsAdmin(isUserAdminOfCommunity(user, found));
-        calculateMetrics(found);
-        setLoading(false);
-      } else {
-        setError("Community not found or access denied.");
+    const loadCommunityData = async () => {
+      // Find community from API data
+      if (communities && communities.length > 0) {
+        const found = communities.find((c: any) => c._id === communityId || c.id === communityId);
+        if (found) {
+          setCommunity(found);
+          setEditData(found);
+          // Set members from the community data
+          const memberNames = found.members?.map((m: any) => m.name || m.email) || [];
+          const adminNames = found.admins?.map((a: any) => a.name || a.email) || [];
+          const creatorName = found.createdBy?.name || found.createdBy?.email;
+          const allMembers = [...new Set([...memberNames, ...adminNames, creatorName].filter(Boolean))];
+          setMembers(allMembers);
+          setIsAdmin(isUserAdminOfCommunity(user, found));
+          await calculateMetrics(found);
+          setLoading(false);
+        } else {
+          setError("Community not found or access denied.");
+          setLoading(false);
+        }
+      } else if (!communitiesLoading && communitiesError) {
+        setError("Failed to load communities. Please try again.");
         setLoading(false);
       }
-    } else if (!communitiesLoading && communitiesError) {
-      setError("Failed to load communities. Please try again.");
-      setLoading(false);
-    }
-  }, [communityId, communities, communitiesLoading, communitiesError, user]); // Add user to dependencies
+    };
+
+    loadCommunityData();
+  }, [communityId, communities, communitiesLoading, communitiesError, user, calculateMetrics]); // Add calculateMetrics to dependencies
 
   // Conditional returns after all hooks are defined
   if (loading || communitiesLoading) {
@@ -363,13 +486,13 @@ export default function CommunityAdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-blue-100 text-sm font-medium">Total Members</p>
-                  <p className="text-3xl font-bold">{metrics.totalMembers}</p>
+                  <p className="text-3xl font-bold">{metrics.totalMembers || 0}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-200" />
               </div>
               <div className="mt-4 flex items-center">
                 <TrendingUp className="h-4 w-4 text-blue-200 mr-1" />
-                <span className="text-blue-100 text-sm">+{metrics.weeklyGrowth}% this week</span>
+                <span className="text-blue-100 text-sm">+{metrics.weeklyGrowth || 0}% this week</span>
               </div>
             </CardContent>
           </Card>
@@ -379,13 +502,13 @@ export default function CommunityAdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm font-medium">Total Posts</p>
-                  <p className="text-3xl font-bold">{metrics.totalPosts}</p>
+                  <p className="text-3xl font-bold">{metrics.totalPosts || 0}</p>
                 </div>
                 <MessageSquare className="h-8 w-8 text-green-200" />
               </div>
               <div className="mt-4 flex items-center">
                 <Activity className="h-4 w-4 text-green-200 mr-1" />
-                <span className="text-green-100 text-sm">{metrics.activeMembers} active members</span>
+                <span className="text-green-100 text-sm">{metrics.activeMembers || 0} active members</span>
               </div>
             </CardContent>
           </Card>
@@ -395,7 +518,7 @@ export default function CommunityAdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-purple-100 text-sm font-medium">Total Views</p>
-                  <p className="text-3xl font-bold">{metrics.totalViews.toLocaleString()}</p>
+                  <p className="text-3xl font-bold">{(metrics.totalViews || 0).toLocaleString()}</p>
                 </div>
                 <Eye className="h-8 w-8 text-purple-200" />
               </div>
@@ -411,7 +534,7 @@ export default function CommunityAdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-rose-100 text-sm font-medium">Total Reactions</p>
-                  <p className="text-3xl font-bold">{metrics.totalReactions}</p>
+                  <p className="text-3xl font-bold">{metrics.totalReactions || 0}</p>
                 </div>
                 <Heart className="h-8 w-8 text-rose-200" />
               </div>
@@ -489,7 +612,7 @@ export default function CommunityAdminPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {metrics.recentActivity.map((activity, index) => (
+                    {(metrics.recentActivity || []).map((activity, index) => (
                       <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                         <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                         <div className="flex-1 min-w-0">
@@ -499,6 +622,11 @@ export default function CommunityAdminPage() {
                         </div>
                       </div>
                     ))}
+                    {(!metrics.recentActivity || metrics.recentActivity.length === 0) && (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500">No recent activity</p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -514,10 +642,146 @@ export default function CommunityAdminPage() {
                     <span>Community Members</span>
                     <Badge variant="secondary">{members.length}</Badge>
                   </CardTitle>
-                  <Button onClick={handleAddMember} className="bg-blue-600 hover:bg-blue-700">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add Member
-                  </Button>
+                  
+                  <Dialog open={showAddMemberModal} onOpenChange={setShowAddMemberModal}>
+                    <DialogTrigger asChild>
+                      <Button onClick={handleAddMember} className="bg-blue-600 hover:bg-blue-700">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Add Members
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center space-x-2">
+                          <UserPlus className="h-5 w-5" />
+                          <span>Add Members to Community</span>
+                        </DialogTitle>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4">
+                        {/* Search Section */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">Search Users</label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                            <Input
+                              placeholder="Search by name or email..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Friends Section */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">Your Friends</label>
+                          <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-2">
+                            {friendsList.map((friend) => (
+                              <div key={friend.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                                <Checkbox
+                                  checked={selectedUsers.includes(friend.id)}
+                                  onCheckedChange={() => toggleUserSelection(friend.id)}
+                                />
+                                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                  {friend.name.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-900">{friend.name}</p>
+                                  <p className="text-xs text-gray-500">{friend.email}</p>
+                                </div>
+                                <div className={`w-2 h-2 rounded-full ${
+                                  friend.status === 'online' ? 'bg-green-500' : 
+                                  friend.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
+                                }`} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Search Results */}
+                        {(searchQuery || searchResults.length > 0) && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Search Results</label>
+                            <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-2">
+                              {isSearching ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-4 border-blue-400 border-t-transparent" />
+                                  <span className="ml-2 text-sm text-gray-500">Searching...</span>
+                                </div>
+                              ) : searchResults.length > 0 ? (
+                                searchResults.map((user) => (
+                                  <div key={user.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                                    <Checkbox
+                                      checked={selectedUsers.includes(user.id)}
+                                      onCheckedChange={() => toggleUserSelection(user.id)}
+                                    />
+                                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                      {user.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                      <p className="text-xs text-gray-500">{user.email}</p>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : searchQuery && (
+                                <p className="text-sm text-gray-500 text-center p-4">No users found</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Selected Users */}
+                        {selectedUsers.length > 0 && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              Selected Users ({selectedUsers.length})
+                            </label>
+                            <div className="flex flex-wrap gap-2 p-2 bg-blue-50 rounded-lg">
+                              {selectedUsers.map((userId) => {
+                                const user = [...friendsList, ...searchResults].find(u => u.id === userId);
+                                return user ? (
+                                  <Badge key={userId} variant="secondary" className="flex items-center gap-1">
+                                    {user.name}
+                                    <button
+                                      onClick={() => toggleUserSelection(userId)}
+                                      className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end space-x-3 pt-4 border-t">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowAddMemberModal(false);
+                              setSelectedUsers([]);
+                              setSearchQuery("");
+                              setSearchResults([]);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleAddSelectedMembers}
+                            disabled={selectedUsers.length === 0}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Add {selectedUsers.length} Member{selectedUsers.length !== 1 ? 's' : ''}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardHeader>
               <CardContent>
@@ -568,23 +832,13 @@ export default function CommunityAdminPage() {
               <CardContent>
                 {editMode ? (
                   <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Community Name</label>
-                        <Input
-                          placeholder="Community Name"
-                          value={editData.title}
-                          onChange={e => setEditData({ ...editData, title: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Slug</label>
-                        <Input
-                          placeholder="community-slug"
-                          value={editData.slug}
-                          onChange={e => setEditData({ ...editData, slug: e.target.value })}
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Community Name</label>
+                      <Input
+                        placeholder="Community Name"
+                        value={editData.title}
+                        onChange={e => setEditData({ ...editData, title: e.target.value })}
+                      />
                     </div>
                     
                     <div>
@@ -598,37 +852,32 @@ export default function CommunityAdminPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Region"
-                          value={editData.location?.region || ''}
-                          onChange={e => setEditData({ 
-                            ...editData, 
-                            location: { ...editData.location, region: e.target.value }
-                          })}
-                        />
-                        <Input
-                          placeholder="State (optional)"
-                          value={editData.location?.state || ''}
-                          onChange={e => setEditData({ 
-                            ...editData, 
-                            location: { ...editData.location, state: e.target.value }
-                          })}
-                        />
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Privacy Setting</label>
+                      <div className="flex items-center space-x-4">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="privacy"
+                            checked={!editData.isPrivate}
+                            onChange={() => setEditData({ ...editData, isPrivate: false })}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">Public</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="privacy"
+                            checked={editData.isPrivate}
+                            onChange={() => setEditData({ ...editData, isPrivate: true })}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="text-sm text-gray-700">Private</span>
+                        </label>
                       </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                      <Input
-                        placeholder="Comma-separated tags"
-                        value={editData.tags?.join(', ') || ''}
-                        onChange={e => setEditData({ 
-                          ...editData, 
-                          tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
-                        })}
-                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Public communities can be found by anyone. Private communities require an invitation.
+                      </p>
                     </div>
 
                     <div className="flex space-x-3 pt-4">
@@ -653,38 +902,44 @@ export default function CommunityAdminPage() {
                             <p className="text-sm text-gray-900">{community.title}</p>
                           </div>
                           <div>
-                            <label className="text-sm font-medium text-gray-500">Slug</label>
-                            <p className="text-sm text-gray-900">{community.slug}</p>
-                          </div>
-                          <div>
                             <label className="text-sm font-medium text-gray-500">Description</label>
                             <p className="text-sm text-gray-900">{community.description || "No description"}</p>
                           </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Privacy</label>
+                            <div className="text-sm text-gray-900">
+                              <Badge variant={community.isPrivate ? "destructive" : "secondary"}>
+                                {community.isPrivate ? 'Private' : 'Public'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">Community Details</h3>
+                        <div className="space-y-3">
                           <div>
                             <label className="text-sm font-medium text-gray-500">Location</label>
                             <p className="text-sm text-gray-900">
                               {community.location?.region}{community.location?.state ? `, ${community.location.state}` : ''}
                             </p>
                           </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Details</h3>
-                        <div className="space-y-3">
                           <div>
                             <label className="text-sm font-medium text-gray-500">Tags</label>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {community.tags?.map((tag: string, index: number) => (
-                                <Badge key={index} variant="secondary" className="text-xs">
+                                <Badge key={index} variant="outline" className="text-xs">
                                   {tag}
                                 </Badge>
                               )) || <span className="text-sm text-gray-500">No tags</span>}
                             </div>
                           </div>
                           <div>
-                            <label className="text-sm font-medium text-gray-500">Privacy</label>
-                            <p className="text-sm text-gray-900">{community.isPrivate ? 'Private' : 'Public'}</p>
+                            <label className="text-sm font-medium text-gray-500">Created</label>
+                            <p className="text-sm text-gray-900">
+                              {new Date(community.createdAt).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -719,17 +974,17 @@ export default function CommunityAdminPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Weekly Growth</span>
-                      <span className={`text-sm font-semibold ${metrics.weeklyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {metrics.weeklyGrowth >= 0 ? '+' : ''}{metrics.weeklyGrowth}%
+                      <span className={`text-sm font-semibold ${(metrics.weeklyGrowth || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(metrics.weeklyGrowth || 0) >= 0 ? '+' : ''}{metrics.weeklyGrowth || 0}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Member Retention</span>
-                      <span className="text-sm font-semibold text-blue-600">85%</span>
+                      <span className="text-sm font-semibold text-blue-600">{metrics.memberRetention || 85}%</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Post Engagement</span>
-                      <span className="text-sm font-semibold text-purple-600">12.3%</span>
+                      <span className="text-sm font-semibold text-purple-600">{metrics.postEngagement || 12.3}%</span>
                     </div>
                   </div>
                 </CardContent>
@@ -746,15 +1001,15 @@ export default function CommunityAdminPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Posts this week</span>
-                      <span className="text-sm font-semibold">{Math.floor(metrics.totalPosts * 0.3)}</span>
+                      <span className="text-sm font-semibold">{metrics.postsThisWeek || Math.floor((metrics.totalPosts || 0) * 0.3)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Comments this week</span>
-                      <span className="text-sm font-semibold">{Math.floor(metrics.totalReactions * 0.4)}</span>
+                      <span className="text-sm font-semibold">{metrics.commentsThisWeek || Math.floor((metrics.totalReactions || 0) * 0.4)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Active users today</span>
-                      <span className="text-sm font-semibold">{metrics.activeMembers}</span>
+                      <span className="text-sm font-semibold">{metrics.activeMembersToday || metrics.activeMembers || 0}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -778,15 +1033,15 @@ export default function CommunityAdminPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                     <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">85%</div>
+                      <div className="text-2xl font-bold text-green-600">{metrics.communityHealth || 85}%</div>
                       <div className="text-sm text-green-700">Engagement Rate</div>
                     </div>
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">92%</div>
+                      <div className="text-2xl font-bold text-blue-600">{metrics.memberSatisfaction || 92}%</div>
                       <div className="text-sm text-blue-700">Member Satisfaction</div>
                     </div>
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">78%</div>
+                      <div className="text-2xl font-bold text-purple-600">{metrics.contentQuality || 78}%</div>
                       <div className="text-sm text-purple-700">Content Quality</div>
                     </div>
                   </div>

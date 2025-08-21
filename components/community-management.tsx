@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CreateCommunityModal } from "./create-community-modal"
-import { useSearchCommunities, useCreateCommunity, useUserCommunities, useJoinCommunity, useLeaveCommunity } from "@/hooks/use-api"
+import { 
+  useSearchCommunities, 
+  useCreateCommunity, 
+  useUserCommunities, 
+  useJoinCommunity, 
+  useLeaveCommunity,
+  useSearchUsers,
+  useAvailableConditions,
+  useAvailableRegions,
+  useAvailableCategories,
+  useFriends
+} from "@/hooks/use-api"
 import { 
   Users, 
   Search, 
@@ -71,6 +82,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   })
   const [showExpandedSearch, setShowExpandedSearch] = useState(false)
   const [searchResults, setSearchResults] = useState<Community[]>([])
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
   // Backend API hooks
@@ -79,6 +91,11 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   const { joinCommunity, loading: joiningCommunity } = useJoinCommunity()
   const { leaveCommunity, loading: leavingCommunity } = useLeaveCommunity()
   const { searchCommunities, loading: searchLoading } = useSearchCommunities()
+  const { searchUsers: searchUsersAPI, loading: searchUsersLoading } = useSearchUsers()
+  const { friendships: friends, loading: loadingFriends } = useFriends({ status: 'accepted' })
+  const { conditions: availableConditions, loading: loadingConditions } = useAvailableConditions()
+  const { regions: availableRegions, loading: loadingRegions } = useAvailableRegions()
+  const { categories: availableCategories, loading: loadingCategories } = useAvailableCategories()
 
   // Transform user communities to match local interface
   const allUserCommunities = userCommunities.map(community => ({
@@ -94,11 +111,44 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
     createdAt: community.createdAt || new Date().toISOString(),
   }))
 
-  // Sample data for filters
-  const availableConditions = [
-    "Diabetes", "Heart Disease", "Cancer", "Mental Health", "Chronic Pain", 
-    "Autoimmune", "Neurological", "Respiratory", "Digestive", "Other"
-  ]
+  // Get friend list for member search
+  const friendsList = friends?.map(friendship => {
+    // Get the friend (either requester or recipient, whichever is not the current user)
+    const friend = friendship.requester.id === user?.id ? friendship.recipient : friendship.requester
+    return {
+      id: friend.id,
+      name: friend.name,
+      email: friend.email,
+      avatar: friend.avatar || '/placeholder-user.jpg',
+      status: 'online' // We don't have real-time status, so default to online
+    }
+  }) || []
+
+  // Real search function using API
+  const performUserSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setUserSearchResults([])
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const result = await searchUsersAPI({ query, limit: 10 })
+      if (result?.data?.users) {
+        setUserSearchResults(result.data.users.map((user: any) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar || '/placeholder-user.jpg'
+        })))
+      }
+    } catch (error) {
+      console.error('User search failed:', error)
+      setUserSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }, [searchUsersAPI])
 
   // Helper function to check if user is admin of a community
   const isUserAdmin = (community: typeof allUserCommunities[0]) => {
@@ -138,7 +188,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
           description: c.description,
           memberCount: c.memberCount || 0,
           location: c.location || { 
-            region: c.tags?.find((tag: string) => regions.includes(tag)) || "Global",
+            region: c.tags?.find((tag: string) => availableRegions.includes(tag)) || "Global",
             state: ''
           },
           tags: c.tags || [],
@@ -170,10 +220,27 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
     return () => clearTimeout(timeoutId)
   }, [searchQuery, searchFilters])
 
+  // Debounced user search effect  
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery) {
+        performUserSearch(searchQuery)
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, performUserSearch])
+
   // Initialize with empty search results
   useEffect(() => {
     setSearchResults([])
   }, [])
+
+  // Filter discovered communities (don't show communities user is already in)
+  const filteredDiscoverCommunities = searchResults.filter((community) => {
+    const isAlreadyMember = allUserCommunities.some(uc => uc.slug === community.slug)
+    return !isAlreadyMember
+  })
 
   // Helper functions for community management
   const handleAdminControl = (community: typeof allUserCommunities[0]) => {
@@ -234,16 +301,6 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       }
     } catch (error) {}
   }
-
-  // Sample data for demo
-  const categories = ["Health Support", "Mental Health", "Chronic Conditions", "Wellness", "Family Support"]
-  const regions = ["Global", "United States", "Europe", "Asia", "Canada", "Australia"]
-
-  const filteredDiscoverCommunities = searchResults.filter((community) => {
-    // Don't show communities user is already in
-    const isAlreadyMember = allUserCommunities.some(uc => uc.slug === community.slug)
-    return !isAlreadyMember
-  })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
@@ -413,7 +470,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All regions</SelectItem>
-                              {regions.map((region) => (
+                              {availableRegions.map((region: string) => (
                                 <SelectItem key={region} value={region}>{region}</SelectItem>
                               ))}
                             </SelectContent>
@@ -427,7 +484,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All categories</SelectItem>
-                              {categories.map((category) => (
+                              {availableCategories.map((category: string) => (
                                 <SelectItem key={category} value={category}>{category}</SelectItem>
                               ))}
                             </SelectContent>

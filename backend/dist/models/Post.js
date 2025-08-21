@@ -23,6 +23,7 @@ const postSchema = new Schema({
         required: true
     },
     images: [String],
+    videos: [String],
     attachments: [{
             filename: String,
             originalName: String,

@@ -3,6 +3,7 @@ import Community from '../models/Community.js';
 import { extractUserInfo } from '../middleware/userExtract.js';
 import { validateCommunity } from '../validators/community.js';
 import { seedSystemCommunities } from '../utils/seedCommunities.js';
+import { NotificationService } from '../utils/notificationService.js';
 const router = express.Router();
 // Admin endpoint to seed system communities
 router.post('/admin/seed-system-communities', async (req, res) => {
@@ -259,6 +260,36 @@ router.post('/:id/join', extractUserInfo, async (req, res) => {
         });
         community.stats.totalMembers = community.members.length;
         await community.save();
+        // Notify community creator about new member
+        try {
+            const newMemberUser = {
+                id: req.user.id,
+                name: req.user.name,
+                email: req.user.email,
+                ...(req.user.avatar && { avatar: req.user.avatar })
+            };
+            const creatorUser = {
+                id: community.createdBy.id,
+                name: community.createdBy.name,
+                email: community.createdBy.email || ''
+            };
+            await NotificationService.notifyNewMember(creatorUser, newMemberUser, community.title, community._id);
+            // Also notify all admins
+            for (const admin of community.admins) {
+                if (admin.id !== community.createdBy.id) { // Don't notify creator twice
+                    const adminUser = {
+                        id: admin.id,
+                        name: admin.name,
+                        email: admin.email || ''
+                    };
+                    await NotificationService.notifyNewMember(adminUser, newMemberUser, community.title, community._id);
+                }
+            }
+        }
+        catch (notificationError) {
+            console.error('Failed to send new member notification:', notificationError);
+            // Don't fail the join operation if notification fails
+        }
         res.json({ message: 'Successfully joined community' });
     }
     catch (error) {
@@ -321,6 +352,36 @@ router.post('/:id/admins', extractUserInfo, async (req, res) => {
             email: userEmail
         });
         await community.save();
+        // Notify the new admin
+        try {
+            const newAdminUser = {
+                id: userId,
+                name: userName,
+                email: userEmail || ''
+            };
+            const promoterUser = {
+                id: req.user.id,
+                name: req.user.name,
+                email: req.user.email,
+                ...(req.user.avatar && { avatar: req.user.avatar })
+            };
+            // This would be a custom notification for admin promotion
+            // For now, we'll use a generic notification type
+            await NotificationService.createNotification({
+                recipient: newAdminUser,
+                sender: promoterUser,
+                type: 'community_invite', // Reusing this type for admin promotion
+                message: `You have been promoted to admin in ${community.title}`,
+                data: {
+                    communityId: community._id,
+                    communityName: community.title
+                }
+            });
+        }
+        catch (notificationError) {
+            console.error('Failed to send admin promotion notification:', notificationError);
+            // Don't fail the operation if notification fails
+        }
         res.json({ message: 'Admin added successfully' });
     }
     catch (error) {

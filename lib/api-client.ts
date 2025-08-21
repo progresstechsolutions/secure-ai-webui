@@ -1,5 +1,5 @@
 // API Configuration and Client
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export interface ApiResponse<T = any> {
   data?: T;
@@ -88,6 +88,68 @@ export interface Post {
   isHidden: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CommunityMetrics {
+  totalMembers: number;
+  totalPosts: number;
+  totalViews: number;
+  totalReactions: number;
+  weeklyGrowth: number;
+  activeMembers: number;
+  recentActivity: Array<{
+    action: string;
+    user: string;
+    time: string;
+  }>;
+  memberRetention: number;
+  postEngagement: number;
+  communityHealth: number;
+  memberSatisfaction: number;
+  contentQuality: number;
+  postsThisWeek: number;
+  commentsThisWeek: number;
+  activeMembersToday: number;
+}
+
+export type NotificationType = 
+  | 'post_liked'
+  | 'comment_reply'
+  | 'post_comment'
+  | 'community_invite'
+  | 'join_request_accepted'
+  | 'join_request_rejected'
+  | 'new_member'
+  | 'mention'
+  | 'friend_request';
+
+export interface Notification {
+  _id: string;
+  recipient: User;
+  sender: User;
+  type: NotificationType;
+  message: string;
+  data: {
+    postId?: string;
+    commentId?: string;
+    communityId?: string;
+    inviteId?: string;
+    [key: string]: any;
+  };
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationResponse {
+  notifications: Notification[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    total: number;
+    limit: number;
+  };
+  unreadCount: number;
 }
 
 export interface Comment {
@@ -291,6 +353,12 @@ class ApiClient {
   async leaveCommunity(communityId: string): Promise<ApiResponse<{ message: string }>> {
     return this.request(`/communities/${communityId}/leave`, {
       method: 'POST',
+    });
+  }
+
+  async getCommunityMetrics(communityId: string): Promise<ApiResponse<CommunityMetrics>> {
+    return this.request(`/communities/${communityId}/metrics`, {
+      method: 'GET',
     });
   }
 
@@ -512,6 +580,37 @@ class ApiClient {
     return this.request(`/friends?${queryParams}`);
   }
 
+  async searchUsers(params: {
+    query?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<{ 
+    users: User[]; 
+    totalPages: number; 
+    currentPage: number; 
+    total: number 
+  }>> {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        queryParams.append(key, value.toString());
+      }
+    });
+    return this.request(`/search/users?${queryParams}`);
+  }
+
+  async getAvailableConditions(): Promise<ApiResponse<{ conditions: string[] }>> {
+    return this.request('/communities/conditions');
+  }
+
+  async getAvailableRegions(): Promise<ApiResponse<{ regions: string[] }>> {
+    return this.request('/communities/regions');
+  }
+
+  async getAvailableCategories(): Promise<ApiResponse<{ categories: string[] }>> {
+    return this.request('/communities/categories');
+  }
+
   async sendFriendRequest(userId: string, data: {
     name: string;
     email: string;
@@ -621,6 +720,43 @@ class ApiClient {
     files.forEach(file => formData.append('files', file));
 
     return this.requestFormData('/upload/files', formData);
+  }
+
+  // Notifications API
+  async getNotifications(params?: {
+    page?: number;
+    limit?: number;
+    unreadOnly?: boolean;
+  }): Promise<ApiResponse<NotificationResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    return this.request(`/notifications?${queryParams}`);
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<ApiResponse<Notification>> {
+    return this.request(`/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+    });
+  }
+
+  async markAllNotificationsAsRead(): Promise<ApiResponse<{ modifiedCount: number }>> {
+    return this.request('/notifications/mark-all-read', {
+      method: 'PATCH',
+    });
+  }
+
+  async getUnreadNotificationCount(): Promise<ApiResponse<{ unreadCount: number }>> {
+    return this.request('/notifications/unread-count');
+  }
+
+  async deleteNotification(notificationId: string): Promise<ApiResponse<void>> {
+    return this.request(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
   }
 }
 

@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Heart, Users, User, MessageSquare, Settings, Search, Bell } from "lucide-react"
-import { GroupInvitationNotifications } from "@/components/group-invitation-notifications"
-import { useNotifications } from "@/contexts/notification-context"
+import { NotificationBell } from "@/components/notification-page"
 
 interface GlobalHeaderProps {
   user?: any
@@ -18,7 +17,6 @@ interface GlobalHeaderProps {
 
 export function GlobalHeader({ user, currentPage, showSearch = false, onSearchToggle, showOnMobile = true }: GlobalHeaderProps) {
   const router = useRouter()
-  const { groupInvitations, updateInvitationStatus } = useNotifications()
 
   return (
     <header className={`bg-white/95 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-40 shadow-sm ${showOnMobile ? '' : 'hidden md:block'}`}>
@@ -70,9 +68,15 @@ export function GlobalHeader({ user, currentPage, showSearch = false, onSearchTo
             
 
             {/* Notifications */}
-            <GroupInvitationNotifications 
-              invitations={groupInvitations}
-              onInvitationResponse={updateInvitationStatus}
+            <NotificationBell 
+              onNotificationClick={(notification) => {
+                // Navigate to relevant page based on notification type
+                if (notification.data?.postId) {
+                  router.push(`/post/${notification.data.postId}`)
+                } else if (notification.data?.communityId) {
+                  router.push(`/community/${notification.data.communityId}`)
+                }
+              }}
             />
 
             <div className="flex items-center space-x-2 ml-4 pl-4 border-l border-gray-200">

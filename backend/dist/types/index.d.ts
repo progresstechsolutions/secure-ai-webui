@@ -51,6 +51,7 @@ export interface IPost extends Document {
     author: User;
     community: ICommunity | string;
     images: string[];
+    videos: string[];
     attachments: FileAttachment[];
     tags: string[];
     reactions: Reaction[];
@@ -211,7 +212,9 @@ export interface CreatePostRequest {
     communityId: string;
     tags?: string[];
     images?: string[];
+    videos?: string[];
     attachments?: FileAttachment[];
+    isAnonymous?: boolean;
 }
 export interface GetPostsQuery {
     page?: string;
@@ -440,5 +443,37 @@ export interface SearchResponse {
         total?: number;
         totalPages?: number;
     };
+}
+export type NotificationType = 'post_liked' | 'comment_reply' | 'post_comment' | 'community_invite' | 'join_request_accepted' | 'join_request_rejected' | 'new_member' | 'mention' | 'friend_request';
+export interface INotification extends Document {
+    _id: string;
+    recipient: User;
+    sender: User;
+    type: NotificationType;
+    message: string;
+    data: {
+        postId?: string;
+        commentId?: string;
+        communityId?: string;
+        inviteId?: string;
+        [key: string]: any;
+    };
+    isRead: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+}
+export interface CreateNotificationRequest {
+    recipientId: string;
+    senderId: string;
+    type: NotificationType;
+    message: string;
+    data?: Record<string, any>;
+}
+export interface GetNotificationsQuery {
+    page?: string;
+    limit?: string;
+    unreadOnly?: string;
+}
+export interface NotificationRequest extends AuthenticatedRequest<{}, any, any, GetNotificationsQuery> {
 }
 //# sourceMappingURL=index.d.ts.map

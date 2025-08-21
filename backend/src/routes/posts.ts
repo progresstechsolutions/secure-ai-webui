@@ -5,6 +5,7 @@ import Community from '../models/Community.js';
 import { extractUserInfo } from '../middleware/userExtract.js';
 import { validatePost } from '../validators/post.js';
 import { validateComment } from '../validators/comment.js';
+import NotificationService from '../utils/notificationService.js';
 import { 
   AuthenticatedRequest, 
   GetPostsQuery, 
@@ -357,12 +358,52 @@ router.post('/:postId/comments', (req, res, next) => {
       (post.comments as any).push(comment._id);
       post.stats.totalComments += 1;
       await post.save();
+
+      // Create notification for post author (new comment on post)
+      if (post.author.id !== req.user!.id) {
+        try {
+          await NotificationService.notifyPostComment(
+            post.author,
+            {
+              id: req.user!.id,
+              name: req.user!.name,
+              email: req.user!.email,
+              ...(req.user!.avatar && { avatar: req.user!.avatar })
+            },
+            postId,
+            post.content || post.title || 'your post',
+            content.trim()
+          );
+        } catch (notificationError) {
+          console.error('Failed to create notification for post comment:', notificationError);
+        }
+      }
     } else {
       // Update parent comment's replies
       const parentComment = await Comment.findById(parentCommentId);
       if (parentComment) {
         (parentComment.replies as any).push(comment._id);
         await parentComment.save();
+
+        // Create notification for comment author (reply to comment)
+        if (parentComment.author.id !== req.user!.id) {
+          try {
+            await NotificationService.notifyCommentReply(
+              parentComment.author,
+              {
+                id: req.user!.id,
+                name: req.user!.name,
+                email: req.user!.email,
+                ...(req.user!.avatar && { avatar: req.user!.avatar })
+              },
+              postId,
+              parentCommentId,
+              content.trim()
+            );
+          } catch (notificationError) {
+            console.error('Failed to create notification for comment reply:', notificationError);
+          }
+        }
       }
     }
 
@@ -519,6 +560,26 @@ router.post('/:postId/reactions', extractUserInfo, async (req: AuthenticatedRequ
 
     post.stats.totalReactions = post.reactions.length;
     await post.save();
+
+    // Create notification for post author (only for new reactions, not updates)
+    if (existingReactionIndex === -1 && post.author.id !== req.user!.id) {
+      try {
+        await NotificationService.notifyPostLiked(
+          post.author,
+          {
+            id: req.user!.id,
+            name: req.user!.name,
+            email: req.user!.email,
+            ...(req.user!.avatar && { avatar: req.user!.avatar })
+          },
+          postId,
+          post.content || post.title || 'your post'
+        );
+      } catch (notificationError) {
+        console.error('Failed to create notification for post like:', notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
 
     res.json({ message: 'Reaction added successfully', reactions: post.reactions });
   } catch (error) {

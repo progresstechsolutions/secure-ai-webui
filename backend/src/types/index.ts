@@ -408,3 +408,52 @@ export interface SearchResponse {
     totalPages?: number;
   };
 }
+
+// ========================
+// NOTIFICATION TYPES
+// ========================
+
+export type NotificationType = 
+  | 'post_liked'          // Someone liked your post
+  | 'comment_reply'       // Someone replied to your comment
+  | 'post_comment'        // Someone commented on your post
+  | 'community_invite'    // Someone invited you to a community
+  | 'join_request_accepted' // Your join request was accepted
+  | 'join_request_rejected' // Your join request was rejected
+  | 'new_member'          // Someone joined your community (for admins)
+  | 'mention'             // Someone mentioned you in a post/comment
+  | 'friend_request'      // Someone sent you a friend request
+
+export interface INotification extends Document {
+  _id: string;
+  recipient: User;        // User who receives the notification
+  sender: User;           // User who triggered the notification
+  type: NotificationType;
+  message: string;        // Human-readable message
+  data: {                 // Additional context data
+    postId?: string;
+    commentId?: string;
+    communityId?: string;
+    inviteId?: string;
+    [key: string]: any;
+  };
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateNotificationRequest {
+  recipientId: string;
+  senderId: string;
+  type: NotificationType;
+  message: string;
+  data?: Record<string, any>;
+}
+
+export interface GetNotificationsQuery {
+  page?: string;
+  limit?: string;
+  unreadOnly?: string;
+}
+
+export interface NotificationRequest extends AuthenticatedRequest<{}, any, any, GetNotificationsQuery> {}

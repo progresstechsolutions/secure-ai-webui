@@ -538,6 +538,85 @@ export function useSearchCommunities() {
   return { searchCommunities, data, loading, error };
 }
 
+export function useSearchUsers() {
+  const { data, loading, error, execute } = useApi<{
+    users: any[];
+    totalPages: number;
+    currentPage: number;
+    total: number;
+  }>();
+
+  const searchUsers = useCallback(async (params: {
+    query?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    return await execute(() => apiClient.searchUsers(params));
+  }, [execute]);
+
+  return { searchUsers, data, loading, error };
+}
+
+export function useAvailableConditions() {
+  const { data, loading, error, execute, reset } = useApi<{ conditions: string[] }>();
+
+  const fetchConditions = useCallback(() => {
+    execute(() => apiClient.getAvailableConditions());
+  }, [execute]);
+
+  useEffect(() => {
+    fetchConditions();
+  }, [fetchConditions]);
+
+  return {
+    conditions: data?.conditions || [],
+    loading,
+    error,
+    refetch: fetchConditions,
+    reset,
+  };
+}
+
+export function useAvailableRegions() {
+  const { data, loading, error, execute, reset } = useApi<{ regions: string[] }>();
+
+  const fetchRegions = useCallback(() => {
+    execute(() => apiClient.getAvailableRegions());
+  }, [execute]);
+
+  useEffect(() => {
+    fetchRegions();
+  }, [fetchRegions]);
+
+  return {
+    regions: data?.regions || [],
+    loading,
+    error,
+    refetch: fetchRegions,
+    reset,
+  };
+}
+
+export function useAvailableCategories() {
+  const { data, loading, error, execute, reset } = useApi<{ categories: string[] }>();
+
+  const fetchCategories = useCallback(() => {
+    execute(() => apiClient.getAvailableCategories());
+  }, [execute]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  return {
+    categories: data?.categories || [],
+    loading,
+    error,
+    refetch: fetchCategories,
+    reset,
+  };
+}
+
 export function useSearchPosts() {
   const { data, loading, error, execute } = useApi<{
     posts: Post[];

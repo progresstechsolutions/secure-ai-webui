@@ -26,6 +26,7 @@ import friendRoutes from './routes/friends.js';
 import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
 import searchRoutes from './routes/search.js';
+import notificationRoutes from './routes/notifications.js';
 // Socket handlers
 import { initializeSocket } from './socket/socketHandler.js';
 const app = express();
@@ -54,6 +55,7 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes);
 // Health check endpoints
 app.get('/health', (req, res) => {
     res.status(200).json({

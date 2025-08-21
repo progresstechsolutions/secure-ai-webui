@@ -179,4 +179,60 @@ router.get('/posts', extractUserInfo, async (req: SearchRequest, res: Response) 
   }
 });
 
+// Search users endpoint
+router.get('/users', extractUserInfo, async (req: SearchRequest, res: Response) => {
+  try {
+    const { 
+      query: searchQuery,
+      page = '1', 
+      limit = '20' 
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    // For now, return mock user data since we don't have a User model
+    // In a real app, you would search your User collection
+    const mockUsers = [
+      { id: 'user-101', name: 'Sarah Mitchell', email: 'sarah.mitchell@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-102', name: 'Dr. Jennifer Park', email: 'j.park@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-103', name: 'Michael Chen', email: 'michael.chen@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-104', name: 'Lisa Rodriguez', email: 'lisa.r@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-105', name: 'James Wilson', email: 'james.w@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-106', name: 'Emma Thompson', email: 'emma.t@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-107', name: 'David Kumar', email: 'david.kumar@example.com', avatar: '/placeholder-user.jpg' },
+      { id: 'user-108', name: 'Maria Garcia', email: 'maria.garcia@example.com', avatar: '/placeholder-user.jpg' },
+    ];
+
+    let filteredUsers = mockUsers;
+    
+    if (searchQuery) {
+      filteredUsers = mockUsers.filter(user => 
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply pagination
+    const total = filteredUsers.length;
+    const totalPages = Math.ceil(total / limitNum);
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    const users = filteredUsers.slice(startIndex, endIndex);
+
+    res.json({
+      users,
+      pagination: {
+        currentPage: pageNum,
+        limit: limitNum,
+        total,
+        totalPages
+      }
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
 export default router;

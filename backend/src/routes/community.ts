@@ -4,6 +4,7 @@ import { extractUserInfo } from '../middleware/userExtract.js';
 import { validateCommunity } from '../validators/community.js';
 import { AuthenticatedRequest, GetCommunitiesQuery, CreateCommunityRequest, UpdateCommunityRequest, AddAdminRequest, PaginationQuery, User } from '../types/index.js';
 import { seedSystemCommunities } from '../utils/seedCommunities.js';
+import { NotificationService } from '../utils/notificationService.js';
 
 const router = express.Router();
 
@@ -300,6 +301,50 @@ router.post('/:id/join', extractUserInfo, async (req: AuthenticatedRequest<{ id:
     community.stats.totalMembers = community.members.length;
     await community.save();
 
+    // Notify community creator about new member
+    try {
+      const newMemberUser = {
+        id: req.user!.id,
+        name: req.user!.name,
+        email: req.user!.email,
+        ...(req.user!.avatar && { avatar: req.user!.avatar })
+      };
+
+      const creatorUser = {
+        id: community.createdBy.id,
+        name: community.createdBy.name,
+        email: community.createdBy.email || ''
+      };
+
+      await NotificationService.notifyNewMember(
+        creatorUser,
+        newMemberUser,
+        community.title,
+        (community._id as string)
+      );
+
+      // Also notify all admins
+      for (const admin of community.admins) {
+        if (admin.id !== community.createdBy.id) { // Don't notify creator twice
+          const adminUser = {
+            id: admin.id,
+            name: admin.name,
+            email: admin.email || ''
+          };
+
+          await NotificationService.notifyNewMember(
+            adminUser,
+            newMemberUser,
+            community.title,
+            (community._id as string)
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send new member notification:', notificationError);
+      // Don't fail the join operation if notification fails
+    }
+
     res.json({ message: 'Successfully joined community' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to join community' });
@@ -373,6 +418,39 @@ router.post('/:id/admins', extractUserInfo, async (req: AuthenticatedRequest<{ i
     });
 
     await community.save();
+
+    // Notify the new admin
+    try {
+      const newAdminUser = {
+        id: userId,
+        name: userName,
+        email: userEmail || ''
+      };
+
+      const promoterUser = {
+        id: req.user!.id,
+        name: req.user!.name,
+        email: req.user!.email,
+        ...(req.user!.avatar && { avatar: req.user!.avatar })
+      };
+
+      // This would be a custom notification for admin promotion
+      // For now, we'll use a generic notification type
+      await NotificationService.createNotification({
+        recipient: newAdminUser,
+        sender: promoterUser,
+        type: 'community_invite', // Reusing this type for admin promotion
+        message: `You have been promoted to admin in ${community.title}`,
+        data: {
+          communityId: (community._id as string),
+          communityName: community.title
+        }
+      });
+    } catch (notificationError) {
+      console.error('Failed to send admin promotion notification:', notificationError);
+      // Don't fail the operation if notification fails
+    }
+
     res.json({ message: 'Admin added successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to add admin' });
@@ -406,6 +484,156 @@ router.get('/:id/members', async (req: Request<{ id: string }, {}, {}, Paginatio
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Get community metrics for admin dashboard
+router.get('/:id/metrics', extractUserInfo, async (req: AuthenticatedRequest<{ id: string }>, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    // Find the community
+    const community = await Community.findById(id);
+    if (!community) {
+      return res.status(404).json({ error: 'Community not found' });
+    }
+    
+    // Check if user is admin
+    const user = req.user!;
+    const isAdmin = community.admins?.some((admin: any) => 
+      admin.id === user.id || admin.email === user.email || admin.name === user.name
+    ) || community.createdBy?.id === user.id;
+    
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    }
+    
+    // Get current date for calculations
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Calculate basic metrics
+    const totalMembers = community.members?.length || 0;
+    const totalPosts = community.stats?.totalPosts || 0;
+    
+    // Calculate recent activity (mock data for now - in real implementation, 
+    // you'd query posts and member join dates)
+    const communityCreatedAt = (community as any).createdAt || new Date();
+    const recentMembers = community.members?.filter((member: any) => 
+      new Date(member.joinedAt || communityCreatedAt) > oneWeekAgo
+    ).length || 0;
+    
+    // Weekly growth calculation (mock - in real app you'd track historical data)
+    const weeklyGrowth = totalMembers > 0 ? Math.round((recentMembers / totalMembers) * 100) : 0;
+    
+    // Mock additional metrics (in real app, these would come from actual data)
+    const activeMembers = Math.floor(totalMembers * 0.7); // 70% active rate
+    const totalViews = Math.floor(Math.random() * 1000) + 200;
+    const totalReactions = Math.floor(Math.random() * 200) + 50;
+    
+    // Recent activity (mock data - in real app, query recent posts/comments/joins)
+    const recentActivity = [
+      {
+        action: "New member joined",
+        user: community.members?.[community.members.length - 1]?.name || "Unknown User",
+        time: "2 hours ago"
+      },
+      {
+        action: "New post created",
+        user: community.createdBy?.name || "Admin",
+        time: "5 hours ago"
+      },
+      {
+        action: "Comment added",
+        user: community.members?.[Math.floor(Math.random() * totalMembers)]?.name || "Member",
+        time: "1 day ago"
+      },
+      {
+        action: "Post liked",
+        user: "Visitor",
+        time: "2 days ago"
+      }
+    ];
+    
+    const metrics = {
+      totalMembers,
+      totalPosts,
+      totalViews,
+      totalReactions,
+      weeklyGrowth,
+      activeMembers,
+      recentActivity,
+      
+      // Additional analytics
+      memberRetention: 85, // Mock percentage
+      postEngagement: 12.3, // Mock percentage
+      communityHealth: 85, // Mock score
+      memberSatisfaction: 92, // Mock percentage
+      contentQuality: 78, // Mock percentage
+      
+      // Weekly stats
+      postsThisWeek: Math.floor(totalPosts * 0.3),
+      commentsThisWeek: Math.floor(totalReactions * 0.4),
+      activeMembersToday: Math.floor(activeMembers * 0.6)
+    };
+    
+    return res.json({
+      success: true,
+      data: metrics
+    });
+    
+  } catch (error) {
+    console.error('Error fetching community metrics:', error);
+    return res.status(500).json({ error: 'Failed to fetch community metrics' });
+  }
+});
+
+// Get available conditions for community creation
+router.get('/conditions', async (req: Request, res: Response) => {
+  try {
+    const conditions = [
+      "Diabetes", "Heart Disease", "Cancer", "Mental Health", "Chronic Pain", 
+      "Autoimmune", "Neurological", "Respiratory", "Digestive", "Obesity",
+      "Hypertension", "Arthritis", "Depression", "Anxiety", "ADHD",
+      "Fibromyalgia", "Thyroid", "Kidney Disease", "Liver Disease", "Other"
+    ];
+    
+    res.json({ conditions });
+  } catch (error) {
+    console.error('Error fetching conditions:', error);
+    res.status(500).json({ error: 'Failed to fetch conditions' });
+  }
+});
+
+// Get available regions for community creation
+router.get('/regions', async (req: Request, res: Response) => {
+  try {
+    const regions = [
+      "Global", "United States", "Canada", "United Kingdom", "Europe", 
+      "Australia", "New Zealand", "Asia", "India", "South America", 
+      "Africa", "Middle East", "Other"
+    ];
+    
+    res.json({ regions });
+  } catch (error) {
+    console.error('Error fetching regions:', error);
+    res.status(500).json({ error: 'Failed to fetch regions' });
+  }
+});
+
+// Get available categories for community creation
+router.get('/categories', async (req: Request, res: Response) => {
+  try {
+    const categories = [
+      "Health Support", "Mental Health", "Chronic Conditions", "Wellness", 
+      "Family Support", "Caregiver Support", "Lifestyle", "Nutrition",
+      "Exercise & Fitness", "Medical Advocacy", "Research & Trials", "Other"
+    ];
+    
+    res.json({ categories });
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
   }
 });
 
