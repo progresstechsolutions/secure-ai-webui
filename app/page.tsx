@@ -1,11 +1,31 @@
+"use client"
 
-import { redirect } from "next/navigation"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { AuthProvider } from "@/contexts/auth-context"
+import { ChildProfileProvider } from "@/contexts/child-profile-context"
+import { DocumentProvider } from "@/contexts/document-context"
+import HealthBinderApp from "@/components/HealthBinderApp"
 
-export default async function HomePage() {
+export default function HomePage() {
+  const router = useRouter()
 
-    // Check if user completed onboarding
-    // In a real app, this would be stored in the database
-    // For demo, check localStorage in client-side
-    redirect("/dashboard")
-  }
+  useEffect(() => {
+    // For demo: simulate checking onboarding (could be from localStorage, API, etc.)
+    const hasOnboarded = localStorage.getItem("hasOnboarded")
 
+    if (hasOnboarded) {
+      router.replace("/dashboard")
+    }
+  }, [router])
+
+  return (
+    <AuthProvider>
+      <ChildProfileProvider>
+        <DocumentProvider>
+          <HealthBinderApp />
+        </DocumentProvider>
+      </ChildProfileProvider>
+    </AuthProvider>
+  )
+}
