@@ -8,14 +8,10 @@
   "git": {
     "deploymentEnabled": {
       "main": false,
-      "develop": true
-    },
-    "productionBranch": "develop",
-    "deploymentEnabled": {
-      "main": false,
       "develop": true,
       "feature/*": true
-    }
+    },
+    "productionBranch": "develop"
   },
   "functions": {
     "app/api/**/*.ts": {
@@ -40,11 +36,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "NEXTAUTH_URL": "@nextauth_url",
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "GOOGLE_CLIENT_ID": "@google_client_id",
-    "GOOGLE_CLIENT_SECRET": "@google_client_secret"
-  }
+  ]
 } 
