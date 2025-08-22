@@ -1,15 +1,9 @@
-<<<<<<< HEAD
-import { type ClassValue, clsx } from "clsx"
-=======
 import { clsx, type ClassValue } from "clsx"
->>>>>>> origin/Bishwas
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
-<<<<<<< HEAD
-=======
 
 /**
  * Logs a user activity string with timestamp to localStorage for recent activity tracking.
@@ -22,4 +16,3 @@ export function logUserActivity(activity: string) {
   const existing = JSON.parse(localStorage.getItem(key) || "[]");
   localStorage.setItem(key, JSON.stringify([entry, ...existing].slice(0, 50)));
 }
->>>>>>> origin/Bishwas

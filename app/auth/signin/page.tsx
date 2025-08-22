@@ -4,11 +4,11 @@ import { useState } from "react"
 import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "../../../components/ui/button"
+import { Input } from "../../../components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
+import { Label } from "../../../components/ui/label"
+import { Alert, AlertDescription } from "../../../components/ui/alert"
 import { Eye, EyeOff, Heart, Mail, Lock } from "lucide-react"
 
 export default function SignInPage() {
@@ -64,9 +64,9 @@ export default function SignInPage() {
             <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
               <Heart className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Caregene</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Secure AI WebUI</h1>
           </div>
-          <p className="text-gray-600">Sign in to your support community</p>
+          <p className="text-gray-600">Sign in to your secure AI platform</p>
         </div>
 
         <Card className="shadow-lg border-0">
