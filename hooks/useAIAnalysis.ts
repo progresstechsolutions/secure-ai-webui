@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { Document } from "@/contexts/document-context"
+import type { Document } from "../contexts/document-context"
 
 interface AIAnalysis {
   summary: string

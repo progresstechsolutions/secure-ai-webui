@@ -1,9 +1,9 @@
 "use client"
 
 import type { Meta, StoryObj } from "@storybook/react"
-import { ManageChildren } from "@/components/features/manage-children/ManageChildren"
+import { ManageChildren } from "../../components/features/manage-children/ManageChildren"
 import { useState } from "react"
-import type { Child } from "@/contexts/child-profile-context"
+import type { Child } from "../../contexts/child-profile-context"
 
 const meta: Meta<typeof ManageChildren> = {
   title: "Features/ManageChildren",

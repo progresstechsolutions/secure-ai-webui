@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { UploadFile } from "@/components/features/upload/DocumentUpload"
-import type { Folder } from "@/components/features/folders-dashboard/FoldersDashboard"
+import type { UploadFile } from "../components/features/upload/DocumentUpload"
+import type { Folder } from "../components/features/folders-dashboard/FoldersDashboard"
 
 interface UploadOptions {
   childId: string

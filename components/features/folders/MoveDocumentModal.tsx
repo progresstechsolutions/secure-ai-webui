@@ -1,14 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { useDocuments } from "@/contexts/document-context"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from "../../ui/button"
+import { Card, CardContent } from "../../ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
+import { Badge } from "../../ui/badge"
+import { useDocuments } from "../../../contexts/document-context"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useToast } from "../../../hooks/use-toast"
 import {
   Folder,
   FolderOpen,
@@ -26,8 +26,8 @@ import {
   BookOpen,
   Grid,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import type { Document, Folder as FolderType } from "@/contexts/document-context"
+import { cn } from "../../../lib/utils"
+import type { Document, Folder as FolderType } from "../../../contexts/document-context"
 
 interface MoveDocumentModalProps {
   document: Document

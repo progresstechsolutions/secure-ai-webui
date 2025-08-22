@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
+import { Button } from "../../ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../ui/dialog"
+import { Badge } from "../../ui/badge"
+import { Progress } from "../../ui/progress"
 import { 
   Camera, 
   RotateCcw, 
@@ -19,7 +19,7 @@ import {
   Plus,
   Download
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 // OpenCV.js will be imported dynamically
 declare global {

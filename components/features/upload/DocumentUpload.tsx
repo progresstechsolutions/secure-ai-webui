@@ -1,19 +1,19 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useDocuments } from "@/contexts/document-context"
-import { useAISuggestions } from "@/hooks/useAISuggestions"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../ui/dialog"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
+import { Label } from "../../ui/label"
+import { Progress } from "../../ui/progress"
+import { Badge } from "../../ui/badge"
+import { Card, CardContent } from "../../ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useDocuments } from "../../../contexts/document-context"
+import { useAISuggestions } from "../../../hooks/useAISuggestions"
 
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "../../../hooks/use-toast"
 import { DocumentCaptureModal } from "./DocumentCaptureModal"
 import {
   Upload,
@@ -44,7 +44,7 @@ import {
   BookOpen,
   Grid,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 // Supported file types configuration
 const SUPPORTED_FILE_TYPES = {

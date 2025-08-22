@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import { Button } from "./ui/button"
 import { Heart, Users, User, MessageSquare, Settings, Search, Bell } from "lucide-react"
-import { GroupInvitationNotifications } from "@/components/group-invitation-notifications"
-import { useNotifications } from "@/contexts/notification-context"
+import { GroupInvitationNotifications } from "./group-invitation-notifications"
+import { useNotifications } from "../contexts/notification-context"
 
 interface GlobalHeaderProps {
   user?: any

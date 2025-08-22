@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { DocumentViewer } from "@/components/features/document-viewer/DocumentViewer"
-import type { Document } from "@/contexts/document-context"
+import { DocumentViewer } from "../../components/features/document-viewer/DocumentViewer"
+import type { Document } from "../../contexts/document-context"
 
 export default function DocumentViewerPage() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)

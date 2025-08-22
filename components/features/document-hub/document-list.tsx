@@ -1,16 +1,16 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useDocuments } from "@/contexts/document-context"
-import { useToast } from "@/hooks/use-toast"
-import { DocumentViewer } from "@/components/features/document-viewer/DocumentViewer"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Badge } from "../../ui/badge"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "../../ui/dropdown-menu"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useDocuments } from "../../../contexts/document-context"
+import { useToast } from "../../../hooks/use-toast"
+import { DocumentViewer } from "../../features/document-viewer/DocumentViewer"
 import {
   AlertCircle,
   Filter,
@@ -27,8 +27,8 @@ import {
   ArchiveIcon,
   Download,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import type { Document } from "@/contexts/document-context"
+import { cn } from "../../../lib/utils"
+import type { Document } from "../../../contexts/document-context"
 
 export function DocumentList() {
   const { activeChild } = useChildProfile()

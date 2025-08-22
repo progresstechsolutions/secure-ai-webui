@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
+import { Label } from "../../ui/label"
+import { Badge } from "../../ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "../../ui/dialog"
 import { X, Plus } from "lucide-react"
-import { useDocuments } from "@/contexts/document-context"
-import { useToast } from "@/hooks/use-toast"
+import { useDocuments } from "../../../contexts/document-context"
+import { useToast } from "../../../hooks/use-toast"
 
 interface AddTaggingModalProps {
   isOpen: boolean

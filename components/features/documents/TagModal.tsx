@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "../../ui/button"
+import { Input } from "../../ui/input"
+import { Label } from "../../ui/label"
+import { Badge } from "../../ui/badge"
 import { X, Tag } from "lucide-react"
 import {
   Dialog,
@@ -13,8 +13,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import type { Document } from "@/contexts/document-context"
+} from "../../ui/dialog"
+import type { Document } from "../../../contexts/document-context"
 
 interface TagModalProps {
   isOpen: boolean

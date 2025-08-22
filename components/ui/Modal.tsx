@@ -2,9 +2,9 @@
 
 import type React from "react"
 import { useEffect } from "react"
-import { Button } from "@/components/atoms/Button/Button"
+import { Button } from "../atoms/Button/Button"
 import { X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils"
 
 export interface ModalProps {
   isOpen: boolean

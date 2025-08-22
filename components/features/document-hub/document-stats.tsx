@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
 import { FileText, Upload, Calendar, HardDrive } from "lucide-react"
 import type { Document } from "./document-hub"
 

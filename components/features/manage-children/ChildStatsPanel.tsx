@@ -1,10 +1,10 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Badge } from "../../ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar"
 import { FileText, Users, Activity, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 interface ChildStats {
   totalDocuments: number

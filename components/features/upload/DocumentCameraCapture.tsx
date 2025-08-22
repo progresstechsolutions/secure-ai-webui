@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "../../ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog"
+import { Badge } from "../../ui/badge"
 import { Camera, RotateCcw, Check, ArrowLeft, ArrowRight, FileText, Upload } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 interface DocumentCameraCaptureProps {
   isOpen: boolean

@@ -1,17 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { useDocuments } from "@/contexts/document-context"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from "../../ui/button"
+import { Card, CardContent } from "../../ui/card"
+import { Badge } from "../../ui/badge"
+import { Input } from "../../ui/input"
+import { Label } from "../../ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../../ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../../ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../ui/dropdown-menu"
+import { useDocuments } from "../../../contexts/document-context"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useToast } from "../../../hooks/use-toast"
 import {
   Folder,
   FolderOpen,
@@ -34,8 +34,8 @@ import {
   BookOpen,
   Grid,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import type { Folder as FolderType } from "@/contexts/document-context"
+import { cn } from "../../../lib/utils"
+import type { Folder as FolderType } from "../../../contexts/document-context"
 
 interface FolderSidebarProps {
   selectedFolderId: string | null

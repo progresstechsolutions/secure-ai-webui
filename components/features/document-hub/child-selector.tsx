@@ -1,9 +1,9 @@
 "use client"
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { useChildProfile } from "@/contexts/child-profile-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
+import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar"
+import { Badge } from "../../ui/badge"
+import { useChildProfile } from "../../../contexts/child-profile-context"
 import { User } from "lucide-react"
 
 export function ChildSelector() {

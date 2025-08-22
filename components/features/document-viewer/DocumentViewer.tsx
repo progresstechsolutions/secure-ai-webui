@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog"
 import { DocumentTabs } from "./DocumentTabs"
 import { DocumentToolbar } from "./DocumentToolbar"
-import type { Document } from "@/contexts/document-context"
+import type { Document } from "../../../contexts/document-context"
 
 interface DocumentViewerProps {
   document: Document

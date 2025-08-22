@@ -1,22 +1,22 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useDocuments } from "@/contexts/document-context"
-import { useToast } from "@/hooks/use-toast"
-import { DocumentViewer } from "@/components/features/document-viewer/DocumentViewer"
-import { FolderSidebar } from "@/components/features/folders/FolderSidebar"
-import { MoveDocumentModal } from "@/components/features/folders/MoveDocumentModal"
-import { DeleteDocumentDialog } from "@/components/features/documents/DeleteDocumentDialog"
-import { RecoverDocumentDialog } from "@/components/features/documents/RecoverDocumentDialog"
-import { AddTaggingModal } from "@/components/features/documents/AddTaggingModal"
+import { Button } from "../../ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Badge } from "../../ui/badge"
+import { Input } from "../../ui/input"
+import { Label } from "../../ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "../../ui/dropdown-menu"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useDocuments } from "../../../contexts/document-context"
+import { useToast } from "../../../hooks/use-toast"
+import { DocumentViewer } from "../../features/document-viewer/DocumentViewer"
+import { FolderSidebar } from "../../features/folders/FolderSidebar"
+import { MoveDocumentModal } from "../../features/folders/MoveDocumentModal"
+import { DeleteDocumentDialog } from "../../features/documents/DeleteDocumentDialog"
+import { RecoverDocumentDialog } from "../../features/documents/RecoverDocumentDialog"
+import { AddTaggingModal } from "../../features/documents/AddTaggingModal"
 import {
   AlertCircle,
   Filter,
@@ -40,8 +40,8 @@ import {
   Plus,
   Tag,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import type { Document } from "@/contexts/document-context"
+import { cn } from "../../../lib/utils"
+import type { Document } from "../../../contexts/document-context"
 
 export function DocumentsTab() {
   const { activeChild } = useChildProfile()

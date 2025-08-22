@@ -1,15 +1,8 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import Google from "next-auth/providers/google"
 import { compare } from "bcryptjs"
-import { z } from "zod"
 
-// User schema for validation
-const UserSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  username: z.string().min(3).max(20),
-})
+
 
 // Mock user database (replace with real database later)
 const users = [
@@ -43,10 +36,6 @@ const users = [
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
     Credentials({
       name: "credentials",
       credentials: {
@@ -106,5 +95,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt"
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
 })

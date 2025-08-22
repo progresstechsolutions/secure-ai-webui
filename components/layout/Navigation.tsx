@@ -1,12 +1,12 @@
 "use client"
 
-import { Button } from "@/components/atoms/Button/Button"
-import { Avatar } from "@/components/atoms/Avatar/Avatar"
-import { useAuth } from "@/contexts/auth-context"
-import { useChildProfile } from "@/contexts/child-profile-context"
+import { Button } from "../atoms/Button/Button"
+import { Avatar } from "../atoms/Avatar/Avatar"
+import { useAuth } from "../../contexts/auth-context"
+import { useChildProfile } from "../../contexts/child-profile-context"
 import { FileText, Users, LogOut, Menu, X, ChevronDown } from "lucide-react"
 import { useState } from "react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils"
 
 type ActiveView = "documents" | "patient-management"
 

@@ -1,10 +1,10 @@
 "use client"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs"
 import { RawDocumentView } from "./RawDocumentView"
 import { AISummaryView } from "./AISummaryView"
 import { KeyHighlightsView } from "./KeyHighlightsView"
-import type { Document } from "@/contexts/document-context"
+import type { Document } from "../../../contexts/document-context"
 
 interface DocumentTabsProps {
   document: Document

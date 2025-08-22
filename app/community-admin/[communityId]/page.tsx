@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
+import { Badge } from "../../../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { 
   Users, 
   MessageSquare, 
@@ -54,7 +54,8 @@ function isUserAdminOfCommunity(user: { userKey?: string; username?: string }, c
 }
 
 export default function CommunityAdminPage() {
-  const { communityId } = useParams();
+  const params = useParams();
+  const communityId = params?.communityId as string;
   const router = useRouter();
   const [community, setCommunity] = useState<any>(null);
   const [editMode, setEditMode] = useState(false);

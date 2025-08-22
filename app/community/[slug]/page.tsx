@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { CommunityFeed } from "@/components/community-feed"
+import { CommunityFeed } from "../../../components/community-feed"
 
 interface CommunityPageProps {
   params: Promise<{

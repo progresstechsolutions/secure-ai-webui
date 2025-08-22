@@ -1,5 +1,5 @@
 import { User } from "lucide-react"
-import { useProfilePicture } from "@/hooks/use-profile-picture"
+import { useProfilePicture } from "../../hooks/use-profile-picture"
 
 interface UserAvatarProps {
   username?: string

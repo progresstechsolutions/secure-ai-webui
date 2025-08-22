@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useChildProfile } from "@/contexts/child-profile-context"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Button } from "../../ui/button"
+import { Badge } from "../../ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip"
+import { useChildProfile } from "../../../contexts/child-profile-context"
 import { AddEditChildModal } from "./AddEditChildModal"
 import { DeleteChildModal } from "./DeleteChildModal"
 import { InviteParentModal } from "./InviteParentModal"
@@ -22,7 +22,7 @@ import {
   UserPlus,
   Share2,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 interface ManageChildrenProps {
   children: any[]

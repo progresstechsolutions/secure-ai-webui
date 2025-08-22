@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/atoms/Button/Button"
-import { useAISuggestions } from "@/hooks/useAISuggestions"
+import { Button } from "../../atoms/Button/Button"
+import { useAISuggestions } from "../../../hooks/useAISuggestions"
 import { Sparkles, RefreshCw } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 interface TagSuggestionsProps {
   fileName: string

@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Badge } from "./ui/badge"
+import { Input } from "./ui/input"
+import { Textarea } from "./ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "./ui/dialog"
 import { ArrowLeft, MessageSquare, User, Heart, ThumbsUp, Eye, Clock, Flag, Video, Plus, TrendingUp, Users, Activity, Bookmark, Share2, MoreHorizontal, Filter, Search, Copy, Check, Twitter, Facebook, Linkedin, X } from "lucide-react"
 import { CreatePostModal } from "./create-post-modal"
-import { logUserActivity } from "@/lib/utils"
+import { logUserActivity } from "../lib/utils"
 
 interface CommunityFeedProps {
   communitySlug: string

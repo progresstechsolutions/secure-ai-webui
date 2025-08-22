@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react"
-import { LabeledInput } from "@/components/molecules/LabeledInput/LabeledInput"
+import { LabeledInput } from "../../components/molecules/LabeledInput/LabeledInput"
 import { Mail, User } from "lucide-react"
 
 const meta: Meta<typeof LabeledInput> = {

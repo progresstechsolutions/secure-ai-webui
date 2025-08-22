@@ -3,18 +3,18 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
+import { Button } from "../../../components/ui/button"
+import { Card, CardContent } from "../../../components/ui/card"
+import { Badge } from "../../../components/ui/badge"
+import { Textarea } from "../../../components/ui/textarea"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu"
-import { mockCommunities } from "@/components/mock-community-data"
+} from "../../../components/ui/dropdown-menu"
+import { mockCommunities } from "../../../components/mock-community-data"
 import {
   Heart,
   Users,

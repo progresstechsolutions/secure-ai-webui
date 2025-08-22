@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "../../ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
 import { RotateCcw, CheckCircle } from "lucide-react"
-import { useDocuments } from "@/contexts/document-context"
-import { useToast } from "@/hooks/use-toast"
+import { useDocuments } from "../../../contexts/document-context"
+import { useToast } from "../../../hooks/use-toast"
 
 interface RecoverDocumentDialogProps {
   isOpen: boolean

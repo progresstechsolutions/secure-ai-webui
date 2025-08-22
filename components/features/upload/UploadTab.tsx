@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useDocuments } from "@/contexts/document-context"
-import DocumentUpload from "@/components/features/upload/DocumentUpload"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Button } from "../../ui/button"
+import { Badge } from "../../ui/badge"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useDocuments } from "../../../contexts/document-context"
+import DocumentUpload from "../../features/upload/DocumentUpload"
 import {
   Upload,
   FileText,

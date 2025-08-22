@@ -3,15 +3,15 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "./ui/button"
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog"
+import { Textarea } from "./ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { ImageIcon, Video, User, X, Check, Eye, EyeOff } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { logUserActivity } from "@/lib/utils"
-import { useProfilePicture } from "@/hooks/use-profile-picture"
-import { UserAvatar } from "@/components/ui/user-avatar"
+import { useToast } from "../hooks/use-toast"
+import { logUserActivity } from "../lib/utils"
+import { useProfilePicture } from "../hooks/use-profile-picture"
+import { UserAvatar } from "./ui/user-avatar"
 
 interface CreatePostModalProps {
   open: boolean

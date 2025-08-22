@@ -1,6 +1,6 @@
 "use client"
 
-import { DMInbox } from "@/components/dm-conversation"
+import { DMInbox } from "../../components/dm-conversation"
 
 export default function MessagesPage() {
   // For now, we'll handle this as a client component

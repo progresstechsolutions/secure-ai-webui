@@ -2,15 +2,15 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Button } from "@/components/atoms/Button/Button"
-import { LabeledInput } from "@/components/molecules/LabeledInput/LabeledInput"
-import { Avatar } from "@/components/atoms/Avatar/Avatar"
-import { Tag } from "@/components/atoms/Tag/Tag"
-import { Modal } from "@/components/ui/Modal"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "../../atoms/Button/Button"
+import { LabeledInput } from "../../molecules/LabeledInput/LabeledInput"
+import { Avatar } from "../../atoms/Avatar/Avatar"
+import { Tag } from "../../atoms/Tag/Tag"
+import { Modal } from "../../ui/Modal"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select"
 import { User, Calendar, Heart, Plus, Users } from "lucide-react"
 import { AvatarUploadModal } from "./AvatarUploadModal"
-import type { Child } from "@/contexts/child-profile-context"
+import type { Child } from "../../../contexts/child-profile-context"
 
 interface AddEditChildModalProps {
   isOpen: boolean

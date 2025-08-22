@@ -1,6 +1,6 @@
 "use client"
 
-import { GlobalHeader } from "@/components/global-header"
+import { GlobalHeader } from "../global-header"
 
 interface PageLayoutProps {
   children: React.ReactNode

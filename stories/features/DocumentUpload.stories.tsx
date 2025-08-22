@@ -1,10 +1,10 @@
 "use client"
 
 import type { Meta, StoryObj } from "@storybook/react"
-import DocumentUpload from "@/components/features/upload/DocumentUpload"
-import { AuthProvider } from "@/contexts/auth-context"
-import { ChildProfileProvider } from "@/contexts/child-profile-context"
-import { DocumentProvider } from "@/contexts/document-context"
+import DocumentUpload from "../../components/features/upload/DocumentUpload"
+import { AuthProvider } from "../../contexts/auth-context"
+import { ChildProfileProvider } from "../../contexts/child-profile-context"
+import { DocumentProvider } from "../../contexts/document-context"
 
 const meta: Meta<typeof DocumentUpload> = {
   title: "Features/DocumentUpload",

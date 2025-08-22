@@ -1,9 +1,9 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { Button } from "../../ui/button"
+import { Separator } from "../../ui/separator"
 import { Download, PrinterIcon as Print, Share2, ZoomIn, ZoomOut, Type, X, Bookmark, Highlighter } from "lucide-react"
-import type { Document } from "@/contexts/document-context"
+import type { Document } from "../../../contexts/document-context"
 
 interface DocumentToolbarProps {
   document: Document

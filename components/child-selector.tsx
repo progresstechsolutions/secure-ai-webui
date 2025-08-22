@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { Button } from "@/components/ui/button"
+import { useChildProfile } from "../contexts/child-profile-context"
+import { Button } from "./ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,11 +10,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+} from "./ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { ChevronDownIcon, PlusIcon } from "lucide-react"
-import type { Child } from "@/components/features/manage-children/ManageChildren" // Corrected import path
-import { AddEditChildModal } from "@/components/features/manage-children/AddEditChildModal"
+import type { Child } from "../features/manage-children/ManageChildren" // Corrected import path
+import { AddEditChildModal } from "../features/manage-children/AddEditChildModal"
 
 export function ChildSelector() {
   const { children, activeChild, setActiveChild, addChild } = useChildProfile()

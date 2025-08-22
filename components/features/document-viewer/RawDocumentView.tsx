@@ -1,8 +1,8 @@
 "use client"
 
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card } from "@/components/ui/card"
-import type { Document } from "@/contexts/document-context"
+import { ScrollArea } from "../../ui/scroll-area"
+import { Card } from "../../ui/card"
+import type { Document } from "../../../contexts/document-context"
 
 interface RawDocumentViewProps {
   document: Document

@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence } from "framer-motion"
 
 // UI Components
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserAvatar } from "@/components/ui/user-avatar"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Input } from "./ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
+import { UserAvatar } from "./ui/user-avatar"
 
 // Icons
 import {
@@ -34,14 +34,14 @@ import {
 import { PostDetail } from "./post-detail"
 import { CreatePostModal } from "./create-post-modal"
 import { GlobalHeader } from "./global-header"
-import { CreateCommunityModal } from "@/components/create-community-modal"
+import { CreateCommunityModal } from "./create-community-modal"
 
 // Hooks
-import { useProfilePicture } from "@/hooks/use-profile-picture"
+import { useProfilePicture } from "../hooks/use-profile-picture"
 
 // Types and Data
-import type { Community as CommunityType, Post as PostType } from "@/components/mock-community-data"
-import { mockCommunities, basePosts } from "@/components/mock-community-data"
+import type { Community as CommunityType, Post as PostType } from "./mock-community-data"
+import { mockCommunities, basePosts } from "./mock-community-data"
 
 /**
  * CommunityHome - Main community hub and feed for the app.

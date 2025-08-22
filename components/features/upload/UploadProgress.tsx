@@ -1,7 +1,7 @@
 "use client"
 
 import { CheckCircle, AlertCircle, Upload } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 interface UploadProgressProps {
   totalFiles: number

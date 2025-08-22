@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/atoms/Button/Button"
-import { Avatar } from "@/components/atoms/Avatar/Avatar"
-import { Modal } from "@/components/ui/Modal"
+import { Button } from "../../atoms/Button/Button"
+import { Avatar } from "../../atoms/Avatar/Avatar"
+import { Modal } from "../../ui/Modal"
 import { AlertTriangle, FileText, Folder } from "lucide-react"
-import type { Child } from "@/contexts/child-profile-context"
+import type { Child } from "../../../contexts/child-profile-context"
 
 interface DeleteChildModalProps {
   isOpen: boolean

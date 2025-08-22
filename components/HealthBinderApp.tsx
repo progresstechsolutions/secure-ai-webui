@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { HamburgerNavigation } from "@/components/layout/HamburgerNavigation"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { UploadTab } from "@/components/features/upload/UploadTab"
-import { DocumentsTab } from "@/components/features/documents/DocumentsTab"
-import { DashboardTab } from "@/components/features/dashboard/DashboardTab"
-import { ManageChildren } from "@/components/features/manage-children/ManageChildren"
-import { Toaster } from "@/components/ui/toaster"
+import { HamburgerNavigation } from "../layout/HamburgerNavigation"
+import { useChildProfile } from "../contexts/child-profile-context"
+import { UploadTab } from "../features/upload/UploadTab"
+import { DocumentsTab } from "../features/documents/DocumentsTab"
+import { DashboardTab } from "../features/dashboard/DashboardTab"
+import { ManageChildren } from "../features/manage-children/ManageChildren"
+import { Toaster } from "./ui/toaster"
 
 export default function HealthBinderApp() {
   const [activeTab, setActiveTab] = useState("dashboard")

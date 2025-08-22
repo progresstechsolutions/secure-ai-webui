@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react"
-import { DocumentViewer } from "@/components/features/document-viewer/DocumentViewer"
-import type { Document } from "@/contexts/document-context"
+import { DocumentViewer } from "../../components/features/document-viewer/DocumentViewer"
+import type { Document } from "../../contexts/document-context"
 
 const meta: Meta<typeof DocumentViewer> = {
   title: "Features/DocumentViewer",

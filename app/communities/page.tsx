@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { mockCommunities } from "@/components/mock-community-data"
-import type { Community as CommunityType } from "@/components/mock-community-data"
-import { CommunityManagement } from "@/components/community-management"
+import { mockCommunities } from "../../components/mock-community-data"
+import type { Community as CommunityType } from "../../components/mock-community-data"
+import { CommunityManagement } from "../../components/community-management"
 
 export default function CommunitiesPage() {
   const router = useRouter()

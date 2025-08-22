@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { CustomLogo } from "@/components/ui/CustomLogo"
+import { Button } from "../ui/button"
+import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet"
+import { Badge } from "../ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
+import { useChildProfile } from "../../contexts/child-profile-context"
+import { CustomLogo } from "../ui/CustomLogo"
 import {
   Menu,
   Upload,

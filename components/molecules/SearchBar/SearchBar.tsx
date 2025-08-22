@@ -1,10 +1,10 @@
 "use client"
 
 import React from "react"
-import { Input } from "@/components/atoms/Input/Input"
-import { Button } from "@/components/atoms/Button/Button"
+import { Input } from "../../atoms/Input/Input"
+import { Button } from "../../atoms/Button/Button"
 import { Search, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 export interface SearchBarProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   onClear?: () => void

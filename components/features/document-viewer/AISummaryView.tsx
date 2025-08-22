@@ -1,10 +1,10 @@
 "use client"
 
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "../../ui/scroll-area"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Badge } from "../../ui/badge"
 import { Sparkles, Calendar, FileText, Tag } from "lucide-react"
-import type { Document } from "@/contexts/document-context"
+import type { Document } from "../../../contexts/document-context"
 
 interface AISummaryViewProps {
   document: Document

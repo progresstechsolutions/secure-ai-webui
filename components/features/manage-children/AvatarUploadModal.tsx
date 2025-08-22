@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "../../ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar"
 import { Camera, Upload, RotateCcw, Move, RotateCw, X } from "lucide-react"
 
 interface AvatarUploadModalProps {

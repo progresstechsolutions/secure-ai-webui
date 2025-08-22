@@ -3,12 +3,12 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Button } from "@/components/atoms/Button/Button"
-import { Tag } from "@/components/atoms/Tag/Tag"
-import { Avatar } from "@/components/atoms/Avatar/Avatar"
+import { Button } from "../../atoms/Button/Button"
+import { Tag } from "../../atoms/Tag/Tag"
+import { Avatar } from "../../atoms/Avatar/Avatar"
 import { TagSuggestions } from "./TagSuggestions"
 import { FileText, ImageIcon, X, AlertCircle, CheckCircle, Clock, Plus } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 import type { UploadFile } from "./DocumentUpload"
 
 interface FilePreviewProps {

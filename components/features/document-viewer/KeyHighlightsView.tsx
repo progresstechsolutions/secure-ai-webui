@@ -1,13 +1,13 @@
 "use client"
 
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { ScrollArea } from "../../ui/scroll-area"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Badge } from "../../ui/badge"
+import { Button } from "../../ui/button"
+import { Textarea } from "../../ui/textarea"
 import { useState } from "react"
 import { Star, Plus, Edit3, Save, X, AlertCircle, CheckCircle, Clock, Stethoscope } from "lucide-react"
-import type { Document } from "@/contexts/document-context"
+import type { Document } from "../../../contexts/document-context"
 
 interface KeyHighlightsViewProps {
   document: Document

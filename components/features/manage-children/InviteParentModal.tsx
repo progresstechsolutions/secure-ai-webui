@@ -2,14 +2,14 @@
 
 import type React from "react"
 import { useState } from "react"
-import { Button } from "@/components/atoms/Button/Button"
-import { LabeledInput } from "@/components/molecules/LabeledInput/LabeledInput"
-import { Avatar } from "@/components/atoms/Avatar/Avatar"
-import { Tag } from "@/components/atoms/Tag/Tag"
-import { Radio } from "@/components/atoms/Radio/Radio"
-import { Modal } from "@/components/ui/Modal"
+import { Button } from "../../atoms/Button/Button"
+import { LabeledInput } from "../../molecules/LabeledInput/LabeledInput"
+import { Avatar } from "../../atoms/Avatar/Avatar"
+import { Tag } from "../../atoms/Tag/Tag"
+import { Radio } from "../../atoms/Radio/Radio"
+import { Modal } from "../../ui/Modal"
 import { Mail, Eye, Settings, Users } from "lucide-react"
-import type { Child } from "@/contexts/child-profile-context"
+import type { Child } from "../../../contexts/child-profile-context"
 
 interface InviteParentModalProps {
   isOpen: boolean

@@ -1,10 +1,10 @@
 "use client"
 
-import { useChildProfile } from "@/contexts/child-profile-context"
-import { useDocuments } from "@/contexts/document-context"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { useChildProfile } from "../../../contexts/child-profile-context"
+import { useDocuments } from "../../../contexts/document-context"
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card"
+import { Badge } from "../../ui/badge"
+import { Button } from "../../ui/button"
 import {
   FileText,
   Upload,
@@ -25,7 +25,7 @@ import {
   Plus,
   Settings,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 export function DashboardTab() {
   const { activeChild } = useChildProfile()

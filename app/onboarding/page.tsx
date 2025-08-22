@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { UserAvatar } from "@/components/ui/user-avatar"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent } from "../../components/ui/card"
+import { Label } from "../../components/ui/label"
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
+import { Checkbox } from "../../components/ui/checkbox"
+import { Input } from "../../components/ui/input"
+import { UserAvatar } from "../../components/ui/user-avatar"
 import { Heart, MapPin, Activity, ArrowRight, ArrowLeft, Search, Camera, User, Mail, AtSign } from "lucide-react"
 
 const healthConditions = [

@@ -1,11 +1,11 @@
 "use client"
 
 import React from "react"
-import { Avatar } from "@/components/atoms/Avatar/Avatar"
-import { Tag } from "@/components/atoms/Tag/Tag"
-import { Button } from "@/components/atoms/Button/Button"
+import { Avatar } from "../../atoms/Avatar/Avatar"
+import { Tag } from "../../atoms/Tag/Tag"
+import { Button } from "../../atoms/Button/Button"
 import { FileText, Download, Eye, MoreVertical, Calendar } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "../../../lib/utils"
 
 export interface DocumentCardProps extends React.HTMLAttributes<HTMLDivElement> {
   document: {
