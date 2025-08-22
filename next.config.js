@@ -9,10 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Set default port for development
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
+  // External packages configuration
+  serverExternalPackages: [],
 }
 
 module.exports = nextConfig

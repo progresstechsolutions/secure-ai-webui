@@ -328,7 +328,8 @@ export default function DocumentUpload({ isOpen, onClose }: DocumentUploadProps)
       formData.append('file', file)
       formData.append('documentId', documentId)
       
-      const res = await fetch('/api/summarize', {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${API_BASE_URL}/summarize`, {
         method: 'POST',
         body: formData,
       })
