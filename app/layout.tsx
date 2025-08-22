@@ -2,38 +2,21 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-<<<<<<< HEAD
-=======
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "../components/theme-provider"
 import { SessionProvider } from "next-auth/react"
-import { Toaster } from "@/components/ui/toaster"
-import { NotificationProvider } from "@/contexts/notification-context"
->>>>>>> origin/Bishwas
+import { Toaster } from "../components/ui/toaster"
+import { NotificationProvider } from "../contexts/notification-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-<<<<<<< HEAD
-      title: "HealthBinder - Patient Management",
-  description: "Manage your children's medical document profiles",
-    generator: 'v0.dev'
-=======
-  title: "Caregene",
-  description: "A community platform for rare genetic conditions",
+  title: "Secure AI WebUI",
+  description: "A modern web interface for secure document analysis and AI chat",
   generator: 'v0.dev'
->>>>>>> origin/Bishwas
 }
 
 export default function RootLayout({
   children,
-<<<<<<< HEAD
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
-=======
 }: Readonly<{
   children: React.ReactNode
 }>) {
@@ -49,7 +32,6 @@ export default function RootLayout({
           </NotificationProvider>
         </SessionProvider>
       </body>
->>>>>>> origin/Bishwas
     </html>
   )
 }
