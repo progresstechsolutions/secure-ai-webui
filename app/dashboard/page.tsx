@@ -2,7 +2,8 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import CommunityHome from "@/components/community-home"
+import CommunityHome from "../../components/community-home"
+import ApiTest from "../../components/ApiTest"
 
 interface DashboardUser {
   id: string
@@ -66,5 +67,10 @@ export default function DashboardPage() {
     location: user.location
   }
 
-  return <CommunityHome user={communityHomeUser} />
+  return (
+    <div>
+      <ApiTest />
+      <CommunityHome user={communityHomeUser} />
+    </div>
+  )
 }
