@@ -5,6 +5,18 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "regions": ["iad1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "develop": true
+    },
+    "productionBranch": "develop",
+    "deploymentEnabled": {
+      "main": false,
+      "develop": true,
+      "feature/*": true
+    }
+  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
