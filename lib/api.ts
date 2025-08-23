@@ -41,6 +41,8 @@ class ApiService {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     
+    console.log('🌐 API Request:', { url, baseUrl: this.baseUrl, endpoint })
+    
     const defaultOptions: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -48,21 +50,31 @@ class ApiService {
       },
     }
 
-    const response = await fetch(url, {
-      ...defaultOptions,
-      ...options,
-    })
+    try {
+      const response = await fetch(url, {
+        ...defaultOptions,
+        ...options,
+      })
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+      console.log('📡 API Response:', { status: response.status, ok: response.ok })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+      }
+
+      return response.json()
+    } catch (error) {
+      console.error('❌ API Error:', error)
+      throw error
     }
-
-    return response.json()
   }
 
   // Health check
   async healthCheck(): Promise<{ status: string }> {
-    return this.request<{ status: string }>(endpoints.health)
+    console.log('🏥 Health check requested')
+    const result = await this.request<{ status: string }>(endpoints.health)
+    console.log('🏥 Health check result:', result)
+    return result
   }
 
   // Upload document and ask question
