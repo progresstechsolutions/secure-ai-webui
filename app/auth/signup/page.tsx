@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Label } from "../../../components/ui/label"
 import { Alert, AlertDescription } from "../../../components/ui/alert"
 import { Eye, EyeOff, Heart, Mail, Lock, User } from "lucide-react"
+import { useAuth } from "../../../hooks/useAuth"
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -19,9 +20,8 @@ export default function SignUpPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
   const router = useRouter()
+  const { signUp, isLoading, error, clearError } = useAuth()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -32,73 +32,31 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    clearError()
 
     // Basic validation
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
+      return // Error will be handled by the hook
     }
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters")
-      setIsLoading(false)
-      return
+      return // Error will be handled by the hook
     }
 
     try {
-      // Store comprehensive user data for the application
-      const newUser = {
-        id: `user_${Date.now()}`,
+      const success = await signUp({
         email: formData.email,
         username: formData.username,
-        password: formData.password, // Note: In production, never store plain text passwords
-        hasCompletedOnboarding: false,
-        registrationDate: new Date().toISOString(),
-        signupData: {
-          email: formData.email,
-          username: formData.username,
-          createdAt: new Date().toISOString()
-        },
-        profile: {
-          displayName: formData.username,
-          profileImage: null,
-          isProfileComplete: false
-        }
-      }
-      
-      // Store user data with multiple keys for different application needs
-      localStorage.setItem('signup_user', JSON.stringify(newUser))
-      localStorage.setItem('user_profile', JSON.stringify(newUser.profile))
-      localStorage.setItem('user_credentials', JSON.stringify({
-        email: formData.email,
-        username: formData.username,
-        userId: newUser.id
-      }))
-      localStorage.setItem('onboardingData', JSON.stringify({
-        email: formData.email,
-        username: formData.username,
-        displayName: formData.username
-      }))
-      
-      // Log successful data storage for debugging
-      console.log('User data stored successfully:', {
-        userId: newUser.id,
-        email: formData.email,
-        username: formData.username
+        password: formData.password,
+        name: formData.username
       })
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Redirect to profile onboarding first
-      router.push("/onboarding")
+      if (success) {
+        // Redirect to profile onboarding first
+        router.push("/onboarding")
+      }
     } catch (error) {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setIsLoading(false)
+      console.error("Sign up error:", error)
     }
   }
 

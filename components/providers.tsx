@@ -1,15 +1,15 @@
 "use client"
 
-import { SessionProvider } from "next-auth/react"
 import { ThemeProvider } from "./theme-provider"
 import { NotificationProvider } from "../contexts/notification-context"
+import { AuthProvider } from "../contexts/auth-context"
 import { ChildProfileProvider } from "../contexts/child-profile-context"
 import { DocumentProvider } from "../contexts/document-context"
 import { Toaster } from "./ui/toaster"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <AuthProvider>
       <NotificationProvider>
         <ChildProfileProvider>
           <DocumentProvider>
@@ -20,6 +20,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           </DocumentProvider>
         </ChildProfileProvider>
       </NotificationProvider>
-    </SessionProvider>
+    </AuthProvider>
   )
 } 

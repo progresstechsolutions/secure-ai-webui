@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { signIn, getSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "../../../components/ui/button"
@@ -10,30 +9,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Label } from "../../../components/ui/label"
 import { Alert, AlertDescription } from "../../../components/ui/alert"
 import { Eye, EyeOff, Heart, Mail, Lock } from "lucide-react"
+import { useAuth } from "../../../hooks/useAuth"
 
 export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
   const router = useRouter()
+  const { signIn, isLoading, error, clearError } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    clearError()
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        setError("Invalid email or password")
-      } else {
+      const success = await signIn({ email, password })
+      
+      if (success) {
         // Check if user needs to complete onboarding
         const completedUser = localStorage.getItem('completed_user')
         if (!completedUser && email !== 'test1@gmail.com') {
@@ -45,14 +37,13 @@ export default function SignInPage() {
         }
       }
     } catch (error) {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setIsLoading(false)
+      console.error("Sign in error:", error)
     }
   }
 
   const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl: "/dashboard" })
+    // TODO: Implement Google OAuth with Railway backend
+    alert("Google OAuth will be implemented with Railway backend")
   }
 
   return (
