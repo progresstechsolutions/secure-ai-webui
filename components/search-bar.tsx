@@ -8,23 +8,128 @@ import { Input } from "@/components/ui/input"
 import { Plus, Mic, Send } from "lucide-react"
 
 export function SearchBar() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
-  const pathname = usePathname()
+  // Format messages for backend
+  type ChatMessage = { role: string; content: string };
+  function formatMessagesForVLLM(messages: ChatMessage[]): { role: string; content: { type: string; text: string }[] }[] {
+    return messages.map(({ role, content }) => ({
+      role,
+      content: [{ type: 'text', text: content }],
+    }));
+  }
 
-  const isSearchPage = pathname === "/search"
+  // Chat history state for context (optional, can be expanded)
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'system', content: 'You are a helpful assistant.' },
+  ]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const pathname = usePathname();
 
+  const isSearchPage = pathname === "/search";
+
+  // Document upload handler
   const handleFileUpload = () => {
-    fileInputRef.current?.click()
-  }
+    fileInputRef.current?.click();
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      // Example chat history, replace with your actual state if needed
+      const messages = JSON.stringify([
+        { role: "user", content: [{ type: "text", text: searchQuery || "" }] }
+      ]);
+      formData.append("messages", messages);
+  const res = await fetch("http://localhost:8000/upload-and-ask", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      alert(data.answer || "Upload successful!");
+    } catch (err) {
+      alert("Error uploading file");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  // Voice input handler
+  const handleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      alert("Speech recognition not supported in this browser.");
+      return;
+    }
+    setIsRecording(true);
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchQuery(transcript);
+      setIsRecording(false);
+    };
+    recognition.onerror = () => {
+      setIsRecording(false);
+      alert("Voice recognition error.");
+    };
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+    recognition.start();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+  console.log('handleSubmit called');
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    // Add user message to chat history
+    const userMsg = { role: 'user', content: searchQuery.trim() };
+    const updatedHistory = [...chatHistory, userMsg];
+    setChatHistory(updatedHistory);
+    setSearchQuery("");
+    // File upload logic (if you want to support file uploads, add file state)
+    // For now, only chat (no file upload)
+    try {
+      // --- CHAT ONLY FLOW ---
+      const res = await fetch("http://localhost:8000/upload-and-ask", {
+        method: "POST",
+        body: (() => {
+          const formData = new FormData();
+          formData.append("messages", JSON.stringify(formatMessagesForVLLM(updatedHistory)));
+          return formData;
+        })(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setChatHistory(prev => [...prev, { role: 'assistant', content: data.detail || data.error || "Query failed" }]);
+        alert(data.detail || data.error || "Query failed");
+        return;
+      }
+      if (data.answer) {
+        setChatHistory(prev => [...prev, { role: 'assistant', content: data.answer }]);
+        alert(`Answer: ${data.answer}`);
+      } else {
+        setChatHistory(prev => [...prev, { role: 'assistant', content: "Query successful, but no answer returned." }]);
+        alert("Query successful, but no answer returned.");
+      }
+    } catch (err: any) {
+      setChatHistory(prev => [...prev, { role: 'assistant', content: err?.message || "Error sending query" }]);
+      alert(err?.message || "Error sending query");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed bottom-3 sm:bottom-4 md:bottom-6 lg:bottom-8 xl:bottom-10 left-1/2 transform -translate-x-1/2 w-full max-w-[280px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl px-3 sm:px-4 md:px-4 lg:px-6 z-50">
@@ -69,6 +174,7 @@ export function SearchBar() {
             size="sm"
             onClick={handleFileUpload}
             className="ml-3 p-2 rounded-full hover:bg-gray-50 text-gray-600"
+            disabled={loading}
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -79,13 +185,16 @@ export function SearchBar() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 border-0 bg-transparent px-4 py-3 text-xs leading-relaxed focus:ring-0 focus:outline-none placeholder:text-gray-400 placeholder:text-xs min-h-[48px]"
+            disabled={loading}
           />
 
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="mr-3 p-2 rounded-full hover:bg-gray-50 text-gray-600"
+            onClick={handleVoiceInput}
+            className={`mr-3 p-2 rounded-full hover:bg-gray-50 text-gray-600 ${isRecording ? "bg-primary/10" : ""}`}
+            disabled={loading || isRecording}
           >
             <Mic className="h-4 w-4" />
           </Button>
@@ -96,6 +205,7 @@ export function SearchBar() {
               variant="ghost"
               size="sm"
               className="mr-3 p-2 rounded-full hover:bg-gray-50 text-gray-600"
+              disabled={loading}
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -107,13 +217,7 @@ export function SearchBar() {
           type="file"
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.txt"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) {
-              console.log("File selected:", file.name)
-              // Handle file upload
-            }
-          }}
+          onChange={handleFileChange}
         />
       </form>
     </div>
