@@ -1,15 +1,28 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { Button } from "./ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Badge } from "./ui/badge"
-import { Input } from "./ui/input"
-import { Textarea } from "./ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "./ui/dialog"
-import { ArrowLeft, MessageSquare, User, Heart, ThumbsUp, Eye, Clock, Flag, Video, Plus, TrendingUp, Users, Activity, Bookmark, Share2, MoreHorizontal, Filter, Search, Copy, Check, Twitter, Facebook, Linkedin, X } from "lucide-react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { ArrowLeft, MessageSquare, Heart, Eye, Clock, Plus, TrendingUp, Users, Share2, MoreHorizontal, Filter, Search, Copy, Check, Twitter, Facebook, Linkedin, X, MapPin, Tag, Lock, Globe, Sparkles, Settings, Star } from "lucide-react"
 import { CreatePostModal } from "./create-post-modal"
-import { logUserActivity } from "../lib/utils"
+import { PostDetail } from "./post-detail"
+import { logUserActivity } from "@/lib/utils"
+import { apiClient, Community, Post } from "@/lib/api-client"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useCommunityWithPosts } from "@/hooks/use-api"
+
+// Helper function to get full image URL
+const getImageUrl = (imagePath: string) => {
+  if (imagePath.startsWith('http')) {
+    return imagePath // Already a full URL
+  }
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001'
+  return `${BACKEND_URL}${imagePath}`
+}
 
 interface CommunityFeedProps {
   communitySlug: string
@@ -17,465 +30,206 @@ interface CommunityFeedProps {
   user: any
 }
 
-const initialMockPosts = [
-  {
-    id: "1",
-    caption: "It's been a challenging road since our daughter's Phelan-McDermid Syndrome diagnosis. Looking for others who have been through similar experiences.",
-    author: "ParentOfWarrior",
-    timestamp: "2 hours ago",
-    reactions: { heart: 12, thumbsUp: 8, thinking: 2, eyes: 15 },
-    commentCount: 7,
-    anonymous: false,
-    images: ["/placeholder.svg?height=200&width=300"],
-    videos: [],
-    community: "pms-support",
-    comments: [
-      {
-        id: "c1",
-        content: "So sorry to hear that. My son was diagnosed last year. It gets easier, I promise. Reach out if you need to talk.",
-        author: "SupportiveMom",
-        timestamp: "1 hour ago",
-        replies: [],
-      },
-    ],
-  },
-  {
-    id: "2",
-    caption: "What communication therapies have you found most effective for individuals with Rett Syndrome? We're exploring new options.",
-    author: "RettAdvocate",
-    timestamp: "4 hours ago",
-    tags: ["Rett Syndrome", "therapy", "communication"],
-    reactions: { heart: 23, thumbsUp: 15, thinking: 3, eyes: 45 },
-    commentCount: 12,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "rett-syndrome-support",
-    comments: [],
-  },
-  {
-    id: "3",
-    caption: "New research on Fragile X treatments - Exciting news from the latest conference! Sharing a summary of promising new research directions for Fragile X Syndrome.",
-    author: "ScienceGeek",
-    timestamp: "6 hours ago",
-    tags: ["Fragile X", "research", "treatment"],
-    reactions: { heart: 34, thumbsUp: 28, thinking: 1, eyes: 67 },
-    commentCount: 18,
-    anonymous: false,
-    images: ["/placeholder.svg?height=200&width=300", "/placeholder.svg?height=200&width=300"],
-    videos: [],
-    community: "fragile-x-support",
-    comments: [],
-  },
-  {
-    id: "4",
-    caption: "Managing sleep issues with Angelman Syndrome - Our child with Angelman Syndrome struggles with sleep. Any tips or strategies that have worked for your family?",
-    author: "SleepyParent",
-    timestamp: "8 hours ago",
-    tags: ["Angelman Syndrome", "sleep", "parenting"],
-    reactions: { heart: 18, thumbsUp: 12, thinking: 8, eyes: 32 },
-    commentCount: 24,
-    anonymous: true,
-    images: [],
-    videos: [],
-    community: "angelman-support",
-    comments: [],
-  },
-  {
-    id: "5",
-    caption: "Celebrating a milestone: First independent steps! After years of therapy, our son with Prader-Willi Syndrome took his first independent steps today! So proud! 🎉",
-    author: "ProudPWParent",
-    timestamp: "12 hours ago",
-    tags: ["Prader-Willi", "milestone", "progress"],
-    reactions: { heart: 89, thumbsUp: 67, thinking: 2, eyes: 134 },
-    commentCount: 45,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "prader-willi-support",
-    comments: [],
-  },
-  {
-    id: "6",
-    caption: "Inclusive activities for kids with Down Syndrome - Looking for ideas for inclusive summer activities in our area for children with Down Syndrome. Any recommendations?",
-    author: "InclusiveMom",
-    timestamp: "1 day ago",
-    tags: ["Down Syndrome", "activities", "inclusion"],
-    reactions: { heart: 15, thumbsUp: 22, thinking: 12, eyes: 38 },
-    commentCount: 16,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "down-syndrome-support",
-    comments: [],
-  },
-  {
-    id: "7",
-    caption: "Cystic Fibrosis diet tips and recipes - Sharing some high-calorie, nutrient-dense recipes that have been great for managing CF. What are your go-to meals?",
-    author: "CFChef",
-    timestamp: "1 day ago",
-    tags: ["Cystic Fibrosis", "diet", "nutrition"],
-    reactions: { heart: 20, thumbsUp: 18, thinking: 5, eyes: 50 },
-    commentCount: 10,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "cystic-fibrosis-support",
-    comments: [],
-  },
-  {
-    id: "8",
-    caption: "Living with Sickle Cell: Managing pain crises - For those with Sickle Cell Anemia, what are your most effective strategies for managing pain crises at home?",
-    author: "SickleCellStrong",
-    timestamp: "2 days ago",
-    tags: ["Sickle Cell Anemia", "pain management", "coping"],
-    reactions: { heart: 25, thumbsUp: 30, thinking: 10, eyes: 60 },
-    commentCount: 20,
-    anonymous: true,
-    images: [],
-    videos: [],
-    community: "sickle-cell-anemia-support",
-    comments: [],
-  },
-  {
-    id: "9",
-    caption: "Huntington's Disease research updates - Attended a webinar on the latest breakthroughs in Huntington's Disease research. Feeling hopeful about the future!",
-    author: "HDHope",
-    timestamp: "3 days ago",
-    tags: ["Huntington's Disease", "research", "hope"],
-    reactions: { heart: 40, thumbsUp: 35, thinking: 3, eyes: 80 },
-    commentCount: 15,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "huntingtons-disease-support",
-    comments: [],
-  },
-  {
-    id: "10",
-    caption: "SMA treatment journey: Zolgensma experience - Sharing our family's experience with Zolgensma for SMA Type 1. It's been a long road but seeing progress.",
-    author: "SMAFamily",
-    timestamp: "1 day ago",
-    tags: ["SMA", "Zolgensma", "treatment"],
-    reactions: { heart: 30, thumbsUp: 25, thinking: 7, eyes: 70 },
-    commentCount: 11,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "sma-support",
-    comments: [],
-  },
-  {
-    id: "11",
-    caption: "Batten Disease: Early symptoms and diagnosis - Concerned about potential early symptoms of Batten Disease in our child. What were your experiences with diagnosis?",
-    author: "WorriedParent",
-    timestamp: "2 days ago",
-    tags: ["Batten Disease", "symptoms", "diagnosis"],
-    reactions: { heart: 15, thumbsUp: 10, thinking: 5, eyes: 25 },
-    commentCount: 8,
-    anonymous: true,
-    images: [],
-    videos: [],
-    community: "batten-disease-support",
-    comments: [],
-  },
-  {
-    id: "12",
-    caption: "Tay-Sachs: Navigating genetic testing results - Just received our genetic testing results for Tay-Sachs. Feeling overwhelmed. Any advice on next steps?",
-    author: "NewParent",
-    timestamp: "1 day ago",
-    tags: ["Tay-Sachs", "genetic testing", "diagnosis"],
-    reactions: { heart: 22, thumbsUp: 18, thinking: 6, eyes: 40 },
-    commentCount: 9,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "tay-sachs-support",
-    comments: [],
-  },
-  {
-    id: "13",
-    caption: "Enzyme replacement therapy for Gaucher Disease - Sharing my experience with enzyme replacement therapy for Type 1 Gaucher Disease. It's made a huge difference.",
-    author: "GaucherWarrior",
-    timestamp: "3 days ago",
-    tags: ["Gaucher Disease", "treatment", "ERT"],
-    reactions: { heart: 28, thumbsUp: 20, thinking: 4, eyes: 55 },
-    commentCount: 14,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "gaucher-disease-support",
-    comments: [],
-  },
-  {
-    id: "14",
-    caption: "MSUD diet management: low-leucine recipes - Looking for creative and tasty low-leucine recipes for Maple Syrup Urine Disease. Share your favorites!",
-    author: "MSUDChef",
-    timestamp: "1 day ago",
-    tags: ["MSUD", "diet", "recipes"],
-    reactions: { heart: 18, thumbsUp: 15, thinking: 3, eyes: 30 },
-    commentCount: 10,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "msud-support",
-    comments: [],
-  },
-  {
-    id: "15",
-    caption: "PKU formula challenges for toddlers - My toddler with PKU is refusing their formula. Any tips or tricks to make it more palatable?",
-    author: "PKUMom",
-    timestamp: "2 days ago",
-    tags: ["PKU", "toddler", "formula"],
-    reactions: { heart: 20, thumbsUp: 12, thinking: 8, eyes: 35 },
-    commentCount: 16,
-    anonymous: true,
-    images: [],
-    videos: [],
-    community: "pku-support",
-    comments: [],
-  },
-  {
-    id: "16",
-    caption: "General discussion: Advocating for rare diseases - What are effective ways to advocate for rare genetic conditions in your local community or at a national level?",
-    author: "RareDiseaseVoice",
-    timestamp: "4 days ago",
-    tags: ["advocacy", "rare disease", "genetic conditions"],
-    reactions: { heart: 30, thumbsUp: 25, thinking: 7, eyes: 70 },
-    commentCount: 11,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "general-genetic-conditions",
-    comments: [],
-  },
-  {
-    id: "17",
-    caption: "Coping with a new diagnosis of a rare genetic condition - Just received a diagnosis for a very rare genetic condition. Feeling lost and overwhelmed. How do you cope with the emotional toll?",
-    author: "SeekingSupport",
-    timestamp: "5 hours ago",
-    tags: ["new diagnosis", "emotional support", "rare disease"],
-    reactions: { heart: 45, thumbsUp: 30, thinking: 10, eyes: 80 },
-    commentCount: 25,
-    anonymous: true,
-    images: [],
-    videos: [],
-    community: "general-genetic-conditions",
-    comments: [],
-  },
-  {
-    id: "18",
-    caption: "Sharing resources for undiagnosed genetic conditions - For those still on the diagnostic journey, I've compiled a list of resources that helped us. Happy to share!",
-    author: "DiagnosticJourney",
-    timestamp: "1 day ago",
-    tags: ["undiagnosed", "resources", "genetic testing"],
-    reactions: { heart: 38, thumbsUp: 28, thinking: 5, eyes: 60 },
-    commentCount: 15,
-    anonymous: false,
-    images: [],
-    videos: [],
-    community: "general-genetic-conditions",
-    comments: [],
-  },
-]
-
-// Add a type guard at the top of the file:
-function hasBioAndConditions(obj: any): obj is { bio: string; conditions: string[] } {
-  return typeof obj === 'object' && obj !== null && 'bio' in obj && 'conditions' in obj && Array.isArray(obj.conditions);
-}
-
 export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProps) {
-  const [posts, setPosts] = useState<any[]>([])
+  // Use the new hook for fetching community data and posts
+  const { community: communityData, posts, isJoined, loading, error, refetch } = useCommunityWithPosts(communitySlug)
+  
+  // UI state
   const [userReactions, setUserReactions] = useState<Record<string, string>>({})
   const [showCreatePostModal, setShowCreatePostModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "trending">("recent")
-  const [isJoined, setIsJoined] = useState(false)
   const [shareModal, setShareModal] = useState<{ open: boolean; post: any | null }>({ open: false, post: null })
   const [copiedLink, setCopiedLink] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<string | null>(null)
+  const [selectedPostData, setSelectedPostData] = useState<Post | null>(null)
 
-  // Debug shareModal state
-  console.log('Share modal state:', shareModal)
+  // Helper function to extract user reactions from posts
+  const extractUserReactions = useCallback((posts: Post[], currentUser: any): Record<string, string> => {
+    const reactions: Record<string, string> = {}
+    
+    posts.forEach(post => {
+      if (post.reactions && Array.isArray(post.reactions)) {
+        const userReaction = post.reactions.find((reaction: any) => 
+          reaction.user && (reaction.user.id === currentUser?.id || reaction.user.id === currentUser?.userId)
+        )
+        
+        if (userReaction) {
+          // Map backend reaction types to frontend types
+          const frontendTypeMap: Record<string, string> = {
+            'love': 'heart',
+            'like': 'thumbsUp', 
+            'laugh': 'hope'
+          }
+          reactions[post._id] = frontendTypeMap[userReaction.type] || userReaction.type
+        }
+      }
+    })
+    
+    return reactions
+  }, [])
 
-  // Community info mock (could be fetched in real app)
-  const communityInfo = useMemo(() => {
-    const map: Record<string, { name: string; description: string; memberCount: number; color: string }> = {
-      "pms-support": { name: "PMS Support", description: "A supportive community for people managing Phelan-McDermid Syndrome", memberCount: 850, color: "bg-blue-100 text-blue-800" },
-      "rett-syndrome-support": { name: "Rett Syndrome Community", description: "Connecting families and individuals affected by Rett Syndrome", memberCount: 620, color: "bg-purple-100 text-purple-800" },
-      "fragile-x-support": { name: "Fragile X Forum", description: "Discussions and resources for Fragile X Syndrome", memberCount: 710, color: "bg-green-100 text-green-800" },
-      "angelman-support": { name: "Angelman Syndrome Connect", description: "Support and information for Angelman Syndrome", memberCount: 480, color: "bg-yellow-100 text-yellow-800" },
-      "prader-willi-support": { name: "Prader-Willi Life", description: "Navigating life with Prader-Willi Syndrome", memberCount: 350, color: "bg-orange-100 text-orange-800" },
-      "down-syndrome-support": { name: "Down Syndrome Network", description: "A community for individuals and families with Down Syndrome", memberCount: 1500, color: "bg-pink-100 text-pink-800" },
-      "cystic-fibrosis-support": { name: "Cystic Fibrosis Warriors", description: "Fighting CF together, sharing experiences and support", memberCount: 920, color: "bg-teal-100 text-teal-800" },
-      "sickle-cell-anemia-support": { name: "Sickle Cell Strong", description: "Empowering those with Sickle Cell Anemia", memberCount: 550, color: "bg-red-100 text-red-800" },
-      "huntingtons-disease-support": { name: "Huntington's Hope", description: "Support and research for Huntington's Disease", memberCount: 280, color: "bg-indigo-100 text-indigo-800" },
-      "sma-support": { name: "SMA Family Support", description: "Connecting families affected by Spinal Muscular Atrophy", memberCount: 400, color: "bg-lime-100 text-lime-800" },
-      "batten-disease-support": { name: "Batten Disease Alliance", description: "A community for support and advocacy for Batten Disease", memberCount: 180, color: "bg-rose-100 text-rose-800" },
-      "tay-sachs-support": { name: "Tay-Sachs Connect", description: "Support and resources for Tay-Sachs Disease families.", memberCount: 120, color: "bg-cyan-100 text-cyan-800" },
-      "gaucher-disease-support": { name: "Gaucher Disease Community", description: "A place for individuals and families with Gaucher Disease.", memberCount: 200, color: "bg-amber-100 text-amber-800" },
-      "msud-support": { name: "MSUD Support Group", description: "Connecting those affected by Maple Syrup Urine Disease.", memberCount: 90, color: "bg-fuchsia-100 text-fuchsia-800" },
-      "pku-support": { name: "PKU Life", description: "Living with Phenylketonuria: tips, recipes, and support.", memberCount: 300, color: "bg-emerald-100 text-emerald-800" },
-      "general-genetic-conditions": { name: "General Genetic Conditions", description: "A broad community for various genetic conditions", memberCount: 2500, color: "bg-gray-100 text-gray-800" },
-    }
-    return map[communitySlug] || { name: communitySlug, description: "A rare disease community", memberCount: 0, color: "bg-gray-100 text-gray-800" }
-  }, [communitySlug])
-
-  // Check if user is already in the community
+  // Update user reactions when posts change
   useEffect(() => {
-    try {
-      const userCommunities = JSON.parse(localStorage.getItem('user_communities') || '[]')
-      const isAlreadyMember = userCommunities.includes(communitySlug)
-      setIsJoined(isAlreadyMember)
-    } catch (error) {
-      console.error('Error checking community membership:', error)
-      // Default to not joined if there's an error
-      setIsJoined(false)
+    if (posts.length > 0) {
+      const reactions = extractUserReactions(posts, user)
+      setUserReactions(reactions)
+      console.log("🎯 User reactions extracted:", reactions)
     }
-  }, [communitySlug, user])
+  }, [posts, user, extractUserReactions])
 
   // Handle joining the community
-  const handleJoinCommunity = () => {
+  const handleJoinCommunity = async () => {
+    if (!communityData) return
+    
     try {
-      const userCommunities = JSON.parse(localStorage.getItem('user_communities') || '[]')
+      console.log("🌐 API Call: Joining community:", (communityData as Community).slug)
+      const joinResponse = await apiClient.joinCommunity((communityData as Community)._id)
       
-      // Check if already joined to prevent duplicates
-      if (!userCommunities.includes(communitySlug)) {
-        const updatedCommunities = [...userCommunities, communitySlug]
-        localStorage.setItem('user_communities', JSON.stringify(updatedCommunities))
-        logUserActivity(`Joined community: ${communityInfo.name}`)
+      if (joinResponse.error) {
+        console.error("Failed to join community:", joinResponse.error)
+        return
       }
       
-      // Always set joined state to true when button is clicked
-      setIsJoined(true)
+      // Refresh data to get updated member count and membership status
+      refetch()
+      
     } catch (error) {
-      console.error('Error joining community:', error)
-      // Still set as joined in UI even if localStorage fails
-      setIsJoined(true)
+      console.log("❌ Error joining community:", error)
     }
   }
 
-  useEffect(() => {
-    // Filter mock posts and user posts based on the communitySlug
-    const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
-    const filteredMock = initialMockPosts.filter((post) => post.community === communitySlug)
-    const filteredUser = userPosts.filter((post: any) => post.community === communitySlug)
-    
-    let allPosts = [...filteredUser, ...filteredMock]
+  // Helper function to format relative time
+  const formatRelativeTime = (timestamp: string): string => {
+    const now = new Date()
+    const postDate = new Date(timestamp)
+    const diffInMilliseconds = now.getTime() - postDate.getTime()
+    const diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60))
+    const diffInHours = Math.floor(diffInMilliseconds / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMilliseconds / (1000 * 60 * 60 * 24))
+
+    if (diffInMinutes < 1) return "Just now"
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    if (diffInDays === 1) return "1 day ago"
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7)
+      return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`
+    }
+    if (diffInDays < 365) {
+      const months = Math.floor(diffInDays / 30)
+      return months === 1 ? "1 month ago" : `${months} months ago`
+    }
+    const years = Math.floor(diffInDays / 365)
+    return years === 1 ? "1 year ago" : `${years} years ago`
+  }
+
+  // Filter and sort posts when dependencies change
+  const filteredAndSortedPosts = useMemo(() => {
+    let filteredPosts = posts
     
     // Apply search filter
     if (searchTerm) {
-      allPosts = allPosts.filter(post => {
-        const searchText = (post.caption || '').toLowerCase()
-        return searchText.includes(searchTerm.toLowerCase())
+      filteredPosts = posts.filter((post: Post) => {
+        const searchText = (post.content || '').toLowerCase()
+        const titleText = ((post as any).caption || post.title || '').toLowerCase()
+        const authorText = (post.author?.name || '').toLowerCase()
+        const searchLower = searchTerm.toLowerCase()
+        
+        return searchText.includes(searchLower) || 
+               titleText.includes(searchLower) || 
+               authorText.includes(searchLower)
       })
     }
     
     // Apply sorting
+    const sortedPosts = [...filteredPosts]
     if (sortBy === "popular") {
-      allPosts.sort((a, b) => {
-        const aScore = Object.values(a.reactions).reduce((sum: number, val: any) => sum + val, 0)
-        const bScore = Object.values(b.reactions).reduce((sum: number, val: any) => sum + val, 0)
+      sortedPosts.sort((a, b) => {
+        const aScore = a.stats?.totalReactions || 0
+        const bScore = b.stats?.totalReactions || 0
         return bScore - aScore
       })
     } else if (sortBy === "trending") {
-      allPosts.sort((a, b) => b.commentCount - a.commentCount)
+      sortedPosts.sort((a, b) => {
+        const aScore = (a.stats?.totalReactions || 0) + (a.stats?.totalComments || 0)
+        const bScore = (b.stats?.totalReactions || 0) + (b.stats?.totalComments || 0)
+        return bScore - aScore
+      })
+    } else {
+      // Recent - sort by creation date
+      sortedPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     }
-    // "recent" is default order
     
-    setPosts(allPosts)
-  }, [communitySlug, searchTerm, sortBy])
+    return sortedPosts
+  }, [posts, searchTerm, sortBy])
+
+  // Memoize post creation handler
+  const handlePostCreated = useCallback(() => {
+    // Refresh posts from API
+    refetch()
+  }, [refetch])
 
   // Listen for post creation events to refresh the feed
   useEffect(() => {
-    const handlePostCreated = () => {
-      console.log("Post created event received in community feed, refreshing...")
-      // Force refresh by re-running the post filtering logic
-      const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
-      const filteredMock = initialMockPosts.filter((post) => post.community === communitySlug)
-      const filteredUser = userPosts.filter((post: any) => post.community === communitySlug)
-      
-      let allPosts = [...filteredUser, ...filteredMock]
-      
-      // Apply current filters
-      if (searchTerm) {
-        allPosts = allPosts.filter(post => {
-          const searchText = (post.caption || '').toLowerCase()
-          return searchText.includes(searchTerm.toLowerCase())
-        })
-      }
-      
-      // Apply current sorting
-      if (sortBy === "popular") {
-        allPosts.sort((a, b) => {
-          const aScore = Object.values(a.reactions).reduce((sum: number, val: any) => sum + val, 0)
-          const bScore = Object.values(b.reactions).reduce((sum: number, val: any) => sum + val, 0)
-          return bScore - aScore
-        })
-      } else if (sortBy === "trending") {
-        allPosts.sort((a, b) => b.commentCount - a.commentCount)
-      }
-      
-      setPosts(allPosts)
-    }
-
     window.addEventListener("post-created", handlePostCreated)
-    
     return () => {
       window.removeEventListener("post-created", handlePostCreated)
     }
-  }, [communitySlug, searchTerm, sortBy])
-
-  // Top contributors (by post count)
-  const topContributors = useMemo(() => {
-    const userCount: Record<string, number> = {}
-    posts.forEach(post => { userCount[post.author] = (userCount[post.author] || 0) + 1 })
-    return Object.entries(userCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([author]) => author)
-  }, [posts])
-
-  // Featured post (most reactions)
-  const featuredPost = useMemo(() => {
-    if (posts.length === 0) return null
-    return posts.reduce((max, post) => {
-      const maxScore: number = (Object.values(max.reactions) as number[]).reduce((a, b) => a + b, 0)
-      const postScore: number = (Object.values(post.reactions) as number[]).reduce((a, b) => a + b, 0)
-      return postScore > maxScore ? post : max
-    }, posts[0])
-  }, [posts])
+  }, [handlePostCreated])
 
   // Add post handler
   const handleAddPost = (newPost: any) => {
-    const postWithComments = {
+    const postWithMetadata = {
       ...newPost,
-      comments: [],
-      community: communitySlug,
+      community: { slug: communitySlug, name: (communityData as Community)?.title || communitySlug },
     }
-    // Save to localStorage user_posts
-    const userPosts = JSON.parse(localStorage.getItem('user_posts') || '[]')
-    localStorage.setItem('user_posts', JSON.stringify([postWithComments, ...userPosts]))
-    setPosts((prev) => [postWithComments, ...prev])
     
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('post-created', { detail: postWithComments }))
-    
+    // Refresh posts from API after creation
+    refetch()
     setShowCreatePostModal(false)
   }
 
   // Reaction handler with activity logging
-  const handleReaction = (postId: string, reactionType: string) => {
-    setUserReactions((prev) => ({ ...prev, [postId]: reactionType }))
-    const post = posts.find((p) => p.id === postId)
-    if (post) {
-      const content = post.caption || 'Untitled post'
-      logUserActivity(`Reacted with ${reactionType} to post: "${content}"`)
+  const handleReaction = async (postId: string, reactionType: string) => {
+    try {
+      const currentReaction = userReactions[postId]
+      const isRemoving = currentReaction === reactionType
+      
+      // Update local state immediately for better UX
+      setUserReactions((prev) => ({ 
+        ...prev, 
+        [postId]: isRemoving ? "" : reactionType 
+      }))
+      
+      // Make API call
+      if (isRemoving) {
+        await apiClient.removeReactionFromPost(postId)
+      } else {
+        await apiClient.addReactionToPost(postId, reactionType as any)
+      }
+      
+      // Update local posts state to reflect new reaction count
+      refetch() // Use refetch to update the posts array in the hook
+      
+      const post = posts.find((p: Post) => p._id === postId)
+      if (post) {
+        const content = (post as any).caption || post.content || 'Untitled post'
+        logUserActivity(`Reacted with ${reactionType} to post: "${content}"`)
+      }
+    } catch (error) {
+      console.log("❌ Error updating reaction:", error)
+      // Revert local state on error
+      setUserReactions((prev) => ({ ...prev, [postId]: userReactions[postId] }))
     }
-    // You can add your existing reaction logic here if needed
   }
 
   // Share handler
-  const handleShare = (post: any) => {
-    console.log('Share button clicked for post:', post.id)
+  const handleShare = (post: Post) => {
+    console.log('Share button clicked for post:', post._id)
     setShareModal({ open: true, post })
-    const content = post.caption || 'Untitled post'
+    const content = (post as any).caption || post.content || 'Untitled post'
     logUserActivity(`Opened share modal for post: "${content}"`)
   }
 
@@ -501,11 +255,41 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     }
   }
 
+  // Handle post click to open detail modal
+  const handlePostClick = (post: Post) => {
+    setSelectedPost(post._id)
+    setSelectedPostData(post)
+  }
+
+  // Handle comment functionality for post detail
+  const handleAddComment = (postId: string, comment: any) => {
+    // Update local posts state with new comment
+    refetch() // Use refetch to update the posts array in the hook
+    
+    // Update selected post data if it's currently open
+    if (selectedPostData && selectedPostData._id === postId) {
+      setSelectedPostData(prev => prev ? {
+        ...prev,
+        comments: [...(prev.comments || []), comment],
+        stats: {
+          ...prev.stats,
+          totalComments: (prev.stats?.totalComments || 0) + 1
+        }
+      } : null)
+    }
+  }
+
+  // Handle reply functionality for post detail
+  const handleAddReply = (postId: string, commentId: string, reply: any) => {
+    // Update local posts state with new reply
+    refetch() // Use refetch to update the posts array in the hook
+  }
+
   // Social media share handlers
-  const handleSocialShare = (platform: string, post: any) => {
-    const postLink = `${window.location.origin}/community/${communitySlug}/post/${post.id}`
-    const content = post.caption || ''
-    const text = `Check out this post from ${communityInfo.name}: "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`
+  const handleSocialShare = (platform: string, post: Post) => {
+    const postLink = `${window.location.origin}/community/${communitySlug}/post/${post._id}`
+    const content = (post as any).caption || post.content || ''
+    const text = `Check out this post from ${communityData?.title || communitySlug}: "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`
     
     let shareUrl = ''
     
@@ -523,8 +307,39 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     
     if (shareUrl) {
       window.open(shareUrl, '_blank', 'width=600,height=400')
-      logUserActivity(`Shared post to ${platform}: ${post.id}`)
+      logUserActivity(`Shared post to ${platform}: ${post._id}`)
     }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
+          <span className="text-sm text-gray-500">Loading community...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !communityData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center max-w-md p-6">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="h-6 w-6 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Community not found</h3>
+          <p className="text-gray-600 mb-4">{error || "This community doesn't exist or you don't have access to it."}</p>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Go Back
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -575,15 +390,16 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
             </div>
             
             <div className="flex gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-3 py-2 border border-gray-200 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 md:flex-none"
-              >
-                <option value="recent">Recent</option>
-                <option value="popular">Popular</option>
-                <option value="trending">Trending</option>
-              </select>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger className="w-32 bg-white border-gray-200 text-sm">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Recent</SelectItem>
+                  <SelectItem value="popular">Popular</SelectItem>
+                  <SelectItem value="trending">Trending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -594,57 +410,68 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
         <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl overflow-hidden">
           <CardContent className="p-4 md:p-8">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
-              <div className="flex-1 mb-4 md:mb-6 lg:mb-0">
-                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 mb-4">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto sm:mx-0">
-                    <Users className="h-6 w-6 md:h-8 md:w-8 text-white" />
+              <div className="flex-1 mb-4 lg:mb-0">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Users className="h-6 w-6" />
                   </div>
-                  <div className="text-center sm:text-left">
-                    <h1 className="text-2xl md:text-4xl font-bold mb-2">{communityInfo.name}</h1>
-                    <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                      <Users className="h-3 w-3 mr-1" />
-                      {communityInfo.memberCount.toLocaleString()} members
-                    </Badge>
+                  <div>
+                    <h1 className="text-2xl md:text-4xl font-bold mb-1">{(communityData as Community).title}</h1>
+                    <div className="flex items-center gap-4 text-white/80 text-sm">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        {(communityData as Community).memberCount || 0} members
+                      </span>
+                      {(communityData as Community).location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {(communityData as Community).location.region}
+                          {(communityData as Community).location.state && `, ${(communityData as Community).location.state}`}
+                        </span>
+                      )}
+                      {(communityData as Community).isPrivate && (
+                        <span className="flex items-center gap-1">
+                          <Lock className="h-4 w-4" />
+                          Private
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                
-                <p className="text-blue-100 text-sm md:text-lg mb-3 md:mb-4 max-w-2xl text-center sm:text-left">
-                  {communityInfo.description}
+                <p className="text-white/90 mb-4 leading-relaxed max-w-2xl">
+                  {(communityData as Community).description}
                 </p>
                 
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 md:gap-6 text-xs md:text-sm">
-                  <div className="flex items-center space-x-1 md:space-x-2">
-                    <Activity className="h-3 w-3 md:h-4 md:w-4" />
-                    <span>{posts.length} posts</span>
-                  </div>
-                  <div className="flex items-center space-x-1 md:space-x-2">
-                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
-                    <span>Active community</span>
-                  </div>
-                  <div className="flex items-center space-x-1 md:space-x-2">
-                    <MessageSquare className="h-3 w-3 md:h-4 md:w-4" />
-                    <span>
-                      {posts.reduce((sum, post) => sum + post.commentCount, 0)} comments
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col items-center lg:items-end w-full lg:w-auto">
-                <div className="text-center lg:text-right mb-4">
-                  <span className="text-blue-200 text-xs md:text-sm font-medium block">Top Contributors</span>
-                  <div className="flex justify-center lg:justify-end -space-x-2 mt-2">
-                    {topContributors.slice(0, 5).map((author, idx) => (
-                      <div 
-                        key={author} 
-                        className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center border-2 border-white/20 text-white font-semibold text-xs md:text-sm shadow-lg hover:scale-110 transition-transform" 
-                        style={{ zIndex: 10 - idx }}
-                        title={author}
+                {/* Community Tags */}
+                {(communityData as Community).tags && (communityData as Community).tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {(communityData as Community).tags.map((tag, index) => (
+                      <Badge 
+                        key={index}
+                        variant="secondary" 
+                        className="bg-white/20 text-white border-white/30 hover:bg-white/30"
                       >
-                        {author[0].toUpperCase()}
-                      </div>
+                        <Tag className="h-3 w-3 mr-1" />
+                        {tag}
+                      </Badge>
                     ))}
                   </div>
+                )}
+                
+                {/* Community Stats */}
+                <div className="flex flex-wrap gap-4 text-sm text-white/80">
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="h-4 w-4" />
+                    {posts.length} posts
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-4 w-4" />
+                    {posts.reduce((sum, post) => sum + (post.stats?.totalComments || 0), 0)} comments
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Heart className="h-4 w-4" />
+                    {posts.reduce((sum, post) => sum + (post.stats?.totalReactions || 0), 0)} reactions
+                  </span>
                 </div>
               </div>
             </div>
@@ -652,281 +479,335 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
         </Card>
       </div>
 
-      {/* Enhanced Featured Post */}
-      {featuredPost && (
-        <div className="max-w-6xl mx-auto mb-6 md:mb-8 px-3 md:px-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-2">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full animate-pulse"></div>
-              <h3 className="text-base md:text-lg font-semibold text-gray-900">Featured Post</h3>
-              <Badge variant="secondary" className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 border-amber-200 text-xs">
-                ⭐ Trending
-              </Badge>
-            </div>
-            <div className="flex items-center space-x-2 text-xs md:text-sm text-gray-500">
-              <Eye className="h-3 w-3 md:h-4 md:w-4" />
-              <span>Most engaged</span>
-            </div>
-          </div>
-          
-          <Card className="group hover:shadow-2xl shadow-lg transition-all duration-300 ease-in-out rounded-xl border border-gray-200 bg-white overflow-hidden relative">
-            {/* Featured Badge */}
-            <div className="absolute top-3 md:top-4 right-3 md:right-4 z-10">
-              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg text-xs">
-                ⭐ Featured
-              </Badge>
-            </div>
-            
-            {/* Banner Image */}
-            {featuredPost.images && featuredPost.images.length > 0 && (
-              <div className="relative w-full h-48 md:h-64 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-                <img
-                  src={featuredPost.images[0]}
-                  alt="Post banner"
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-              </div>
-            )}
-            
-            <CardHeader className="pb-3 md:pb-4 p-3 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2 md:space-x-3 text-xs md:text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <User className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="font-medium">{featuredPost.anonymous ? "Anonymous" : featuredPost.author}</span>
-                  </div>
-                  <span>•</span>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-3 w-3 md:h-4 md:w-4" />
-                    <span>{featuredPost.timestamp}</span>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="pt-0 p-3 md:p-6 md:pt-0">
-              <p className="text-gray-700 mb-4 leading-relaxed text-sm md:text-base">
-                {featuredPost.caption && featuredPost.caption.length > 200 ? `${featuredPost.caption.slice(0, 200)}...` : featuredPost.caption}
-                {featuredPost.caption && featuredPost.caption.length > 200 && (
-                  <button className="text-blue-600 hover:text-blue-700 font-medium ml-1 hover:underline">
-                    Read more
-                  </button>
-                )}
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-100 gap-3">
-                <div className="flex items-center space-x-3 md:space-x-6 overflow-x-auto">
-                  <button
-                    className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                      userReactions[featuredPost.id] === "heart" 
-                        ? "bg-red-50 text-red-600 border border-red-200" 
-                        : "text-gray-600 hover:bg-red-50 hover:text-red-600"
-                    }`}
-                    onClick={() => handleReaction(featuredPost.id, "heart")}
-                  >
-                    <Heart className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="font-medium text-xs md:text-sm">{featuredPost.reactions.heart}</span>
-                  </button>
-                  <button
-                    className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                      userReactions[featuredPost.id] === "thumbsUp" 
-                        ? "bg-blue-50 text-blue-600 border border-blue-200" 
-                        : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-                    }`}
-                    onClick={() => handleReaction(featuredPost.id, "thumbsUp")}
-                  >
-                    <ThumbsUp className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="font-medium text-xs md:text-sm">{featuredPost.reactions.thumbsUp}</span>
-                  </button>
-                  <button
-                    className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                      userReactions[featuredPost.id] === "eyes" 
-                        ? "bg-green-50 text-green-600 border border-green-200" 
-                        : "text-gray-600 hover:bg-green-50 hover:text-green-600"
-                    }`}
-                    onClick={() => handleReaction(featuredPost.id, "eyes")}
-                  >
-                    <Eye className="h-3 w-3 md:h-4 md:w-4" />
-                    <span className="font-medium text-xs md:text-sm">{featuredPost.reactions.eyes}</span>
-                  </button>
-                </div>
-                
-                <div className="flex items-center space-x-1 md:space-x-2 overflow-x-auto">
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 p-1 md:p-2">
-                    <MessageSquare className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                    <span className="text-xs md:text-sm">{featuredPost.commentCount}</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
-                    <Bookmark className="h-3 w-3 md:h-4 md:w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-gray-600 hover:text-gray-800 p-1 md:p-2"
-                    onClick={() => handleShare(featuredPost)}
-                  >
-                    <Share2 className="h-3 w-3 md:h-4 md:w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
-                    <MoreHorizontal className="h-3 w-3 md:h-4 md:w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Enhanced Posts Feed */}
+      {/* Posts Feed */}
       <div className="max-w-6xl mx-auto px-3 md:px-4 py-4 md:py-6">
-        {posts.length === 0 ? (
+        {filteredAndSortedPosts.length === 0 ? (
           <Card className="bg-white shadow-sm">
             <CardContent className="text-center py-12 md:py-16 px-4">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-gray-400" />
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="h-8 w-8 text-blue-600" />
               </div>
-              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
-                {searchTerm ? "No posts found" : "No posts in this community yet"}
-              </h3>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto text-sm md:text-base">
-                {searchTerm 
-                  ? "Try adjusting your search to find more content."
-                  : "Be the first to share something with this community!"
-                }
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No posts yet</h3>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                Be the first to share something with this community!
               </p>
-              {!searchTerm && (
-                <Button
-                  onClick={() => setShowCreatePostModal(true)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Post
-                </Button>
-              )}
+              <Button 
+                onClick={() => setShowCreatePostModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Post
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4 md:space-y-6">
             {/* Results header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 md:py-4 border-b border-gray-200 gap-2">
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <h2 className="text-base md:text-lg font-semibold text-gray-900">
-                  {searchTerm ? `Search results for "${searchTerm}"` : "Community Posts"}
+              <div className="flex items-center space-x-2">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Community Posts
                 </h2>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800 w-fit text-xs">
-                  {posts.filter(p => !featuredPost || p.id !== featuredPost.id).length} posts
+                <Badge variant="secondary" className="text-xs">
+                  {filteredAndSortedPosts.length}
                 </Badge>
               </div>
-              <div className="text-xs md:text-sm text-gray-500">
-                Sorted by {sortBy}
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Filter className="h-4 w-4" />
+                <span>Sorted by {sortBy}</span>
               </div>
             </div>
             
-            {posts.filter(p => !featuredPost || p.id !== featuredPost.id).map((post) => (
-              <Card
-                key={post.id}
-                className="group hover:shadow-lg shadow-sm transition-all duration-300 ease-in-out rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-blue-200"
-              >
-                {/* Banner Image */}
-                {post.images && post.images.length > 0 && (
-                  <div className="relative w-full h-40 md:h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-                    <img
-                      src={post.images[0]}
-                      alt="Post banner"
-                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent"></div>
-                  </div>
-                )}
-                
-                <CardHeader className="pb-2 md:pb-3 p-3 md:p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2 md:space-x-3 text-xs md:text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <User className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="font-medium">{post.anonymous ? "Anonymous" : post.author}</span>
+            {filteredAndSortedPosts.map((post) => {
+              // Calculate total reactions for engagement display
+              const getReactionScore = (post: Post) => {
+                return post.stats?.totalReactions || 0
+              }
+              
+              const totalReactions = getReactionScore(post)
+              
+              return (
+                <article
+                  key={post._id}
+                  className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                  onClick={(e) => {
+                    // Prevent opening modal if clicking on interactive elements
+                    const target = e.target as HTMLElement;
+                    if (target.tagName === 'BUTTON' || target.closest('button') || target.tagName === 'A' || target.closest('a')) {
+                      return;
+                    }
+                    handlePostClick(post);
+                  }}
+                >
+                  {/* Mobile-Optimized Post Header */}
+                  <div className="px-3 sm:px-4 py-3 sm:py-4 border-b border-gray-50">
+                    <div className="flex items-center space-x-3">
+                      {/* Avatar - Slightly smaller on mobile */}
+                      <div className="flex-shrink-0">
+                        <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
+                          <AvatarImage src={post.author.avatar || "/placeholder-user.jpg"} />
+                          <AvatarFallback>{(post.author.name || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
                       </div>
-                      <span>•</span>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-3 w-3 md:h-4 md:w-4" />
-                        <span>{post.timestamp}</span>
+                      
+                      {/* User Info - Responsive text */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-1 overflow-hidden">
+                          <h3 className="font-semibold text-gray-900 text-sm flex-shrink-0">
+                            {post.author.name || 'Anonymous'}
+                          </h3>
+                          <span className="text-gray-400 flex-shrink-0">•</span>
+                          <span className="text-blue-600 text-xs sm:text-sm font-medium truncate">
+                            {communityData?.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-xs text-gray-500 mt-0.5">
+                          <Clock className="h-3 w-3" />
+                          <time>{formatRelativeTime(post.createdAt)}</time>
+                        </div>
                       </div>
+                      
+                      {/* More Options - Larger touch target */}
+                      <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600 p-2 rounded-full touch-manipulation">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0 p-3 md:p-6 md:pt-0">
-                  <p className="text-gray-700 mb-4 leading-relaxed text-sm md:text-base">
-                    {post.caption && post.caption.length > 180 ? `${post.caption.slice(0, 180)}...` : post.caption}
-                    {post.caption && post.caption.length > 180 && (
-                      <button className="text-blue-600 hover:text-blue-700 font-medium ml-1 hover:underline">
-                        Read more
-                      </button>
-                    )}
-                  </p>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-100 gap-3">
-                    <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto">
-                      <button
-                        className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                          userReactions[post.id] === "heart" 
-                            ? "bg-red-50 text-red-600 border border-red-200" 
-                            : "text-gray-600 hover:bg-red-50 hover:text-red-600"
-                        }`}
-                        onClick={() => handleReaction(post.id, "heart")}
-                      >
-                        <Heart className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="font-medium text-xs md:text-sm">{post.reactions.heart}</span>
-                      </button>
-                      <button
-                        className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                          userReactions[post.id] === "thumbsUp" 
-                            ? "bg-blue-50 text-blue-600 border border-blue-200" 
-                            : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-                        }`}
-                        onClick={() => handleReaction(post.id, "thumbsUp")}
-                      >
-                        <ThumbsUp className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="font-medium text-xs md:text-sm">{post.reactions.thumbsUp}</span>
-                      </button>
-                      <button
-                        className={`flex items-center space-x-1 md:space-x-2 px-2 md:px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                          userReactions[post.id] === "eyes" 
-                            ? "bg-green-50 text-green-600 border border-green-200" 
-                            : "text-gray-600 hover:bg-green-50 hover:text-green-600"
-                        }`}
-                        onClick={() => handleReaction(post.id, "eyes")}
-                      >
-                        <Eye className="h-3 w-3 md:h-4 md:w-4" />
-                        <span className="font-medium text-xs md:text-sm">{post.reactions.eyes}</span>
-                      </button>
+                  {/* Post Content - Better mobile spacing */}
+                  {((post as any).caption || post.content) && ((post as any).caption || post.content).trim() && (
+                    <div className="px-3 sm:px-4 py-3">
+                      <p className="text-gray-900 text-sm leading-relaxed">
+                        {((post as any).caption || post.content).length > 200 ? (
+                          <>
+                            {((post as any).caption || post.content).slice(0, 200)}
+                            <span className="text-gray-500">... </span>
+                            <span className="text-blue-600 hover:text-blue-700 font-medium">
+                              See more
+                            </span>
+                          </>
+                        ) : (
+                          (post as any).caption || post.content
+                        )}
+                      </p>
                     </div>
+                  )}
+
+                  {/* Media */}
+                  {post.images && post.images.length > 0 && (
+                    <div className="relative">
+                      <div className={`${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
+                        {post.images.slice(0, 4).map((image, index) => (
+                          <div 
+                            key={index} 
+                            className="relative overflow-hidden"
+                          >
+                            <img
+                              src={getImageUrl(image)}
+                              alt={`Post image ${index + 1}`}
+                              className="w-full h-auto object-cover hover:opacity-95 transition-opacity"
+                              style={{ 
+                                maxHeight: post.images && post.images.length === 1 ? '400px' : '160px',
+                                aspectRatio: post.images && post.images.length === 1 ? 'auto' : '1'
+                              }}
+                            />
+                            {index === 3 && post.images && post.images.length > 4 && (
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                <span className="text-white text-lg font-semibold">+{post.images.length - 4}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Engagement Stats */}
+                  {(() => {
+                    const hasEngagement = totalReactions > 0 || (post.stats?.totalComments || 0) > 0
                     
-                    <div className="flex items-center space-x-1 md:space-x-2 overflow-x-auto">
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 p-1 md:p-2">
-                        <MessageSquare className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                        <span className="text-xs md:text-sm">{post.commentCount}</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
-                        <Bookmark className="h-3 w-3 md:h-4 md:w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-gray-600 hover:text-gray-800 p-1 md:p-2"
-                        onClick={() => handleShare(post)}
+                    return hasEngagement ? (
+                      <div className="px-4 py-2 border-b border-gray-50">
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          {totalReactions > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <div className="flex items-center -space-x-0.5">
+                                <div className="w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
+                                  <span className="text-[8px]">❤️</span>
+                                </div>
+                                <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                  <span className="text-[8px]">💪</span>
+                                </div>
+                              </div>
+                              <span className="ml-1">{totalReactions}</span>
+                            </div>
+                          )}
+                          {(post.stats?.totalComments || 0) > 0 && (
+                            <span className="hover:underline cursor-pointer">
+                              {post.stats?.totalComments} comment{post.stats?.totalComments !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : null
+                  })()}
+
+                  {/* Mobile-Optimized Action Buttons */}
+                  <div className="px-3 sm:px-4 py-3">
+                    <div className="flex items-center justify-around sm:justify-between">
+                      {/* Reaction Button - Optimized for touch */}
+                      <div className="relative">
+                        <button
+                          className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 touch-manipulation ${
+                            userReactions[post._id] 
+                              ? userReactions[post._id] === "heart" ? 'text-pink-600 bg-pink-50' :
+                                userReactions[post._id] === "thumbsUp" ? 'text-blue-600 bg-blue-50' :
+                                userReactions[post._id] === "hope" ? 'text-yellow-600 bg-yellow-50' :
+                                userReactions[post._id] === "hug" ? 'text-purple-600 bg-purple-50' :
+                                userReactions[post._id] === "grateful" ? 'text-green-600 bg-green-50' : 'text-pink-600 bg-pink-50'
+                              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100'
+                          }`}
+                          onClick={() => {
+                            const currentReaction = userReactions[post._id]
+                            if (currentReaction === "heart") {
+                              // If already hearted, remove reaction
+                              handleReaction(post._id, "heart")
+                            } else {
+                              // Otherwise, add heart reaction
+                              handleReaction(post._id, "heart")
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            // Show reaction picker on mobile long press
+                            const button = e.currentTarget;
+                            const touchTimer = setTimeout(() => {
+                              const picker = document.getElementById(`reaction-picker-${post._id}`)
+                              if (picker) picker.classList.remove('hidden')
+                            }, 500);
+                            (button as any)._touchTimer = touchTimer;
+                          }}
+                          onTouchEnd={(e) => {
+                            const button = e.currentTarget;
+                            if ((button as any)._touchTimer) {
+                              clearTimeout((button as any)._touchTimer);
+                              (button as any)._touchTimer = null;
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            if (window.innerWidth >= 768) {
+                              const button = e.currentTarget;
+                              const hoverTimer = setTimeout(() => {
+                                if (button.matches(':hover')) {
+                                  const picker = document.getElementById(`reaction-picker-${post._id}`)
+                                  if (picker) picker.classList.remove('hidden')
+                                }
+                              }, 800);
+                              (button as any)._hoverTimer = hoverTimer;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (window.innerWidth >= 768) {
+                              const button = e.currentTarget;
+                              if ((button as any)._hoverTimer) {
+                                clearTimeout((button as any)._hoverTimer);
+                                (button as any)._hoverTimer = null;
+                              }
+                              setTimeout(() => {
+                                const picker = document.getElementById(`reaction-picker-${post._id}`)
+                                if (picker && !picker.matches(':hover')) {
+                                  picker.classList.add('hidden')
+                                }
+                              }, 100)
+                            }
+                          }}
+                        >
+                          <span className="text-base sm:text-lg">
+                            {userReactions[post._id] === "heart" ? "❤️" : 
+                             userReactions[post._id] === "thumbsUp" ? "💪" :
+                             userReactions[post._id] === "hope" ? "🌟" :
+                             userReactions[post._id] === "hug" ? "🤗" :
+                             userReactions[post._id] === "grateful" ? "🙏" : "🤍"}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {userReactions[post._id] ? 
+                              (userReactions[post._id] === "heart" ? "Love" :
+                               userReactions[post._id] === "thumbsUp" ? "Strength" :
+                               userReactions[post._id] === "hope" ? "Hope" :
+                               userReactions[post._id] === "hug" ? "Hug" :
+                               userReactions[post._id] === "grateful" ? "Grateful" : "Love") 
+                              : "Love"
+                            }
+                          </span>
+                        </button>
+                        
+                        {/* Mobile-Optimized Reaction Picker */}
+                        <div 
+                          id={`reaction-picker-${post._id}`}
+                          className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg hidden z-50 p-2"
+                          onMouseEnter={() => {
+                            const picker = document.getElementById(`reaction-picker-${post._id}`)
+                            if (picker) picker.classList.remove('hidden')
+                          }}
+                          onMouseLeave={() => {
+                            const picker = document.getElementById(`reaction-picker-${post._id}`)
+                            if (picker) picker.classList.add('hidden')
+                          }}
+                          onTouchStart={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center space-x-1">
+                            {[
+                              { emoji: "❤️", type: "heart", label: "Love" },
+                              { emoji: "💪", type: "thumbsUp", label: "Strength" },
+                              { emoji: "🌟", type: "hope", label: "Hope" },
+                              { emoji: "🤗", type: "hug", label: "Hug" },
+                              { emoji: "🙏", type: "grateful", label: "Grateful" }
+                            ].map(({ emoji, type, label }) => (
+                              <button
+                                key={type}
+                                className="w-10 h-10 sm:w-8 sm:h-8 rounded-full hover:scale-125 transition-transform duration-200 flex items-center justify-center text-lg hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  handleReaction(post._id, type as string)
+                                  document.getElementById(`reaction-picker-${post._id}`)?.classList.add('hidden')
+                                }}
+                                title={label}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Comment Button - Mobile optimized */}
+                      <button 
+                        className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-manipulation"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePostClick(post);
+                        }}
                       >
-                        <Share2 className="h-3 w-3 md:h-4 md:w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800 p-1 md:p-2">
-                        <MoreHorizontal className="h-3 w-3 md:h-4 md:w-4" />
-                      </Button>
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="hidden sm:inline">Comment</span>
+                      </button>
+                      
+                      {/* Share Button - Mobile optimized */}
+                      <button 
+                        className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 touch-manipulation"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShare(post);
+                        }}
+                      >
+                        <Share2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Share</span>
+                      </button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </article>
+              )
+            })}
           </div>
         )}
       </div>
@@ -946,108 +827,99 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
           
           {shareModal.post && (
             <div className="space-y-4">
-              {/* Post Preview */}
-              <div className="p-3 bg-gray-50 rounded-lg border">
-                <div className="flex items-center space-x-2 mb-2">
-                  <User className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">
-                    {shareModal.post.anonymous ? "Anonymous" : shareModal.post.author}
-                  </span>
-                  <span className="text-xs text-gray-500">•</span>
-                  <span className="text-xs text-gray-500">{shareModal.post.timestamp}</span>
-                </div>
-                <p className="text-sm text-gray-600 line-clamp-2">
-                  {shareModal.post.caption?.length > 100 
-                    ? `${shareModal.post.caption.slice(0, 100)}...` 
-                    : shareModal.post.caption}
-                </p>
+              <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyLink(shareModal.post._id)}
+                  className="flex-1"
+                >
+                  {copiedLink ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                  {copiedLink ? "Copied!" : "Copy Link"}
+                </Button>
               </div>
 
-              {/* Copy Link Section */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Copy Link</label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    readOnly
-                    value={`${typeof window !== 'undefined' ? window.location.origin : ''}/community/${communitySlug}/post/${shareModal.post.id}`}
-                    className="flex-1 text-sm"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => handleCopyLink(shareModal.post.id)}
-                    className="px-3"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <Check className="h-4 w-4 mr-1" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 mr-1" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Social Media Share Buttons */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Share on Social Media</label>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSocialShare('twitter', shareModal.post)}
-                    className="flex-1"
-                  >
-                    <Twitter className="h-4 w-4 mr-2" />
-                    Twitter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSocialShare('facebook', shareModal.post)}
-                    className="flex-1"
-                  >
-                    <Facebook className="h-4 w-4 mr-2" />
-                    Facebook
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSocialShare('linkedin', shareModal.post)}
-                    className="flex-1"
-                  >
-                    <Linkedin className="h-4 w-4 mr-2" />
-                    LinkedIn
-                  </Button>
-                </div>
-              </div>
-
-              {/* Additional Share Options */}
-              <div className="pt-2 border-t">
-                <div className="text-xs text-gray-500 space-y-1">
-                  <p>• Link will direct to the post in {communityInfo.name}</p>
-                  <p>• Recipients can view the post and join the community</p>
-                  <p>• Your privacy settings will be respected</p>
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleSocialShare('twitter', shareModal.post)}
+                  className="flex flex-col items-center gap-2 h-auto py-3"
+                >
+                  <Twitter className="h-5 w-5" />
+                  <span className="text-xs">Twitter</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSocialShare('facebook', shareModal.post)}
+                  className="flex flex-col items-center gap-2 h-auto py-3"
+                >
+                  <Facebook className="h-5 w-5" />
+                  <span className="text-xs">Facebook</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSocialShare('linkedin', shareModal.post)}
+                  className="flex flex-col items-center gap-2 h-auto py-3"
+                >
+                  <Linkedin className="h-5 w-5" />
+                  <span className="text-xs">LinkedIn</span>
+                </Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {showCreatePostModal && (
-        <CreatePostModal
-           open={showCreatePostModal}
-          onOpenChange={setShowCreatePostModal}
-          availableCommunities={[{ name: communityInfo.name, slug: communitySlug }]}
-          communitySlug={communitySlug}
-          user={user}
-          onPostCreated={handleAddPost}
-        />
+      <CreatePostModal
+        open={showCreatePostModal}
+        onOpenChange={setShowCreatePostModal}
+        communityId={communityData._id}
+        communityName={communityData.title}
+        currentUser={{
+          name: user.name || "You",
+          avatar: user.avatar || "/placeholder-user.jpg"
+        }}
+        onPostCreated={handleAddPost}
+      />
+
+      {/* Post Detail Modal */}
+      {selectedPost && selectedPostData && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl relative">
+            {/* Close Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedPost(null);
+                setSelectedPostData(null);
+              }}
+              className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2"
+            >
+              <X className="h-6 w-6" />
+            </Button>
+
+            {/* Modal Content */}
+            <div className="max-h-[90vh] overflow-y-auto">
+              <PostDetail
+                post={selectedPostData}
+                onBack={() => {
+                  setSelectedPost(null);
+                  setSelectedPostData(null);
+                }}
+                user={user}
+                onAddComment={handleAddComment}
+                onAddReply={handleAddReply}
+                onReaction={(postId: string, reactionType: string) => {
+                  handleReaction(postId, reactionType);
+                }}
+                userReaction={userReactions[selectedPost] ? String(userReactions[selectedPost]) : ""}
+                userReactions={userReactions}
+                onReactionUpdate={(postId: string, reactionType: string) => handleReaction(postId, reactionType)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

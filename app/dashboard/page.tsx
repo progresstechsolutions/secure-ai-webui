@@ -1,9 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import CommunityHome from "../../components/community-home"
-import ApiTest from "../../components/ApiTest"
+import CommunityHome from "@/components/community-home"
 
 interface DashboardUser {
   id: string
@@ -19,31 +16,9 @@ interface DashboardUser {
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
-
-  // Check if user has completed onboarding
-  useEffect(() => {
-    const completedUser = localStorage.getItem('completed_user')
-    const pendingUser = localStorage.getItem('pending_user')
-    const onboardingData = localStorage.getItem('user_onboarding')
-    
-    if (!completedUser) {
-      if (pendingUser) {
-        // User completed profile but not guided onboarding
-        router.push('/onboarding/guided')
-      } else if (!onboardingData) {
-        // User hasn't started onboarding at all
-        router.push('/onboarding')
-      } else {
-        // User has onboarding data but no pending user, redirect to guided
-        router.push('/onboarding/guided')
-      }
-    }
-  }, [router])
-
   // For now, we'll use a mock user since we need client-side access
   // In a real app, you'd handle auth differently for client components
-  const user: DashboardUser = {
+  const user = {
     id: "current-user",
     email: "user@example.com",
     name: "Current User",
@@ -69,7 +44,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <ApiTest />
+      
       <CommunityHome user={communityHomeUser} />
     </div>
   )

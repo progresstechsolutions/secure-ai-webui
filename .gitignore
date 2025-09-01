@@ -25,7 +25,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# custom
+/backend/
 <<<<<<< HEAD
 certificates
+/pages/
 =======
 >>>>>>> origin/Bishwas

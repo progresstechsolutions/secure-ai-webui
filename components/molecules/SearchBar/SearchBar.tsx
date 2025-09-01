@@ -4,7 +4,8 @@ import React from "react"
 import { Input } from "../../atoms/Input/Input"
 import { Button } from "../../atoms/Button/Button"
 import { Search, X } from "lucide-react"
-import { cn } from "../../../lib/utils"
+import { cn } from "@/lib/utils"
+import { useDebouncedValue } from '@/hooks/use-api'
 
 export interface SearchBarProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   onClear?: () => void
@@ -14,6 +15,12 @@ export interface SearchBarProps extends Omit<React.InputHTMLAttributes<HTMLInput
 
 const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
   ({ className, onClear, showClearButton = true, onSearch, value, onChange, ...props }, ref) => {
+    const debouncedValue = useDebouncedValue(String(value ?? ''), 400)
+
+    React.useEffect(() => {
+      if (onSearch) onSearch(debouncedValue)
+    }, [debouncedValue, onSearch])
+
     const handleClear = () => {
       onClear?.()
       onSearch?.("")

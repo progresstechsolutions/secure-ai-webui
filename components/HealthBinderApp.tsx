@@ -1,12 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { HamburgerNavigation } from "../layout/HamburgerNavigation"
+import { HamburgerNavigation } from "./layout/HamburgerNavigation"
 import { useChildProfile } from "../contexts/child-profile-context"
-import { UploadTab } from "../features/upload/UploadTab"
-import { DocumentsTab } from "../features/documents/DocumentsTab"
-import { DashboardTab } from "../features/dashboard/DashboardTab"
-import { ManageChildren } from "../features/manage-children/ManageChildren"
+import { UploadTab } from "./features/upload/UploadTab"
+import { DocumentsTab } from "./features/documents/DocumentsTab"
+import { DashboardTab } from "./features/dashboard/DashboardTab"
+import { ManageChildren } from "./features/manage-children/ManageChildren"
 import { Toaster } from "./ui/toaster"
 
 export default function HealthBinderApp() {

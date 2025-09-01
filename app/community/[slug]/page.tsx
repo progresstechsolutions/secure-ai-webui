@@ -35,14 +35,19 @@ export default function CommunityPage({ params }: CommunityPageProps) {
   }, [params])
 
   if (!slug) {
-    return <div>Loading...</div>
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
+        <span className="text-sm text-gray-500">Loading community...</span>
+      </div>
+    )
   }
 
   return (
     <CommunityFeed 
       communitySlug={slug} 
       user={user}
-      onBack={() => router.back()}
+      onBack={() => window.history.back()}
     />
   )
 } 
