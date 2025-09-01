@@ -77,12 +77,18 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
         }
         
         const communityData = {
-          title,
-          description,
-          tags: [...conditions, ...locationTags], // Include location in tags
+          title: title.trim(),
+          description: description.trim(),
+          tags: conditions.length > 0 ? conditions : ['Other Genetic Condition'], // Ensure at least one tag
           location: {
-            region,
-            state
+            region: region.trim(),
+            state: state.trim() || undefined
+          },
+          isPrivate: isPrivate,
+          settings: {
+            allowMemberPosts: true,
+            allowMemberInvites: true,
+            requireApproval: isPrivate || false
           }
         };
 
@@ -124,9 +130,11 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open
           }
         } else if (error?.message) {
           errorMessage = error.message;
+        } else if (error?.error) {
+          errorMessage = error.error;
         }
         
-        setError(errorMessage);;
+        setError(errorMessage);
       }
     }
   };

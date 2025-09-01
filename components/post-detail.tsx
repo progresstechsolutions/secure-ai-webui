@@ -104,7 +104,8 @@ export function PostDetail({
         const response = await apiClient.createComment({
           content: newComment.trim(),
           postId: currentPost.id || currentPost._id,
-          parentCommentId: undefined
+          parentCommentId: undefined,
+          isAnonymous: anonymousComment
         })
         
         if (response.data) {
@@ -150,7 +151,8 @@ export function PostDetail({
         const response = await apiClient.createComment({
           content: replyText[commentId].trim(),
           postId: currentPost.id || currentPost._id,
-          parentCommentId: commentId
+          parentCommentId: commentId,
+          isAnonymous: anonymousReply[commentId] || false
         })
         
         if (response.data) {
@@ -264,7 +266,7 @@ export function PostDetail({
         <div className="flex space-x-3 mb-3">
           {/* User Avatar - Consistent styling */}
           <div className="flex-shrink-0">
-            {(typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User') !== "Anonymous" ? (
+            {(!((comment.isAnonymous ?? comment.anonymous) === true)) ? (
               <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-semibold text-xs">
                   {(typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')?.charAt(0)?.toUpperCase() || 'U'}
@@ -282,7 +284,7 @@ export function PostDetail({
             <div className="bg-gray-50 rounded-2xl px-3 py-2 hover:bg-gray-100 transition-colors">
               <div className="flex items-center space-x-2 mb-1">
                 <span className="font-semibold text-gray-900 text-sm">
-                  {typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User'}
+                  {(comment.isAnonymous ?? comment.anonymous) ? 'Anonymous' : (typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')}
                 </span>
                 <span className="text-xs text-gray-500">{comment.timestamp}</span>
               </div>
@@ -429,7 +431,7 @@ export function PostDetail({
             <div className="flex items-center space-x-3">
               {/* Avatar - Slightly smaller on mobile */}
               <div className="flex-shrink-0">
-                {!currentPost.anonymous ? (
+                {!((currentPost.isAnonymous ?? currentPost.anonymous) === true) ? (
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">
                       {(typeof currentPost.author === 'string' ? currentPost.author : currentPost.author?.name || 'User')?.charAt(0)?.toUpperCase() || 'U'}
@@ -446,7 +448,7 @@ export function PostDetail({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-1 overflow-hidden">
                   <h3 className="font-semibold text-gray-900 text-sm flex-shrink-0">
-                    {currentPost.anonymous ? "Anonymous" : (typeof currentPost.author === 'string' ? currentPost.author : currentPost.author?.name || 'User')}
+                    {(currentPost.isAnonymous ?? currentPost.anonymous) ? "Anonymous" : (typeof currentPost.author === 'string' ? currentPost.author : currentPost.author?.name || 'User')}
                   </h3>
                   {typeof currentPost.community === 'object' && currentPost.community?.name && (
                     <>

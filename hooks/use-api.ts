@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient, ApiResponse, Community, CreateCommunityData, Post, Comment, Friendship, Conversation, Message } from '@/lib/api-client';
 
 // Custom hook for API calls with loading and error states
@@ -48,52 +49,47 @@ export function useCommunities(params?: {
   category?: string;
   sort?: string;
 }) {
-  const { data, loading, error, execute, reset } = useApi<{
-    communities: Community[];
-    totalPages: number;
-    currentPage: number;
-    total: number;
-  }>();
-
-  const fetchCommunities = useCallback(() => {
-    execute(() => apiClient.getCommunities(params));
-  }, [execute, params]);
-
-  useEffect(() => {
-    fetchCommunities();
-  }, [fetchCommunities]);
+  const query = useQuery({
+    queryKey: ['communities', params],
+    queryFn: async () => {
+      const res = await apiClient.getCommunities(params)
+      if (res.error) throw new Error(res.error)
+      return res.data
+    },
+    staleTime: 60_000,
+  })
 
   return {
-    communities: data?.communities || [],
-    totalPages: data?.totalPages || 0,
-    currentPage: data?.currentPage || 1,
-    total: data?.total || 0,
-    loading,
-    error,
-    refetch: fetchCommunities,
-    reset,
+    communities: query.data?.communities || [],
+    totalPages: query.data?.totalPages || 0,
+    currentPage: query.data?.currentPage || 1,
+    total: query.data?.total || 0,
+    loading: query.isLoading,
+    error: query.error ? String((query.error as Error).message || query.error) : null,
+    refetch: () => query.refetch(),
+    reset: () => {},
   };
 }
 
 export function useCommunity(slug: string) {
-  const { data, loading, error, execute, reset } = useApi<Community>();
-
-  const fetchCommunity = useCallback(() => {
-    if (slug) {
-      execute(() => apiClient.getCommunity(slug));
-    }
-  }, [execute, slug]);
-
-  useEffect(() => {
-    fetchCommunity();
-  }, [fetchCommunity]);
+  const query = useQuery({
+    queryKey: ['community', slug],
+    queryFn: async () => {
+      const res = await apiClient.getCommunity(slug)
+      if (res.error) throw new Error(res.error)
+      return res.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!slug,
+  })
 
   return {
-    community: data,
-    loading,
-    error,
-    refetch: fetchCommunity,
-    reset,
+    community: query.data,
+    loading: query.isLoading,
+    error: query.error ? String((query.error as Error).message || query.error) : null,
+    refetch: () => query.refetch(),
+    reset: () => {},
   };
 }
 
@@ -158,30 +154,26 @@ export function usePosts(params?: {
   userId?: string;
   sort?: string;
 }) {
-  const { data, loading, error, execute, reset } = useApi<{
-    posts: Post[];
-    totalPages: number;
-    currentPage: number;
-    total: number;
-  }>();
-
-  const fetchPosts = useCallback(() => {
-    execute(() => apiClient.getPosts(params));
-  }, [execute, params]);
-
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+  const query = useQuery({
+    queryKey: ['posts', params],
+    queryFn: async () => {
+      const res = await apiClient.getPosts(params)
+      if (res.error) throw new Error(res.error)
+      return res.data
+    },
+    staleTime: 30_000,
+    enabled: true,
+  })
 
   return {
-    posts: data?.posts || [],
-    totalPages: data?.totalPages || 0,
-    currentPage: data?.currentPage || 1,
-    total: data?.total || 0,
-    loading,
-    error,
-    refetch: fetchPosts,
-    reset,
+    posts: query.data?.posts || [],
+    totalPages: query.data?.totalPages || 0,
+    currentPage: query.data?.currentPage || 1,
+    total: query.data?.total || 0,
+    loading: query.isLoading,
+    error: query.error ? String((query.error as Error).message || query.error) : null,
+    refetch: () => query.refetch(),
+    reset: () => {},
   };
 }
 
@@ -215,6 +207,8 @@ export function useCreatePost() {
     content: string;
     communityId: string;
     images?: string[];
+    videos?: string[];
+    isAnonymous?: boolean;
     link?: { url: string; title?: string; description?: string };
   }) => {
     const result = await execute(() => apiClient.createPost(data));
@@ -266,6 +260,7 @@ export function useCreateComment() {
     content: string;
     postId: string;
     parentCommentId?: string;
+    isAnonymous?: boolean;
   }) => {
     return await execute(() => apiClient.createComment(data));
   }, [execute]);
@@ -302,9 +297,17 @@ export function useFriends(params?: {
     total: number;
   }>();
 
+  // Memoize params to prevent infinite loops
+  const memoizedParams = useMemo(() => params, [
+    params?.page,
+    params?.limit, 
+    params?.status,
+    params?.search
+  ]);
+
   const fetchFriends = useCallback(() => {
-    execute(() => apiClient.getFriends(params));
-  }, [execute, params]);
+    execute(() => apiClient.getFriends(memoizedParams));
+  }, [execute, memoizedParams]);
 
   useEffect(() => {
     fetchFriends();
@@ -638,4 +641,82 @@ export function useSearchPosts() {
   }, [execute]);
 
   return { searchPosts, data, loading, error };
+}
+
+export function useCommunityWithPosts(slug: string) {
+  const queryClient = useQueryClient()
+  
+  // Fetch community data
+  const communityQuery = useQuery({
+    queryKey: ['community', slug],
+    queryFn: async () => {
+      const res = await apiClient.getCommunity(slug)
+      if (res.error) throw new Error(res.error)
+      return res.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!slug,
+  })
+
+  // Fetch posts for the community
+  const postsQuery = useQuery({
+    queryKey: ['community-posts', (communityQuery.data as Community)?._id],
+    queryFn: async () => {
+      if (!(communityQuery.data as Community)?._id) throw new Error('No community ID')
+      const res = await apiClient.getPosts({ communityId: (communityQuery.data as Community)._id })
+      if (res.error) throw new Error(res.error)
+      return res.data
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!(communityQuery.data as Community)?._id,
+  })
+
+  // Fetch user communities to check membership
+  const userCommunitiesQuery = useQuery({
+    queryKey: ['user-communities'],
+    queryFn: async () => {
+      const res = await apiClient.getUserCommunities()
+      if (res.error) throw new Error(res.error)
+      return res.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  })
+
+  const isLoading = communityQuery.isLoading || postsQuery.isLoading || userCommunitiesQuery.isLoading
+  const error = communityQuery.error || postsQuery.error || userCommunitiesQuery.error
+
+  // Check if user is a member of this community
+  const isJoined = useMemo(() => {
+    if (!userCommunitiesQuery.data?.communities || !slug) return false
+    return userCommunitiesQuery.data.communities.some((c: Community & { userRole: 'creator' | 'admin' | 'member' }) => c.slug === slug)
+  }, [userCommunitiesQuery.data?.communities, slug])
+
+  const refetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['community', slug] })
+    queryClient.invalidateQueries({ queryKey: ['community-posts', (communityQuery.data as Community)?._id] })
+    queryClient.invalidateQueries({ queryKey: ['user-communities'] })
+  }, [queryClient, slug, communityQuery.data])
+
+  return {
+    community: communityQuery.data,
+    posts: postsQuery.data?.posts || [],
+    isJoined,
+    loading: isLoading,
+    error: error ? String((error as Error).message || error) : null,
+    refetch,
+  }
+}
+
+export function useDebouncedValue<T>(value: T, delayMs: number = 400): T {
+  const [debounced, setDebounced] = useState<T>(value)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs)
+    return () => clearTimeout(t)
+  }, [value, delayMs])
+
+  return debounced
 }

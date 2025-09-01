@@ -44,7 +44,9 @@ export interface SocketEvents {
   'notification:new': (notification: any) => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:5001';
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+const defaultWsBase = apiUrl.replace(/\/api\/?$/, '') || 'http://localhost:5000'
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || defaultWsBase
 
 export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -60,14 +62,22 @@ export function useSocket() {
       avatar: '/placeholder-user.jpg'
     };
 
+    const disableMockHeaders = process.env.NEXT_PUBLIC_DISABLE_MOCK_HEADERS === 'true'
     const socketInstance = io(WS_URL, {
-      auth: {
+      transports: ['websocket', 'polling'],
+      withCredentials: false,
+      path: '/socket.io',
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+      auth: disableMockHeaders ? undefined : {
         userId: user.id,
         userName: user.name,
         userEmail: user.email,
         userAvatar: user.avatar,
       },
-      transports: ['websocket', 'polling'],
     });
 
     socketInstance.on('connect', () => {

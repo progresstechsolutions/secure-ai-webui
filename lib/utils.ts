@@ -20,3 +20,19 @@ export function logUserActivity(activity: string) {
   // TODO: Send activity data to backend analytics API
   // await apiClient.logActivity({ activity, timestamp: now });
 }
+
+export interface GeoLocation {
+  lat: number
+  lng: number
+}
+
+export function getBrowserGeolocation(timeoutMs = 5000): Promise<GeoLocation | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60000 }
+    )
+  })
+}

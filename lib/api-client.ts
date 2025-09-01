@@ -5,6 +5,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+  isNetworkError?: boolean;
 }
 
 export interface User {
@@ -12,6 +13,8 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  username?: string;
+  role?: string;
 }
 
 // Community creation interface - only fields needed during creation
@@ -75,6 +78,7 @@ export interface Post {
     avatar?: string;
   };
   images?: string[];
+  videos?: string[];
   attachments?: any[];
   tags?: string[];
   reactions: any[]; // Array of reaction objects
@@ -86,6 +90,9 @@ export interface Post {
   };
   isPinned: boolean;
   isHidden: boolean;
+  // Some backends return `anonymous`, others `isAnonymous`. Support both.
+  anonymous?: boolean;
+  isAnonymous?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -166,6 +173,9 @@ export interface Comment {
   }[];
   isEdited: boolean;
   editedAt?: string;
+  // Support anonymous flags from backend
+  anonymous?: boolean;
+  isAnonymous?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -226,49 +236,205 @@ export interface Message {
   updatedAt: string;
 }
 
-// Mock user data for development (replace with actual auth)
+// Mock user data for development (can be overridden via env)
 const getMockUser = (): User => ({
-  id: '66b1e5c8f1d2a3b4c5d6e7f8',
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  avatar: '/placeholder-user.jpg'
+  id: process.env.NEXT_PUBLIC_MOCK_USER_ID || '66b1e5c8f1d2a3b4c5d6e7f8',
+  name: process.env.NEXT_PUBLIC_MOCK_USER_NAME || 'John Doe',
+  email: process.env.NEXT_PUBLIC_MOCK_USER_EMAIL || 'john.doe@example.com',
+  avatar: process.env.NEXT_PUBLIC_MOCK_USER_AVATAR || '/placeholder-user.jpg',
+  username: process.env.NEXT_PUBLIC_MOCK_USER_USERNAME || 'johndoe',
+  role: process.env.NEXT_PUBLIC_MOCK_USER_ROLE || 'member',
 });
 
 class ApiClient {
   private baseURL: string;
+  private concurrencyLimit: number;
+  private runningRequests: number;
+  private requestQueue: Array<() => void>;
+  private pendingRequests: Map<string, Promise<any>>;
+  private requestTimestamps: number[];
+  private maxRequestsPerMinute: number;
 
   constructor(baseURL: string = API_BASE_URL) {
     this.baseURL = baseURL;
+    this.concurrencyLimit = Number(process.env.NEXT_PUBLIC_MAX_CONCURRENT_REQUESTS || 6);
+    this.runningRequests = 0;
+    this.requestQueue = [];
+    this.pendingRequests = new Map();
+    this.requestTimestamps = [];
+    this.maxRequestsPerMinute = Number(process.env.NEXT_PUBLIC_MAX_REQUESTS_PER_MINUTE || 60);
+  }
+
+  private getRequestKey(endpoint: string, options: RequestInit = {}): string {
+    const method = options.method || 'GET';
+    const body = options.body ? JSON.stringify(options.body) : '';
+    return `${method}:${endpoint}:${body}`;
+  }
+
+  private async checkRateLimit(): Promise<void> {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60 * 1000;
+    
+    // Remove timestamps older than 1 minute
+    this.requestTimestamps = this.requestTimestamps.filter(timestamp => timestamp > oneMinuteAgo);
+    
+    // Check if we've exceeded the rate limit
+    if (this.requestTimestamps.length >= this.maxRequestsPerMinute) {
+      const oldestRequest = this.requestTimestamps[0];
+      const waitTime = 60 * 1000 - (now - oldestRequest);
+      console.log(`⏳ Rate limit reached, waiting ${waitTime}ms`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    // Add current timestamp
+    this.requestTimestamps.push(now);
+  }
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const run = () => {
+        this.runningRequests++;
+        task()
+          .then(resolve)
+          .catch(reject)
+          .finally(() => {
+            this.runningRequests--;
+            const next = this.requestQueue.shift();
+            if (next) next();
+          });
+      };
+      if (this.runningRequests < this.concurrencyLimit) run(); else this.requestQueue.push(run);
+    });
+  }
+
+  private async withBackoff<T>(fn: () => Promise<T>, max = 2): Promise<T> {
+    let delayMs = 400;
+    for (let i = 0; i <= max; i++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        const status = err?.status ?? err?.response?.status;
+        const isNetworkError = err?.isNetworkError || err?.name === 'TypeError';
+        
+        // Don't retry network errors (backend not running) or client errors (4xx)
+        if (i === max || isNetworkError || (status && status < 500 && status !== 429)) {
+          throw err;
+        }
+        
+        const jitter = Math.floor(Math.random() * 200);
+        await new Promise((r) => setTimeout(r, delayMs + jitter));
+        delayMs *= 2;
+      }
+    }
+    // Should not reach
+    throw new Error('Backoff retries exhausted');
+  }
+
+  // Health check method to verify backend connectivity
+  async checkHealth(): Promise<{ isConnected: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${this.baseURL}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        // Don't use timeout here to avoid issues, let it fail naturally
+      });
+      
+      if (response.ok) {
+        return { isConnected: true };
+      } else {
+        return { 
+          isConnected: false, 
+          error: `Server responded with status ${response.status}` 
+        };
+      }
+    } catch (err: any) {
+      return { 
+        isConnected: false, 
+        error: err.name === 'TypeError' && err.message === 'Failed to fetch' 
+          ? `Backend server unreachable at ${this.baseURL}`
+          : err.message 
+      };
+    }
   }
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    const requestKey = this.getRequestKey(endpoint, options);
+    
+    // Check if there's already a pending request for this endpoint
+    if (this.pendingRequests.has(requestKey)) {
+      console.log(`🔄 Deduplicating request: ${requestKey}`);
+      return this.pendingRequests.get(requestKey)!;
+    }
+
     try {
-      const user = getMockUser();
+      // Check rate limit before making the request
+      await this.checkRateLimit();
       
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-          'x-user-name': user.name,
-          'x-user-email': user.email,
-          'x-user-avatar': user.avatar || '',
-          ...options.headers,
-        },
-        ...options,
+      const user = getMockUser();
+      const disableMockHeaders = process.env.NEXT_PUBLIC_DISABLE_MOCK_HEADERS === 'true';
+      
+      const exec = async () => {
+        try {
+          const response = await fetch(`${this.baseURL}${endpoint}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(disableMockHeaders ? {} : {
+                'x-user-id': user.id,
+                'x-user-name': user.name,
+                'x-user-email': user.email,
+                'x-user-avatar': user.avatar || '',
+                // Avoid sending extra custom headers that may trip CORS
+              }),
+              ...options.headers,
+            },
+            ...options,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw Object.assign(new Error(errorData.error || `HTTP ${response.status}`), { status: response.status });
+          }
+
+          const data = await response.json();
+          return { data } as ApiResponse<T>;
+        } catch (err: any) {
+          // Handle network errors more gracefully
+          if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+            // Network error - backend is likely not running
+            throw Object.assign(new Error(`Backend server unreachable at ${this.baseURL}. Please ensure the server is running.`), { 
+              status: 0, 
+              isNetworkError: true,
+              originalError: err 
+            });
+          }
+          // Re-throw other errors as-is
+          throw err;
+        }
+      };
+
+      const promise = this.enqueue(() => this.withBackoff(exec));
+      
+      // Store the promise for deduplication
+      this.pendingRequests.set(requestKey, promise);
+      
+      // Clean up the promise from the map when it resolves or rejects
+      promise.finally(() => {
+        this.pendingRequests.delete(requestKey);
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return { error: errorData.error || `HTTP ${response.status}` };
-      }
-
-      const data = await response.json();
-      return { data };
+      return promise;
     } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Network error' };
+      const isNetworkError = error instanceof Error && 
+        (error.message.includes('Backend server unreachable') || 
+         error.message === 'Failed to fetch');
+         
+      return { 
+        error: error instanceof Error ? error.message : 'Network error',
+        isNetworkError 
+      };
     }
   }
 
@@ -279,33 +445,35 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     try {
       const user = getMockUser();
-      
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'x-user-id': user.id,
-          'x-user-name': user.name,
-          'x-user-email': user.email,
-          'x-user-avatar': user.avatar || '',
-          // Don't set Content-Type for FormData - let browser handle it
-          ...options.headers,
-        },
-        body: formData,
-        ...options,
-      });
+      const disableMockHeaders = process.env.NEXT_PUBLIC_DISABLE_MOCK_HEADERS === 'true';
+      const exec = async () => {
+        const response = await fetch(`${this.baseURL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            ...(disableMockHeaders ? {} : {
+              'x-user-id': user.id,
+              'x-user-name': user.name,
+              'x-user-email': user.email,
+              'x-user-avatar': user.avatar || '',
+            }),
+            // Don't set Content-Type for FormData - let browser handle it
+            ...options.headers,
+          },
+          body: formData,
+          ...options,
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        console.error(`API Error ${response.status}:`, data);
-        return {
-          error: data.error || `HTTP ${response.status}`,
-        };
-      }
+        if (!response.ok) {
+          throw Object.assign(new Error(data?.error || `HTTP ${response.status}`), { status: response.status });
+        }
 
-      return { data };
+        return { data } as ApiResponse<T>;
+      };
+
+      return await this.enqueue(() => this.withBackoff(exec));
     } catch (error) {
-      console.error('API Request failed:', error);
       return {
         error: error instanceof Error ? error.message : 'Network error',
       };
@@ -338,10 +506,13 @@ class ApiClient {
   }
 
   async createCommunity(data: CreateCommunityData): Promise<ApiResponse<Community>> {
-    return this.request('/communities', {
+    console.log('🌐 API Call: Creating community with data:', data);
+    const result = await this.request<Community>('/communities', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    console.log('📊 API Response: Create community result:', result);
+    return result;
   }
 
   async joinCommunity(communityId: string): Promise<ApiResponse<{ message: string }>> {
@@ -388,6 +559,8 @@ class ApiClient {
     content: string;
     communityId: string;
     images?: string[];
+    videos?: string[];
+    isAnonymous?: boolean;
     link?: { url: string; title?: string; description?: string };
   }): Promise<ApiResponse<Post>> {
     return this.request('/posts', {
@@ -503,12 +676,14 @@ class ApiClient {
     content: string;
     postId: string;
     parentCommentId?: string;
+    isAnonymous?: boolean;
   }): Promise<ApiResponse<Comment>> {
     return this.request(`/posts/${data.postId}/comments`, {
       method: 'POST',
       body: JSON.stringify({
         content: data.content,
-        parentCommentId: data.parentCommentId
+        parentCommentId: data.parentCommentId,
+        isAnonymous: data.isAnonymous
       }),
     });
   }
@@ -534,12 +709,19 @@ class ApiClient {
     const reactionTypeMap: Record<string, string> = {
       'heart': 'love',
       'thumbsUp': 'like', 
-      'hope': 'laugh',
+      'hope': 'love',
       'hug': 'love',
       'grateful': 'love'
     }
     
     const backendType = reactionTypeMap[reactionType] || reactionType
+    
+    // Validate that the mapped type is supported by the backend
+    const validBackendTypes = ['like', 'love', 'laugh', 'sad', 'angry'];
+    if (!validBackendTypes.includes(backendType)) {
+      console.error(`Invalid reaction type: ${reactionType} -> ${backendType}`);
+      return { error: `Invalid reaction type: ${reactionType}` };
+    }
     
     return this.request(`/posts/${postId}/reactions`, {
       method: 'POST',
@@ -558,9 +740,32 @@ class ApiClient {
     targetId: string;
     reactionType: 'like' | 'love' | 'laugh' | 'sad' | 'angry';
   }): Promise<ApiResponse<{ message: string; reactionCounts: Record<string, number> }>> {
-    return this.request('/reactions/toggle', {
+    // Map frontend reaction types to backend types
+    const reactionTypeMap: Record<string, string> = {
+      'heart': 'love',
+      'thumbsUp': 'like', 
+      'hope': 'love',
+      'hug': 'love',
+      'grateful': 'love'
+    }
+    
+    const backendType = reactionTypeMap[data.reactionType] || data.reactionType
+    
+    // Validate that the mapped type is supported by the backend
+    const validBackendTypes = ['like', 'love', 'laugh', 'sad', 'angry'];
+    if (!validBackendTypes.includes(backendType)) {
+      console.error(`Invalid reaction type: ${data.reactionType} -> ${backendType}`);
+      return { error: `Invalid reaction type: ${data.reactionType}` };
+    }
+
+    // Use the correct endpoint based on target type
+    const endpoint = data.targetType === 'post' 
+      ? `/posts/${data.targetId}/reactions`
+      : `/posts/comments/${data.targetId}/reactions`;
+    
+    return this.request(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ type: backendType }),
     });
   }
 

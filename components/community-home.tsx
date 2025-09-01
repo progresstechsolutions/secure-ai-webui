@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { AnimatePresence } from "framer-motion"
 import Link from "next/link"
@@ -47,6 +47,69 @@ import { useProfilePicture } from "@/hooks/use-profile-picture"
 
 // Types
 import type { Community, Post } from "@/lib/api-client"
+
+// ModalOverlay component for focus trap and backdrop click
+function ModalOverlay({ children, onClose }: { children: React.ReactNode, onClose: () => void }) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Trap focus inside modal
+  useEffect(() => {
+    const focusableEls = modalRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstEl = focusableEls?.[0];
+    const lastEl = focusableEls?.[focusableEls.length - 1];
+    function handleTab(e: KeyboardEvent) {
+      if (e.key === 'Tab') {
+        if (focusableEls && focusableEls.length > 0) {
+          if (e.shiftKey && document.activeElement === firstEl) {
+            e.preventDefault();
+            lastEl?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastEl) {
+            e.preventDefault();
+            firstEl?.focus();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    }
+    document.addEventListener('keydown', handleTab);
+    // Focus modal on mount
+    setTimeout(() => {
+      (modalRef.current as HTMLElement)?.focus();
+    }, 0);
+    // Listen for browser back
+    window.addEventListener('popstate', onClose);
+    return () => {
+      document.removeEventListener('keydown', handleTab);
+      window.removeEventListener('popstate', onClose);
+    };
+  }, [onClose]);
+
+  // Close on backdrop click
+  function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === overlayRef.current) {
+      onClose();
+    }
+  }
+
+  return (
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onMouseDown={handleBackdrop}
+      aria-modal="true"
+      role="dialog"
+      tabIndex={-1}
+    >
+      <div ref={modalRef} tabIndex={-1} className="outline-none w-full max-w-4xl">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /**
  * CommunityHome - Main community hub and feed for the app.
@@ -330,14 +393,22 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     try {
       // Test connection with a simple API call
       console.log("🔄 Retry Connection: Testing API health...")
-      const healthCheck = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'}/health`)
+      const baseApi = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      let healthCheck = await fetch(`${baseApi}/health`, { mode: 'cors' })
       console.log("📡 Health Check Response:", healthCheck.status, healthCheck.statusText)
       
       if (healthCheck.ok) {
         console.log("✅ Connection restored successfully")// Reinitialize data
         await initializeData()
       } else {
-        throw new Error('Health check failed')
+        // Fallback: try a lightweight API call to confirm availability
+        console.log("⚠️ Health endpoint failed, attempting lightweight API call as fallback...")
+        const probe = await fetch(`${baseApi}/posts?limit=1`, { mode: 'cors' })
+        if (probe.ok) {
+          await initializeData()
+        } else {
+          throw new Error('Health check failed')
+        }
       }
     } catch (error) {
       console.log("❌ Retry connection failed:", error)} finally {
@@ -371,20 +442,6 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     ).slice(0, 15)
   }, [discoverPosts, userCommunities])
   
-  // Helper function to get related conditions for discovery
-  const getRelatedConditions = (condition: string): string[] => {
-    const relatedMap: Record<string, string[]> = {
-      "Huntington's Disease": ["Parkinson's Disease", "Other Neurological Conditions"],
-      "Cystic Fibrosis": ["Other Respiratory Conditions"],
-      "Sickle Cell Disease": ["Thalassemia", "Other Blood Disorders"],
-      "Down Syndrome": ["Other Chromosomal Conditions"],
-      "Fragile X Syndrome": ["Autism Spectrum Disorder", "Other Developmental Delays"],
-      "Duchenne Muscular Dystrophy": ["Spinal Muscular Atrophy", "Other Muscular Disorders"],
-      "BRCA1/BRCA2 Mutations": ["Lynch Syndrome", "Other Cancer Genetic Conditions"]
-    }
-    return relatedMap[condition] || ["Other Genetic Condition"]
-  }
-
   // Memoize event handlers
   const handlePostCreated = useCallback(async () => {
     try {
@@ -869,34 +926,49 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
     })
   }, [activeTab, discoverPosts, personalizedPosts, searchQuery])
 
-  if (selectedPost) {
-    if (!selectedPostData) {
-      // Show loading state while fetching post data
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent mb-2" />
-            <span className="text-sm text-gray-500">Loading post...</span>
-          </div>
+  {/* Post Detail Modal */}
+  {selectedPost && selectedPostData && (
+    <ModalOverlay
+      onClose={() => {
+        setSelectedPost(null);
+        setSelectedPostData(null);
+      }}
+    >
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl relative focus:outline-none" tabIndex={-1}>
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedPost(null);
+            setSelectedPostData(null);
+          }}
+          className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2"
+          aria-label="Close post detail"
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+        {/* Modal Content */}
+        <div className="max-h-[90vh] overflow-y-auto">
+          <PostDetail
+            post={selectedPostData}
+            onBack={() => {
+              setSelectedPost(null);
+              setSelectedPostData(null);
+            }}
+            user={user}
+            onAddComment={addComment}
+            onAddReply={addReply}
+            onReaction={(postId, reactionType) => handleReaction(postId, String(reactionType))}
+            userReaction={userReactions[selectedPost]}
+            userReactions={userReactions}
+            onReactionUpdate={(postId: string, reactionType: string) => handleReaction(postId, reactionType)}
+          />
         </div>
-      )
-    }
-    
-    return (
-      <PostDetail
-        post={selectedPostData}
-        onBack={() => setSelectedPost(null)}
-        user={user}
-        onAddComment={addComment}
-        onAddReply={addReply}
-        onReaction={(postId, reactionType) => handleReaction(postId, String(reactionType))}
-        userReaction={userReactions[selectedPost]}
-        userReactions={userReactions}
-        onReactionUpdate={(postId: string, reactionType: string) => handleReaction(postId, reactionType)}
-      />
-    )
-  }
+      </div>
+    </ModalOverlay>
+  )}
 
+  // Main render
   // Main render
   if (loading) {
     return (

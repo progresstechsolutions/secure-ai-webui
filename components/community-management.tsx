@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,11 +15,7 @@ import {
   useUserCommunities, 
   useJoinCommunity, 
   useLeaveCommunity,
-  useSearchUsers,
-  useAvailableConditions,
-  useAvailableRegions,
-  useAvailableCategories,
-  useFriends
+  useSearchUsers
 } from "@/hooks/use-api"
 import { 
   Users, 
@@ -82,8 +78,11 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   })
   const [showExpandedSearch, setShowExpandedSearch] = useState(false)
   const [searchResults, setSearchResults] = useState<Community[]>([])
-  const [userSearchResults, setUserSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false) // Track if user has performed a search
+
+  // Refs for request cancellation
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Backend API hooks
   const { createCommunity, loading: creatingCommunity } = useCreateCommunity()
@@ -91,85 +90,65 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   const { joinCommunity, loading: joiningCommunity } = useJoinCommunity()
   const { leaveCommunity, loading: leavingCommunity } = useLeaveCommunity()
   const { searchCommunities, loading: searchLoading } = useSearchCommunities()
-  const { searchUsers: searchUsersAPI, loading: searchUsersLoading } = useSearchUsers()
-  const { friendships: friends, loading: loadingFriends } = useFriends({ status: 'accepted' })
-  const { conditions: availableConditions, loading: loadingConditions } = useAvailableConditions()
-  const { regions: availableRegions, loading: loadingRegions } = useAvailableRegions()
-  const { categories: availableCategories, loading: loadingCategories } = useAvailableCategories()
+  
+  // Load filter options with fallbacks
+  const availableConditions = [
+    'Diabetes', 'Heart Disease', 'Cancer', 'Autism', 'ADHD', 'Depression', 
+    'Anxiety', 'Asthma', 'Allergies', 'Other'
+  ]
+  const availableRegions = [
+    'North America', 'South America', 'Europe', 'Asia', 'Africa', 
+    'Australia', 'Antarctica', 'Global'
+  ]
+  const availableCategories = [
+    'Support', 'Medical', 'Research', 'Social', 'Educational', 'Advocacy'
+  ]
 
-  // Transform user communities to match local interface
-  const allUserCommunities = userCommunities.map(community => ({
-    ...community,
-    id: community._id, // Map _id to id
-    title: community.title || '',
-    location: community.location || { region: "Global", state: '' },
-    tags: community.tags || [],
-    posts: community.posts || 0,
-    lastActivity: community.lastActivity || 'Active',
-    admins: community.admins || [],
-    createdBy: community.createdBy || { id: '', name: 'Unknown' },
-    createdAt: community.createdAt || new Date().toISOString(),
-  }))
+  // Transform user communities to match local interface - memoized
+  const allUserCommunities = useMemo(() => {
+    return userCommunities.map(community => ({
+      ...community,
+      id: community._id,
+      title: community.title || '',
+      location: community.location || { region: "Global", state: '' },
+      tags: community.tags || [],
+      posts: community.posts || 0,
+      lastActivity: community.lastActivity || 'Active',
+      admins: community.admins || [],
+      createdBy: community.createdBy || { id: '', name: 'Unknown' },
+      createdAt: community.createdAt || new Date().toISOString(),
+    }))
+  }, [userCommunities])
 
-  // Get friend list for member search
-  const friendsList = friends?.map(friendship => {
-    // Get the friend (either requester or recipient, whichever is not the current user)
-    const friend = friendship.requester.id === user?.id ? friendship.recipient : friendship.requester
-    return {
-      id: friend.id,
-      name: friend.name,
-      email: friend.email,
-      avatar: friend.avatar || '/placeholder-user.jpg',
-      status: 'online' // We don't have real-time status, so default to online
-    }
-  }) || []
-
-  // Real search function using API
-  const performUserSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setUserSearchResults([])
-      return
+  // Manual search function - only called when user explicitly searches
+  const performSearch = useCallback(async () => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
     }
 
-    setIsSearching(true)
-    try {
-      const result = await searchUsersAPI({ query, limit: 10 })
-      if (result?.data?.users) {
-        setUserSearchResults(result.data.users.map((user: any) => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar || '/placeholder-user.jpg'
-        })))
-      }
-    } catch (error) {
-      console.error('User search failed:', error)
-      setUserSearchResults([])
-    } finally {
-      setIsSearching(false)
-    }
-  }, [searchUsersAPI])
+    // Create new abort controller
+    abortControllerRef.current = new AbortController()
 
-  // Helper function to check if user is admin of a community
-  const isUserAdmin = (community: typeof allUserCommunities[0]) => {
-    if (!user?.username) return false
-    return community.userRole === 'admin' || community.userRole === 'creator'
-  }
+    // Check if we should search
+    const hasSearchQuery = searchQuery.trim().length > 0
+    const hasActiveFilters = searchFilters.condition !== "all" || 
+                           searchFilters.region !== "all" || 
+                           searchFilters.category !== "all"
 
-  // Helper function to check if user created the community
-  const isUserCreator = (community: typeof allUserCommunities[0]) => {
-    if (!user?.username) return false
-    return community.userRole === 'creator'
-  }
-
-  // Backend search function
-  const performSearch = async () => {
-    if (!searchQuery.trim() && searchFilters.condition === "all" && searchFilters.region === "all" && searchFilters.category === "all") {
+    if (!hasSearchQuery && !hasActiveFilters) {
       setSearchResults([])
+      setIsSearching(false)
+      setHasSearched(false)
       return
     }
 
+    // Don't search if we're already searching or if there's no search API available
+    if (isSearching || !searchCommunities) return
+
     setIsSearching(true)
+    setHasSearched(true)
+
     try {
       const searchParams = {
         query: searchQuery.trim(),
@@ -179,8 +158,13 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       }
 
       const result = await searchCommunities(searchParams)
+      
+      // Check if request was cancelled
+      if (abortControllerRef.current?.signal.aborted) {
+        return
+      }
+
       if (result?.data?.communities) {
-        // Map backend communities to local format
         const mappedCommunities = result.data.communities.map((c: any) => ({
           id: c._id,
           slug: c.slug,
@@ -204,47 +188,70 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
         setSearchResults([])
       }
     } catch (error) {
-      console.error('Search failed:', error)
-      setSearchResults([])
-    } finally {
-      setIsSearching(false)
-    }
-  }
-
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      performSearch()
-    }, 300) // 300ms debounce
-
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery, searchFilters])
-
-  // Debounced user search effect  
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery) {
-        performUserSearch(searchQuery)
+      // Don't log cancelled requests
+      if (!abortControllerRef.current?.signal.aborted) {
+        console.error('Search failed:', error)
+        setSearchResults([])
       }
-    }, 300)
+    } finally {
+      if (!abortControllerRef.current?.signal.aborted) {
+        setIsSearching(false)
+      }
+    }
+  }, [searchQuery, searchFilters, searchCommunities, isSearching, availableRegions])
 
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery, performUserSearch])
+  // Handle Enter key press
+  const handleSearchKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      performSearch()
+    }
+  }, [performSearch])
 
-  // Initialize with empty search results
+  // Handle search button click
+  const handleSearchClick = useCallback(() => {
+    performSearch()
+  }, [performSearch])
+
+  // Clear search results when tab changes
   useEffect(() => {
-    setSearchResults([])
+    if (activeTab !== "discover") {
+      setSearchResults([])
+      setIsSearching(false)
+      setHasSearched(false)
+    }
+  }, [activeTab])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [])
 
-  // Filter discovered communities (don't show communities user is already in)
-  const filteredDiscoverCommunities = searchResults.filter((community) => {
-    const isAlreadyMember = allUserCommunities.some(uc => uc.slug === community.slug)
-    return !isAlreadyMember
-  })
+  // Helper functions for community management
+  const isUserAdmin = (community: typeof allUserCommunities[0]) => {
+    if (!user?.username) return false
+    return community.userRole === 'admin' || community.userRole === 'creator'
+  }
+
+  const isUserCreator = (community: typeof allUserCommunities[0]) => {
+    if (!user?.username) return false
+    return community.userRole === 'creator'
+  }
+
+  // Filter discovered communities (don't show communities user is already in) - memoized
+  const filteredDiscoverCommunities = useMemo(() => {
+    return searchResults.filter((community) => {
+      const isAlreadyMember = allUserCommunities.some(uc => uc.slug === community.slug)
+      return !isAlreadyMember
+    })
+  }, [searchResults, allUserCommunities])
 
   // Helper functions for community management
   const handleAdminControl = (community: typeof allUserCommunities[0]) => {
-    // Navigate to community admin page
     const communityId = (community as any)._id || (community as any).id
     if (communityId) {
       router.push(`/community-admin/${communityId}`)
@@ -254,7 +261,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   const handleJoinCommunity = async (community: Community) => {
     try {
       const result = await joinCommunity(community.id)
-      if (result.data) {// Refetch user communities to update the UI
+      if (result.data) {
         refetchUserCommunities()
       }
     } catch (error) {}
@@ -264,7 +271,7 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
     if (confirm('Are you sure you want to leave this community?')) {
       try {
         const result = await leaveCommunity(communityId)
-        if (result.data) {// Refetch user communities to update the UI
+        if (result.data) {
           refetchUserCommunities()
         }
       } catch (error) {}
@@ -274,10 +281,13 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
   const handleCreateCommunity = async (communityData: any) => {
     try {
       const result = await createCommunity({
-        title: communityData.title,
-        description: communityData.description,
-        tags: communityData.tags || [],
-        location: communityData.location || { region: "Global", state: "" },
+        title: communityData.title.trim(),
+        description: communityData.description.trim(),
+        tags: communityData.tags && communityData.tags.length > 0 ? communityData.tags : ['Other Genetic Condition'],
+        location: {
+          region: communityData.location?.region?.trim() || "Global",
+          state: communityData.location?.state?.trim() || undefined
+        },
         isPrivate: communityData.isPrivate || false,
         settings: {
           allowMemberPosts: true,
@@ -287,11 +297,9 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
       })
 
       if (result.data) {
-        // Show success toast// Refetch user communities to update the UI
         refetchUserCommunities()
         setShowCreateModal(false)
         
-        // Navigate to community admin page after a short delay
         setTimeout(() => {
           const communityId = (result.data as any)?._id || (result.data as any)?.id
           if (communityId) {
@@ -420,11 +428,26 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                     <div className="relative flex items-center bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100">
                       <Search className="absolute left-4 sm:left-6 h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />
                       <Input
-                        placeholder="Search communities, topics..."
+                        placeholder="Search communities, topics... (Press Enter to search)"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-12 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-6 text-base sm:text-lg border-0 bg-transparent focus:ring-0 rounded-xl sm:rounded-2xl placeholder:text-gray-400"
+                        onKeyPress={handleSearchKeyPress}
+                        className="pl-12 sm:pl-16 pr-20 sm:pr-24 py-4 sm:py-6 text-base sm:text-lg border-0 bg-transparent focus:ring-0 rounded-xl sm:rounded-2xl placeholder:text-gray-400"
                       />
+                      <Button
+                        onClick={handleSearchClick}
+                        disabled={isSearching}
+                        className="absolute right-2 sm:right-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl shadow-lg text-xs sm:text-sm font-semibold transition-all hover:shadow-xl flex-shrink-0"
+                      >
+                        {isSearching ? (
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <>
+                            <Search className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Search</span>
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
 
@@ -450,13 +473,17 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                         <div className="space-y-2 sm:space-y-3">
                           <label className="block text-sm font-semibold text-gray-700">Health Condition</label>
-                          <Select value={searchFilters.condition} onValueChange={(value) => setSearchFilters(prev => ({...prev, condition: value}))}>
+                          <Select value={searchFilters.condition} onValueChange={(value) => {
+                            setSearchFilters(prev => ({...prev, condition: value}))
+                            // Auto-search when filters change
+                            setTimeout(() => performSearch(), 100)
+                          }}>
                             <SelectTrigger className="h-10 sm:h-12 border-gray-200 bg-white/90 rounded-lg sm:rounded-xl shadow-sm">
                               <SelectValue placeholder="All conditions" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All conditions</SelectItem>
-                              {availableConditions.map((condition) => (
+                              {availableConditions.map((condition: string) => (
                                 <SelectItem key={condition} value={condition}>{condition}</SelectItem>
                               ))}
                             </SelectContent>
@@ -464,7 +491,11 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                         </div>
                         <div className="space-y-2 sm:space-y-3">
                           <label className="block text-sm font-semibold text-gray-700">Region</label>
-                          <Select value={searchFilters.region} onValueChange={(value) => setSearchFilters(prev => ({...prev, region: value}))}>
+                          <Select value={searchFilters.region} onValueChange={(value) => {
+                            setSearchFilters(prev => ({...prev, region: value}))
+                            // Auto-search when filters change
+                            setTimeout(() => performSearch(), 100)
+                          }}>
                             <SelectTrigger className="h-10 sm:h-12 border-gray-200 bg-white/90 rounded-lg sm:rounded-xl shadow-sm">
                               <SelectValue placeholder="All regions" />
                             </SelectTrigger>
@@ -478,7 +509,11 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                         </div>
                         <div className="space-y-2 sm:space-y-3">
                           <label className="block text-sm font-semibold text-gray-700">Category</label>
-                          <Select value={searchFilters.category} onValueChange={(value) => setSearchFilters(prev => ({...prev, category: value}))}>
+                          <Select value={searchFilters.category} onValueChange={(value) => {
+                            setSearchFilters(prev => ({...prev, category: value}))
+                            // Auto-search when filters change
+                            setTimeout(() => performSearch(), 100)
+                          }}>
                             <SelectTrigger className="h-10 sm:h-12 border-gray-200 bg-white/90 rounded-lg sm:rounded-xl shadow-sm">
                               <SelectValue placeholder="All categories" />
                             </SelectTrigger>
@@ -506,7 +541,10 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                               variant="ghost"
                               size="sm"
                               className="ml-1.5 sm:ml-2 h-auto p-0.5 sm:p-1 hover:bg-blue-200 rounded-full"
-                              onClick={() => setSearchFilters(prev => ({...prev, condition: "all"}))}
+                              onClick={() => {
+                                setSearchFilters(prev => ({...prev, condition: "all"}))
+                                setTimeout(() => performSearch(), 100)
+                              }}
                             >
                               <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             </Button>
@@ -519,7 +557,10 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                               variant="ghost"
                               size="sm"
                               className="ml-1.5 sm:ml-2 h-auto p-0.5 sm:p-1 hover:bg-green-200 rounded-full"
-                              onClick={() => setSearchFilters(prev => ({...prev, region: "all"}))}
+                              onClick={() => {
+                                setSearchFilters(prev => ({...prev, region: "all"}))
+                                setTimeout(() => performSearch(), 100)
+                              }}
                             >
                               <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             </Button>
@@ -532,7 +573,10 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                               variant="ghost"
                               size="sm"
                               className="ml-1.5 sm:ml-2 h-auto p-0.5 sm:p-1 hover:bg-purple-200 rounded-full"
-                              onClick={() => setSearchFilters(prev => ({...prev, category: "all"}))}
+                              onClick={() => {
+                                setSearchFilters(prev => ({...prev, category: "all"}))
+                                setTimeout(() => performSearch(), 100)
+                              }}
                             >
                               <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             </Button>
@@ -541,7 +585,11 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setSearchFilters({ condition: "all", region: "all", category: "all" })}
+                          onClick={() => {
+                            setSearchFilters({ condition: "all", region: "all", category: "all" })
+                            // Auto-search when filters are cleared
+                            setTimeout(() => performSearch(), 100)
+                          }}
                           className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium text-xs sm:text-sm"
                         >
                           Clear all
@@ -579,6 +627,24 @@ export const CommunityManagement: React.FC<CommunityManagementProps> = ({
                     </CardContent>
                   </Card>
                 ))
+              ) : !hasSearched ? (
+                <div className="col-span-full text-center py-12 sm:py-16 lg:py-24 px-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 lg:mb-8 shadow-lg">
+                    <Search className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-blue-500" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2 sm:mb-4">Ready to discover communities?</h3>
+                  <p className="text-gray-600 mb-6 sm:mb-8 lg:mb-10 max-w-md mx-auto text-sm sm:text-base lg:text-lg">Enter your search terms above and press Enter or click the search button to find communities that match your interests</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button onClick={() => setShowExpandedSearch(true)} size="lg" className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 sm:px-8 lg:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl shadow-lg text-sm sm:text-base lg:text-lg font-semibold">
+                      <Filter className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 sm:mr-3" />
+                      Use Filters
+                    </Button>
+                    <Button onClick={() => setShowCreateModal(true)} variant="outline" size="lg" className="border-blue-200 text-blue-600 hover:bg-blue-50 px-6 sm:px-8 lg:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-sm sm:text-base lg:text-lg font-semibold">
+                      <Plus className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 sm:mr-3" />
+                      Create Community
+                    </Button>
+                  </div>
+                </div>
               ) : filteredDiscoverCommunities.length === 0 ? (
                 <div className="col-span-full text-center py-12 sm:py-16 lg:py-24 px-4">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 lg:mb-8 shadow-lg">

@@ -13,6 +13,7 @@ import { logUserActivity } from "@/lib/utils"
 import { apiClient, Community, Post } from "@/lib/api-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useCommunityWithPosts } from "@/hooks/use-api"
 
 // Helper function to get full image URL
 const getImageUrl = (imagePath: string) => {
@@ -30,25 +31,21 @@ interface CommunityFeedProps {
 }
 
 export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProps) {
-  // State for community and posts data
-  const [communityData, setCommunityData] = useState<Community | null>(null)
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Use the new hook for fetching community data and posts
+  const { community: communityData, posts, isJoined, loading, error, refetch } = useCommunityWithPosts(communitySlug)
   
   // UI state
   const [userReactions, setUserReactions] = useState<Record<string, string>>({})
   const [showCreatePostModal, setShowCreatePostModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortBy, setSortBy] = useState<"recent" | "popular" | "trending">("recent")
-  const [isJoined, setIsJoined] = useState(false)
   const [shareModal, setShareModal] = useState<{ open: boolean; post: any | null }>({ open: false, post: null })
   const [copiedLink, setCopiedLink] = useState(false)
   const [selectedPost, setSelectedPost] = useState<string | null>(null)
   const [selectedPostData, setSelectedPostData] = useState<Post | null>(null)
 
   // Helper function to extract user reactions from posts
-  const extractUserReactions = (posts: Post[], currentUser: any): Record<string, string> => {
+  const extractUserReactions = useCallback((posts: Post[], currentUser: any): Record<string, string> => {
     const reactions: Record<string, string> = {}
     
     posts.forEach(post => {
@@ -70,96 +67,32 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     })
     
     return reactions
-  }
+  }, [])
 
-  // Fetch community data and posts
-  const fetchCommunityData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      console.log("🌐 API Call: Fetching community data for:", communitySlug)
-      
-      // Fetch community details
-      const communityResponse = await apiClient.getCommunity(communitySlug)
-      console.log("📊 API Response - Community:", communityResponse)
-      
-      if (communityResponse.error) {
-        console.log("❌ Error fetching community:", communityResponse.error)
-        setError(communityResponse.error)
-        return
-      }
-      
-      if (communityResponse.data) {
-        setCommunityData(communityResponse.data)
-        console.log("✅ Community data loaded:", communityResponse.data.title)
-        
-        // Fetch posts for this community only if we have a valid community ID
-        if (communityResponse.data._id) {
-          console.log("🌐 API Call: Fetching posts for community ID:", communityResponse.data._id)
-          console.log("🔍 Community ID type:", typeof communityResponse.data._id)
-          console.log("🔍 Community ID value:", JSON.stringify(communityResponse.data._id))
-          
-          const postsResponse = await apiClient.getPosts({ communityId: communityResponse.data._id })
-          console.log("📊 API Response - Community Posts:", postsResponse)
-          
-          if (postsResponse.data) {
-            const posts = postsResponse.data.posts || []
-            setPosts(posts)
-            console.log("✅ Community posts loaded:", posts.length, "posts")
-            
-            // Extract and set user reactions
-            const reactions = extractUserReactions(posts, user)
-            setUserReactions(reactions)
-            console.log("🎯 User reactions extracted:", reactions)
-          } else if (postsResponse.error) {
-            console.log("❌ Error fetching posts:", postsResponse.error)
-          }
-        } else {
-          console.log("⚠️ No valid community ID found, skipping posts fetch")
-        }
-      }
-      
-      // Check if user is a member
-      if (communityResponse.data) {
-        const userCommunitiesResponse = await apiClient.getUserCommunities()
-        if (userCommunitiesResponse.data) {
-          const isMember = userCommunitiesResponse.data.communities.some(
-            (c) => c.slug === communitySlug
-          )
-          setIsJoined(isMember)
-        }
-      }
-      
-    } catch (error) {
-      console.log("🚫 Network error fetching community data:", error)
-      setError("Failed to load community data")
-    } finally {
-      setLoading(false)
-    }
-  }, [communitySlug])
-
+  // Update user reactions when posts change
   useEffect(() => {
-    fetchCommunityData()
-  }, [fetchCommunityData])
+    if (posts.length > 0) {
+      const reactions = extractUserReactions(posts, user)
+      setUserReactions(reactions)
+      console.log("🎯 User reactions extracted:", reactions)
+    }
+  }, [posts, user, extractUserReactions])
 
   // Handle joining the community
   const handleJoinCommunity = async () => {
     if (!communityData) return
     
     try {
-      console.log("🌐 API Call: Joining community:", communityData.slug)
-      const joinResponse = await apiClient.joinCommunity(communityData._id)
+      console.log("🌐 API Call: Joining community:", (communityData as Community).slug)
+      const joinResponse = await apiClient.joinCommunity((communityData as Community)._id)
       
       if (joinResponse.error) {
         console.error("Failed to join community:", joinResponse.error)
         return
       }
       
-      setIsJoined(true)
-      
-      // Refresh community data to get updated member count
-      fetchCommunityData()
+      // Refresh data to get updated member count and membership status
+      refetch()
       
     } catch (error) {
       console.log("❌ Error joining community:", error)
@@ -198,7 +131,7 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
     
     // Apply search filter
     if (searchTerm) {
-      filteredPosts = posts.filter(post => {
+      filteredPosts = posts.filter((post: Post) => {
         const searchText = (post.content || '').toLowerCase()
         const titleText = ((post as any).caption || post.title || '').toLowerCase()
         const authorText = (post.author?.name || '').toLowerCase()
@@ -235,8 +168,8 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   // Memoize post creation handler
   const handlePostCreated = useCallback(() => {
     // Refresh posts from API
-    fetchCommunityData()
-  }, [fetchCommunityData])
+    refetch()
+  }, [refetch])
 
   // Listen for post creation events to refresh the feed
   useEffect(() => {
@@ -250,11 +183,11 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   const handleAddPost = (newPost: any) => {
     const postWithMetadata = {
       ...newPost,
-      community: { slug: communitySlug, name: communityData?.title || communitySlug },
+      community: { slug: communitySlug, name: (communityData as Community)?.title || communitySlug },
     }
     
     // Refresh posts from API after creation
-    fetchCommunityData()
+    refetch()
     setShowCreatePostModal(false)
   }
 
@@ -278,24 +211,9 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
       }
       
       // Update local posts state to reflect new reaction count
-      setPosts(prevPosts => 
-        prevPosts.map(post => {
-          if (post._id === postId) {
-            const currentTotal = post.stats?.totalReactions || 0
-            const newTotal = isRemoving ? Math.max(0, currentTotal - 1) : currentTotal + 1
-            return {
-              ...post,
-              stats: {
-                ...post.stats,
-                totalReactions: newTotal
-              }
-            }
-          }
-          return post
-        })
-      )
+      refetch() // Use refetch to update the posts array in the hook
       
-      const post = posts.find((p) => p._id === postId)
+      const post = posts.find((p: Post) => p._id === postId)
       if (post) {
         const content = (post as any).caption || post.content || 'Untitled post'
         logUserActivity(`Reacted with ${reactionType} to post: "${content}"`)
@@ -346,21 +264,7 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   // Handle comment functionality for post detail
   const handleAddComment = (postId: string, comment: any) => {
     // Update local posts state with new comment
-    setPosts(prevPosts => 
-      prevPosts.map(post => {
-        if (post._id === postId) {
-          return {
-            ...post,
-            comments: [...(post.comments || []), comment],
-            stats: {
-              ...post.stats,
-              totalComments: (post.stats?.totalComments || 0) + 1
-            }
-          }
-        }
-        return post
-      })
-    )
+    refetch() // Use refetch to update the posts array in the hook
     
     // Update selected post data if it's currently open
     if (selectedPostData && selectedPostData._id === postId) {
@@ -378,39 +282,7 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   // Handle reply functionality for post detail
   const handleAddReply = (postId: string, commentId: string, reply: any) => {
     // Update local posts state with new reply
-    setPosts(prevPosts => 
-      prevPosts.map(post => {
-        if (post._id === postId) {
-          const updateComments = (comments: any[]): any[] => {
-            return comments.map(comment => {
-              if (comment.id === commentId || comment._id === commentId) {
-                return {
-                  ...comment,
-                  replies: [...(comment.replies || []), reply]
-                }
-              }
-              if (comment.replies && comment.replies.length > 0) {
-                return {
-                  ...comment,
-                  replies: updateComments(comment.replies)
-                }
-              }
-              return comment
-            })
-          }
-          
-          return {
-            ...post,
-            comments: updateComments(post.comments || []),
-            stats: {
-              ...post.stats,
-              totalComments: (post.stats?.totalComments || 0) + 1
-            }
-          }
-        }
-        return post
-      })
-    )
+    refetch() // Use refetch to update the posts array in the hook
   }
 
   // Social media share handlers
@@ -544,20 +416,20 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
                     <Users className="h-6 w-6" />
                   </div>
                   <div>
-                    <h1 className="text-2xl md:text-4xl font-bold mb-1">{communityData.title}</h1>
+                    <h1 className="text-2xl md:text-4xl font-bold mb-1">{(communityData as Community).title}</h1>
                     <div className="flex items-center gap-4 text-white/80 text-sm">
                       <span className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {communityData.memberCount || 0} members
+                        {(communityData as Community).memberCount || 0} members
                       </span>
-                      {communityData.location && (
+                      {(communityData as Community).location && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {communityData.location.region}
-                          {communityData.location.state && `, ${communityData.location.state}`}
+                          {(communityData as Community).location.region}
+                          {(communityData as Community).location.state && `, ${(communityData as Community).location.state}`}
                         </span>
                       )}
-                      {communityData.isPrivate && (
+                      {(communityData as Community).isPrivate && (
                         <span className="flex items-center gap-1">
                           <Lock className="h-4 w-4" />
                           Private
@@ -567,13 +439,13 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
                   </div>
                 </div>
                 <p className="text-white/90 mb-4 leading-relaxed max-w-2xl">
-                  {communityData.description}
+                  {(communityData as Community).description}
                 </p>
                 
                 {/* Community Tags */}
-                {communityData.tags && communityData.tags.length > 0 && (
+                {(communityData as Community).tags && (communityData as Community).tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {communityData.tags.map((tag, index) => (
+                    {(communityData as Community).tags.map((tag, index) => (
                       <Badge 
                         key={index}
                         variant="secondary" 
