@@ -11,28 +11,68 @@ export default function SearchPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const query = searchParams.get("q") || ""
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [response, setResponse] = useState("")
+  const [error, setError] = useState("")
 
-  useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => setIsLoading(false), 1000)
-    return () => clearTimeout(timer)
-  }, [query])
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Thinking...</div>
-      </div>
-    )
+  // Function to call backend
+  const callBackend = async (userQuery: string) => {
+    setIsLoading(true)
+    setError("")
+    setResponse("")
+    
+    try {
+      const payload = {
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: userQuery }]
+          }
+        ]
+      }
+      
+      console.log("Calling backend with:", payload)
+      
+      const response = await fetch('http://localhost:8000/generate-structured-response', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      
+      console.log("Response status:", response.status)
+      
+      const responseText = await response.text()
+      console.log("Raw response:", responseText)
+      
+      const data = JSON.parse(responseText)
+      console.log("Parsed data:", data)
+      
+      if (data.status === "success" && data.output) {
+        setResponse(data.output)
+      } else {
+        setError(data.message || "No response received")
+      }
+    } catch (err: any) {
+      console.error("Error calling backend:", err)
+      setError(err.message || "Failed to get response")
+    } finally {
+      setIsLoading(false)
+    }
   }
+
+  // Call backend when query changes
+  useEffect(() => {
+    if (query.trim()) {
+      callBackend(query)
+    }
+  }, [query])
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
 
       <div className="ml-0 sm:ml-12 md:ml-12 lg:ml-14 xl:ml-16 min-h-screen flex flex-col">
-        {/* Query Display with Model Selector */}
+        {/* Query Display */}
         <div className="pt-4 sm:pt-5 md:pt-6 lg:pt-7 xl:pt-8 pb-3 sm:pb-4 md:pb-5 lg:pb-6 px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 border-b border-border/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3 lg:gap-3.5 xl:gap-4 text-muted-foreground">
@@ -53,56 +93,39 @@ export default function SearchPage() {
 
               <div className="flex-1 space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-5">
                 <div className="text-foreground">
-                  <p className="mb-2 sm:mb-3 md:mb-4 lg:mb-5 text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl">
-                    I'm Caregene's Rare gene LLM, specialized in rare diseases and genetic conditions. Here are some
-                    ways I can assist you:
-                  </p>
-
-                  <ul className="space-y-1.5 sm:space-y-2 md:space-y-3 lg:space-y-4 ml-2 sm:ml-3 md:ml-4 lg:ml-5">
-                    <li className="flex items-start gap-1.5 sm:gap-2 md:gap-2.5">
-                      <span className="text-primary mt-0.5 sm:mt-1">•</span>
-                      <div className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl">
-                        <strong>Health guidance:</strong> symptoms, medication questions, care planning, etc.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-1.5 sm:gap-2 md:gap-2.5">
-                      <span className="text-primary mt-0.5 sm:mt-1">•</span>
-                      <div className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl">
-                        <strong>Care coordination:</strong> appointment scheduling, insurance navigation, provider
-                        communication, etc.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-1.5 sm:gap-2 md:gap-2.5">
-                      <span className="text-primary mt-0.5 sm:mt-1">•</span>
-                      <div className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl">
-                        <strong>Daily support:</strong> meal planning, medication reminders, mobility assistance, etc.
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-1.5 sm:gap-2 md:gap-2.5">
-                      <span className="text-primary mt-0.5 sm:mt-1">•</span>
-                      <div className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl">
-                        <strong>Emergency preparedness:</strong> care plans, emergency contacts, medical information
-                        organization, etc.
-                      </div>
-                    </li>
-                  </ul>
-
-                  <p className="mt-2 sm:mt-3 md:mt-4 lg:mt-5 text-xs sm:text-xs md:text-sm lg:text-base xl:text-lg text-muted-foreground">
-                    You can also try Caregene Pro for comprehensive care management, including detailed health reports,
-                    care team coordination, and personalized care plans.
-                  </p>
+                  {isLoading ? (
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  ) : error ? (
+                    <div className="text-red-500">
+                      <p className="text-sm">Error: {error}</p>
+                    </div>
+                  ) : response ? (
+                    <div className="prose prose-sm max-w-none">
+                      <div dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br/>') }} />
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Ask me anything about rare genetic diseases, health guidance, or care coordination.
+                    </p>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-1 sm:pt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-foreground text-xs sm:text-xs md:text-sm lg:text-base"
-                  >
-                    <RotateCcw className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 lg:h-4 lg:w-4 mr-1 sm:mr-1.5" />
-                    Regenerate
-                  </Button>
-                </div>
+                {response && (
+                  <div className="flex items-center gap-2 pt-1 sm:pt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-foreground text-xs sm:text-xs md:text-sm lg:text-base"
+                      onClick={() => callBackend(query)}
+                    >
+                      <RotateCcw className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 lg:h-4 lg:w-4 mr-1 sm:mr-1.5" />
+                      Regenerate
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

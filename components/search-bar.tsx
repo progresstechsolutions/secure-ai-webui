@@ -1,74 +1,66 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Plus, Mic, Send } from "lucide-react"
+import React, { useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Mic, Plus, Send } from "lucide-react";
+
+type ChatRole = "system" | "user" | "assistant";
+type ChatMessage = { role: ChatRole; content: string };
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE?.replace(/\/+$/, "") || "http://localhost:8000";
+
+// Helper: convert local messages → OpenAI/vLLM format (plain strings)
+function toOpenAIChat(messages: ChatMessage[]) {
+  return messages.map(({ role, content }) => ({ role, content }));
+}
+
+// Helper: fetch with timeout
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  ms = 60_000
+) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 export function SearchBar() {
-  // Format messages for backend
-  type ChatMessage = { role: string; content: string };
-  function formatMessagesForVLLM(messages: ChatMessage[]): { role: string; content: { type: string; text: string }[] }[] {
-    return messages.map(({ role, content }) => ({
-      role,
-      content: [{ type: 'text', text: content }],
-    }));
-  }
-
-  // Chat history state for context (optional, can be expanded)
-  const [chatHistory, setChatHistory] = useState([
-    { role: 'system', content: 'You are a helpful assistant.' },
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
+    { role: "system", content: "You are a helpful assistant." },
   ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const pathname = usePathname();
 
   const isSearchPage = pathname === "/search";
 
-  // Document upload handler
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
+  const handleFileUpload = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setUploadedFiles(Array.from(e.target.files));
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("files", file);
-      // Example chat history, replace with your actual state if needed
-      const messages = JSON.stringify([
-        { role: "user", content: [{ type: "text", text: searchQuery || "" }] }
-      ]);
-      formData.append("messages", messages);
-  const res = await fetch("http://localhost:8000/upload-and-ask", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Upload failed");
-      const data = await res.json();
-      alert(data.answer || "Upload successful!");
-    } catch (err) {
-      alert("Error uploading file");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Voice input handler
   const handleVoiceInput = () => {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    const AnyWindow = window as any;
+    const SpeechRecognition =
+      AnyWindow.SpeechRecognition || AnyWindow.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
       alert("Speech recognition not supported in this browser.");
       return;
     }
     setIsRecording(true);
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = false;
@@ -82,50 +74,120 @@ export function SearchBar() {
       setIsRecording(false);
       alert("Voice recognition error.");
     };
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
+    recognition.onend = () => setIsRecording(false);
     recognition.start();
   };
 
+  // Roll back a dangling user turn if a request fails
+  const rollbackLastUser = () =>
+    setChatHistory((prev) =>
+      prev.length && prev[prev.length - 1].role === "user" ? prev.slice(0, -1) : prev
+    );
+
   const handleSubmit = async (e: React.FormEvent) => {
-  console.log('handleSubmit called');
     e.preventDefault();
-    if (!searchQuery.trim()) return;
+    if (loading || (!searchQuery.trim() && uploadedFiles.length === 0)) return;
+
     setLoading(true);
-    // Add user message to chat history
-    const userMsg = { role: 'user', content: searchQuery.trim() };
-    const updatedHistory = [...chatHistory, userMsg];
+
+    // Prepare next user message and enforce alternation (no user→user)
+    const nextUserMsg: ChatMessage = { role: "user", content: searchQuery.trim() };
+    let updatedHistory: ChatMessage[];
+
+    if (chatHistory.length && chatHistory[chatHistory.length - 1].role === "user") {
+      // Merge/replace last user message instead of appending a second in a row
+      updatedHistory = [...chatHistory.slice(0, -1), nextUserMsg];
+    } else {
+      updatedHistory = [...chatHistory, nextUserMsg];
+    }
+
     setChatHistory(updatedHistory);
     setSearchQuery("");
-    // File upload logic (if you want to support file uploads, add file state)
-    // For now, only chat (no file upload)
+
+    // --- FILE UPLOAD FLOW ---
+    if (uploadedFiles.length > 0) {
+      try {
+        const formData = new FormData();
+        uploadedFiles.forEach((file) => formData.append("files", file));
+        formData.append("messages", JSON.stringify(toOpenAIChat(updatedHistory)));
+
+        const res = await fetchWithTimeout(`${API_BASE}/upload-and-ask`, { method: "POST", body: formData }, 60_000);
+        const text = await res.text();
+
+        let data: any;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("Invalid response format from server");
+        }
+
+        if (!res.ok) {
+          const errorMsg = data.detail || data.error || data.message || "Upload failed";
+          setChatHistory((prev) => [...prev, { role: "assistant", content: errorMsg }]);
+          return;
+        }
+
+        const answer: string | undefined = data.answer;
+        setChatHistory((prev) => [
+          ...prev,
+          { role: "assistant", content: answer || "Upload successful, but no answer returned." },
+        ]);
+      } catch (err: any) {
+        rollbackLastUser();
+        const msg =
+          err?.name === "AbortError"
+            ? "Request timed out after 60 seconds. Please try again."
+            : err?.message || "Error uploading file";
+        setChatHistory((prev) => [...prev, { role: "assistant", content: msg }]);
+      } finally {
+        setLoading(false);
+        setUploadedFiles([]);
+      }
+      return;
+    }
+
+    // --- CHAT ONLY FLOW (non-streaming) ---
     try {
-      // --- CHAT ONLY FLOW ---
-      const res = await fetch("http://localhost:8000/upload-and-ask", {
-        method: "POST",
-        body: (() => {
-          const formData = new FormData();
-          formData.append("messages", JSON.stringify(formatMessagesForVLLM(updatedHistory)));
-          return formData;
-        })(),
-      });
-      const data = await res.json();
+      const payload = { messages: toOpenAIChat(updatedHistory) };
+
+      const res = await fetchWithTimeout(
+        `${API_BASE}/generate-structured-response`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        60_000
+      );
+
+      const text = await res.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid response format from server");
+      }
+
       if (!res.ok) {
-        setChatHistory(prev => [...prev, { role: 'assistant', content: data.detail || data.error || "Query failed" }]);
-        alert(data.detail || data.error || "Query failed");
+        const errorMsg = data.detail || data.error || data.message || "Query failed";
+        setChatHistory((prev) => [...prev, { role: "assistant", content: errorMsg }]);
         return;
       }
-      if (data.answer) {
-        setChatHistory(prev => [...prev, { role: 'assistant', content: data.answer }]);
-        alert(`Answer: ${data.answer}`);
-      } else {
-        setChatHistory(prev => [...prev, { role: 'assistant', content: "Query successful, but no answer returned." }]);
-        alert("Query successful, but no answer returned.");
-      }
+
+      const responseText: string | undefined = data.output || data.answer;
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "assistant", content: responseText || "Query successful, but no answer returned." },
+      ]);
     } catch (err: any) {
-      setChatHistory(prev => [...prev, { role: 'assistant', content: err?.message || "Error sending query" }]);
-      alert(err?.message || "Error sending query");
+      rollbackLastUser();
+      const msg =
+        err?.name === "AbortError"
+          ? "Request timed out after 60 seconds. Please try again."
+          : err?.message?.includes("fetch")
+          ? "Network error - please check if the backend is running"
+          : err?.message || "Error during query";
+      setChatHistory((prev) => [...prev, { role: "assistant", content: msg }]);
     } finally {
       setLoading(false);
     }
@@ -166,6 +228,11 @@ export function SearchBar() {
         </div>
       )}
 
+      {/* Show uploaded files */}
+      {uploadedFiles.length > 0 && (
+        <div className="mb-2 text-xs text-gray-600">📎 {uploadedFiles.length} file(s) selected</div>
+      )}
+
       <form onSubmit={handleSubmit} className="relative">
         <div className="flex items-center bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow duration-200">
           <Button
@@ -199,7 +266,7 @@ export function SearchBar() {
             <Mic className="h-4 w-4" />
           </Button>
 
-          {searchQuery.trim() && (
+          {(searchQuery.trim() || uploadedFiles.length > 0) && (
             <Button
               type="submit"
               variant="ghost"
@@ -207,7 +274,11 @@ export function SearchBar() {
               className="mr-3 p-2 rounded-full hover:bg-gray-50 text-gray-600"
               disabled={loading}
             >
-              <Send className="h-4 w-4" />
+              {loading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           )}
         </div>
@@ -218,8 +289,9 @@ export function SearchBar() {
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.txt"
           onChange={handleFileChange}
+          multiple
         />
       </form>
     </div>
-  )
+  );
 }
