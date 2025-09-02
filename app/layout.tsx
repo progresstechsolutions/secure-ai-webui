@@ -2,6 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Playfair_Display, Source_Sans_3 as Source_Sans_Pro } from "next/font/google"
 import "./globals.css"
+import { Toaster } from "@/components/ui/toaster"
+import { NavigationProvider } from "@/components/navigation-context" // Import NavigationProvider
 
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
@@ -30,7 +32,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${playfairDisplay.variable} ${sourceSansPro.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <NavigationProvider>
+          {" "}
+          {/* Wrap children with NavigationProvider to share pinned state */}
+          {children}
+          <Toaster />
+        </NavigationProvider>
+      </body>
     </html>
   )
 }

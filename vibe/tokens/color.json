@@ -1,0 +1,23 @@
+{
+  "brand": {
+    "primary": "#2563EB",
+    "accent": "#3B82F6",
+    "accentLight": "#DBEAFE"
+  },
+  "text": {
+    "default": "#0F172A",
+    "muted": "#64748B",
+    "onBrand": "#FFFFFF"
+  },
+  "surface": {
+    "bg": "#FFFFFF",
+    "elevated": "#F8FAFC",
+    "border": "#E2E8F0"
+  },
+  "states": {
+    "success": "#16A34A",
+    "warning": "#F59E0B",
+    "danger": "#DC2626",
+    "info": "#2563EB"
+  }
+}

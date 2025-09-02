@@ -40,6 +40,42 @@
   --sidebar-ring: rgba(37, 99, 235, 0.3); /* Blue focus ring */
   --font-inter: "Inter", sans-serif;
   --font-source-sans: "Source Sans Pro", sans-serif;
+
+  /* Vibe Kit Design Tokens */
+  --color-brand: #2563eb;
+  --color-accent: #3b82f6;
+  --color-accent-light: #dbeafe;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-on-brand: #ffffff;
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --font-sans: Inter, ui-sans-serif, system-ui;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .dark {
@@ -76,6 +112,16 @@
   --sidebar-accent-foreground: #0f172a; /* Dark text on accent */
   --sidebar-border: #334155; /* Medium slate borders */
   --sidebar-ring: rgba(59, 130, 246, 0.3); /* Blue ring */
+
+  /* Vibe Kit Design Tokens */
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-border: #334155;
+  --color-brand: #3b82f6;
+  --color-accent: #60a5fa;
+  --color-accent-light: #1e3a8a;
 }
 
 @theme inline {
