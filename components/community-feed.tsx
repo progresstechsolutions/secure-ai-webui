@@ -17,11 +17,21 @@ import { useCommunityWithPosts } from "@/hooks/use-api"
 
 // Helper function to get full image URL
 const getImageUrl = (imagePath: string) => {
+  // Validate imagePath
+  if (!imagePath || typeof imagePath !== 'string') {
+    console.warn('🚨 Invalid image path:', imagePath)
+    return '/placeholder.jpg'
+  }
+  
   if (imagePath.startsWith('http')) {
     return imagePath // Already a full URL
   }
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001'
-  return `${BACKEND_URL}${imagePath}`
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'
+  const fullUrl = `${BACKEND_URL}${imagePath}`
+  console.log('🖼️ Image URL constructed:', { imagePath, BACKEND_URL, fullUrl })
+  
+  // Use Next.js image proxy to avoid CORS issues
+  return `/api/image-proxy?url=${encodeURIComponent(fullUrl)}`
 }
 
 interface CommunityFeedProps {
@@ -43,6 +53,9 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
   const [copiedLink, setCopiedLink] = useState(false)
   const [selectedPost, setSelectedPost] = useState<string | null>(null)
   const [selectedPostData, setSelectedPostData] = useState<Post | null>(null)
+  
+  // Facebook-style image viewer state
+  const [selectedImage, setSelectedImage] = useState<{url: string, index: number, postImages: string[]} | null>(null)
 
   // Helper function to extract user reactions from posts
   const extractUserReactions = useCallback((posts: Post[], currentUser: any): Record<string, string> => {
@@ -593,24 +606,50 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
                     </div>
                   )}
 
-                  {/* Media */}
+                  {/* Media - Facebook Style */}
                   {post.images && post.images.length > 0 && (
                     <div className="relative">
                       <div className={`${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
-                        {post.images.slice(0, 4).map((image, index) => (
+                        {post.images.filter(Boolean).slice(0, 4).map((image, index) => (
                           <div 
                             key={index} 
-                            className="relative overflow-hidden"
+                            className="relative overflow-hidden cursor-pointer group"
+                            onClick={() => setSelectedImage({ 
+                              url: getImageUrl(image), 
+                              index, 
+                              postImages: post.images || [] 
+                            })}
                           >
                             <img
                               src={getImageUrl(image)}
                               alt={`Post image ${index + 1}`}
-                              className="w-full h-auto object-cover hover:opacity-95 transition-opacity"
+                              className="w-full h-auto object-cover hover:opacity-95 transition-all duration-200 group-hover:scale-105"
                               style={{ 
                                 maxHeight: post.images && post.images.length === 1 ? '400px' : '160px',
-                                aspectRatio: post.images && post.images.length === 1 ? 'auto' : '1'
+                                aspectRatio: post.images && post.images.length === 1 ? 'auto' : '1',
+                                objectFit: 'cover'
+                              }}
+                              onError={(e) => {
+                                console.error('🚨 Image failed to load:', {
+                                  originalSrc: e.currentTarget.src,
+                                  imagePath: image,
+                                  error: e.type
+                                })
+                                // Set a fallback image
+                                e.currentTarget.src = '/placeholder.jpg'
+                              }}
+                              onLoad={() => {
+                                console.log('✅ Image loaded successfully:', getImageUrl(image))
                               }}
                             />
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-200 flex items-center justify-center">
+                              <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm5 3a2 2 0 11-4 0 2 2 0 014 0zm4.5 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            </div>
                             {index === 3 && post.images && post.images.length > 4 && (
                               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                                 <span className="text-white text-lg font-semibold">+{post.images.length - 4}</span>
@@ -917,6 +956,69 @@ export function CommunityFeed({ communitySlug, onBack, user }: CommunityFeedProp
                 userReactions={userReactions}
                 onReactionUpdate={(postId: string, reactionType: string) => handleReaction(postId, reactionType)}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Facebook-Style Image Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 z-10"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={selectedImage.url}
+              alt={`Post image ${selectedImage.index + 1}`}
+              className="max-w-full max-h-full object-contain"
+              style={{ maxHeight: '80vh' }}
+            />
+            {selectedImage.postImages.length > 1 && (
+              <>
+                {/* Previous button */}
+                {selectedImage.index > 0 && (
+                  <button
+                    onClick={() => setSelectedImage({
+                      url: getImageUrl(selectedImage.postImages[selectedImage.index - 1]),
+                      index: selectedImage.index - 1,
+                      postImages: selectedImage.postImages
+                    })}
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white bg-black/50 hover:bg-black/70 rounded-full p-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
+                {/* Next button */}
+                {selectedImage.index < selectedImage.postImages.length - 1 && (
+                  <button
+                    onClick={() => setSelectedImage({
+                      url: getImageUrl(selectedImage.postImages[selectedImage.index + 1]),
+                      index: selectedImage.index + 1,
+                      postImages: selectedImage.postImages
+                    })}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white bg-black/50 hover:bg-black/70 rounded-full p-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
+              </>
+            )}
+            {/* Image counter */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black/50 px-3 py-1 rounded-full text-sm">
+              {selectedImage.index + 1} of {selectedImage.postImages.length}
             </div>
           </div>
         </div>

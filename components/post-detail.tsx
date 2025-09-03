@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -12,11 +12,22 @@ import type { Post } from "@/lib/api-client"
 
 // Helper function to get full image URL
 const getImageUrl = (imagePath: string) => {
+  // Validate imagePath
+  if (!imagePath || typeof imagePath !== 'string') {
+    console.warn('🚨 Invalid image path:', imagePath)
+    return '/placeholder.jpg'
+  }
+  
   if (imagePath.startsWith('http')) {
     return imagePath // Already a full URL
   }
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001'
-  return `${BACKEND_URL}${imagePath}`
+  
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'
+  const fullUrl = `${BACKEND_URL}${imagePath}`
+  console.log('🖼️ Image URL constructed:', { imagePath, BACKEND_URL, fullUrl })
+  
+  // Use Next.js image proxy to avoid CORS issues
+  return `/api/image-proxy?url=${encodeURIComponent(fullUrl)}`
 }
 
 interface PostDetailProps {
@@ -84,6 +95,13 @@ export function PostDetail({
   const [anonymousReply, setAnonymousReply] = useState<Record<string, boolean>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submittingReply, setSubmittingReply] = useState<string | null>(null)
+  const [commentLikes, setCommentLikes] = useState<Record<string, boolean>>({})
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({})
+  
+  // Image viewer state - Facebook style
+  const [selectedImage, setSelectedImage] = useState<{url: string, index: number} | null>(null)
+  const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({})
+  const [showAllTopLevelComments, setShowAllTopLevelComments] = useState(false)
   
   // Local post state to handle updates
   const [localPost, setLocalPost] = useState(post)
@@ -99,6 +117,12 @@ export function PostDetail({
   const handleAddComment = async () => {
     if (newComment.trim() && !isSubmitting) {
       setIsSubmitting(true)
+      console.log('🔄 Creating comment:', {
+        content: newComment.trim(),
+        postId: currentPost.id || currentPost._id,
+        isAnonymous: anonymousComment
+      })
+      
       try {
         // Make API call to create comment
         const response = await apiClient.createComment({
@@ -107,6 +131,8 @@ export function PostDetail({
           parentCommentId: undefined,
           isAnonymous: anonymousComment
         })
+        
+        console.log('✅ Comment creation response:', response)
         
         if (response.data) {
           // Clear the input immediately for better UX
@@ -135,9 +161,16 @@ export function PostDetail({
             }))
           }
           
-          logUserActivity(`Commented on post: \"${(currentPost.caption || currentPost.content || '').substring(0, 50)}...\"`);}
+          logUserActivity(`Commented on post: \"${(currentPost.caption || currentPost.content || '').substring(0, 50)}...\"`)
+        } else if (response.error) {
+          console.error('❌ Comment creation failed with error:', response.error)
+          alert(`Failed to create comment: ${response.error}`)
+        }
       } catch (error) {
-        console.error("Failed to add comment:", error)} finally {
+        console.error("❌ Failed to add comment:", error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+        alert(`Error while creating ${anonymousComment ? 'anonymous ' : ''}comment: ${errorMessage}`)
+      } finally {
         setIsSubmitting(false)
       }
     }
@@ -146,15 +179,32 @@ export function PostDetail({
   const handleAddReply = async (commentId: string) => {
     if (replyText[commentId] && replyText[commentId].trim() && submittingReply !== commentId) {
       setSubmittingReply(commentId)
+      // Only send parentCommentId if it's a real ObjectId (24 hex chars)
+      const isRealObjectId = /^[a-f\d]{24}$/i.test(commentId)
+      const replyPayload: any = {
+        content: replyText[commentId].trim(),
+        postId: currentPost.id || currentPost._id,
+        isAnonymous: anonymousReply[commentId] || false
+      }
+      if (isRealObjectId) {
+        replyPayload.parentCommentId = commentId
+        console.log('✅ Using real ObjectId as parentCommentId:', commentId)
+      } else {
+        console.log('⚠️ Skipping parentCommentId - not a real ObjectId:', commentId)
+      }
+      console.log('🔄 [Reply Attempt] Creating reply:', {
+        commentId,
+        replyPayload,
+        time: new Date().toISOString()
+      })
       try {
         // Make API call to create reply
-        const response = await apiClient.createComment({
-          content: replyText[commentId].trim(),
-          postId: currentPost.id || currentPost._id,
-          parentCommentId: commentId,
-          isAnonymous: anonymousReply[commentId] || false
+        const response = await apiClient.createComment(replyPayload)
+        console.log('✅ [Reply Attempt] API response:', {
+          commentId,
+          response,
+          time: new Date().toISOString()
         })
-        
         if (response.data) {
           // Clear the reply input immediately for better UX
           setReplyText((prev) => {
@@ -163,18 +213,16 @@ export function PostDetail({
             return newState
           })
           setAnonymousReply((prev) => ({ ...prev, [commentId]: false }))
-          
           // Refetch the complete post with updated comments from the database
           try {
             const updatedPostResponse = await apiClient.getPost(currentPost.id || currentPost._id)
             if (updatedPostResponse.data) {
               setLocalPost(updatedPostResponse.data)
-              
               // Also call parent handler for consistency (if needed for parent state)
               await onAddReply(currentPost.id || currentPost._id, commentId, response.data)
             }
           } catch (fetchError) {
-            console.error("Failed to refresh post after reply:", fetchError)
+            console.error("[Reply Attempt] Failed to refresh post after reply:", fetchError)
             // Fallback to local state update
             setLocalPost((prevPost: Post | any) => {
               const updateComments = (comments: any[]): any[] => {
@@ -194,7 +242,6 @@ export function PostDetail({
                   return comment
                 })
               }
-              
               return {
                 ...prevPost,
                 comments: updateComments(prevPost.comments || []),
@@ -204,9 +251,26 @@ export function PostDetail({
                 }
               }
             })
-          }}
+          }
+        } else if (response.error) {
+          console.error('[Reply Attempt] ❌ Reply creation failed with error:', {
+            commentId,
+            error: response.error,
+            payload: replyPayload,
+            time: new Date().toISOString()
+          })
+          alert(`Failed to create reply: ${response.error}`)
+        }
       } catch (error) {
-        console.error("Failed to add reply:", error)} finally {
+        console.error("[Reply Attempt] ❌ Failed to add reply:", {
+          commentId,
+          error,
+          payload: replyPayload,
+          time: new Date().toISOString()
+        })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+        alert(`Error while creating ${anonymousReply[commentId] ? 'anonymous ' : ''}reply: ${errorMessage}`)
+      } finally {
         setSubmittingReply(null)
       }
     }
@@ -219,10 +283,15 @@ export function PostDetail({
       // Determine if we're removing or adding/changing reaction
       const isRemoving = currentReaction === reactionType
       
+      console.log('🔄 Reaction update:', { currentReaction, reactionType, isRemoving })
+      
       // Update local post reaction count immediately for better UX
       setLocalPost((prevPost: Post | any) => {
         const currentTotal = prevPost.stats?.totalReactions || 0
-        const newTotal = isRemoving ? Math.max(0, currentTotal - 1) : currentTotal + 1
+        const newTotal = isRemoving ? Math.max(0, currentTotal - 1) : 
+                       currentReaction ? currentTotal : currentTotal + 1
+        
+        console.log('📊 Local reaction count update:', { currentTotal, newTotal, isRemoving })
         
         return {
           ...prevPost,
@@ -234,19 +303,38 @@ export function PostDetail({
       })
       
       // Make API call
+      let apiResponse
       if (isRemoving) {
-        await apiClient.removeReactionFromPost(currentPost.id || currentPost._id)
+        console.log('🗑️ Removing reaction from API')
+        apiResponse = await apiClient.removeReactionFromPost(currentPost.id || currentPost._id)
       } else {
-        await apiClient.addReactionToPost(currentPost.id || currentPost._id, reactionType as any)
+        console.log('➕ Adding reaction to API:', reactionType)
+        apiResponse = await apiClient.addReactionToPost(currentPost.id || currentPost._id, reactionType as any)
       }
       
-      // Also call the parent's reaction handler for state synchronization
+      // Log API response for debugging
+      console.log('🌐 API reaction response:', apiResponse)
+      
+      // Update parent component state for synchronization
       const newReactionType = isRemoving ? "" : reactionType
-      onReaction(currentPost.id || currentPost._id, newReactionType)
+      await onReaction(currentPost.id || currentPost._id, newReactionType)
+      
+      // Force refresh post data to ensure consistency
+      try {
+        const updatedPostResponse = await apiClient.getPost(currentPost.id || currentPost._id)
+        if (updatedPostResponse.data) {
+          console.log('🔄 Refreshed post data after reaction:', updatedPostResponse.data.stats)
+          setLocalPost(updatedPostResponse.data)
+        }
+      } catch (refreshError) {
+        console.warn('⚠️ Failed to refresh post after reaction:', refreshError)
+      }
       
     } catch (error) {
+      console.error('❌ Reaction update failed:', error)
       // Revert local state on error
-      setLocalPost(post)}
+      setLocalPost(post)
+    }
   }
 
   const reactions = [
@@ -257,143 +345,171 @@ export function PostDetail({
     { type: "grateful", emoji: "🙏", label: "Grateful" },
   ]
 
-  const renderComments = (comments: any[], level = 0) => {
+  // Recursive comment renderer with unlimited nesting, reply, and like support
+  const renderComments = useCallback((comments: any[], level = 0) => {
+    if (!comments || comments.length === 0) return null
     return comments.map((comment, index) => {
-      const commentId = comment._id || comment.id || `comment-${index}-${level}`
-      
+      // Prefer real MongoDB ObjectIds, fallback to placeholder for UI rendering only
+      const commentId = comment._id || comment.id || `temp-comment-${index}-${level}-${Date.now()}`
+      const hasReplies = comment.replies && comment.replies.length > 0
+      const showingAllReplies = showAllComments[commentId] || false
+      const visibleReplies = showingAllReplies ? comment.replies : (comment.replies?.slice(0, 2) || [])
+      const hiddenRepliesCount = hasReplies ? Math.max(0, (comment.replies?.length || 0) - 2) : 0
+      const isLiked = commentLikes[commentId] || false
+      const likeCount = typeof comment.likeCount === 'number' ? comment.likeCount : (commentLikeCounts[commentId] || 0)
       return (
-      <div key={commentId} className={`${level > 0 ? "ml-8 sm:ml-10" : ""}`}>
-        <div className="flex space-x-3 mb-3">
-          {/* User Avatar - Consistent styling */}
-          <div className="flex-shrink-0">
-            {(!((comment.isAnonymous ?? comment.anonymous) === true)) ? (
-              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-xs">
-                  {(typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
-              </div>
-            ) : (
-              <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                <User className="h-4 w-4 text-white" />
-              </div>
-            )}
-          </div>
-          
-          {/* Comment Content */}
-          <div className="flex-1">
-            <div className="bg-gray-50 rounded-2xl px-3 py-2 hover:bg-gray-100 transition-colors">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="font-semibold text-gray-900 text-sm">
-                  {(comment.isAnonymous ?? comment.anonymous) ? 'Anonymous' : (typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')}
-                </span>
-                <span className="text-xs text-gray-500">{comment.timestamp}</span>
-              </div>
-              <p className="text-gray-800 text-sm leading-relaxed">{comment.content}</p>
-            </div>
-            
-            {/* Comment Actions */}
-            <div className="flex items-center space-x-4 mt-1 ml-3">
-              <button 
-                className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors py-1 px-2 -mx-2 rounded-lg hover:bg-gray-50 min-h-[32px] flex items-center touch-manipulation"
-                aria-label={`Like comment by ${typeof comment.author === 'string' ? comment.author : comment.author?.name || 'user'}`}
-              >
-                Like
-              </button>
-              <button
-                onClick={() => {
-                  setReplyText((prev) => ({ 
-                    ...prev, 
-                    [commentId]: prev[commentId] !== undefined ? undefined : "" 
-                  }))
-                  if (!anonymousReply[commentId]) {
-                    setAnonymousReply((prev) => ({ ...prev, [commentId]: false }))
-                  }
-                }}
-                className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors py-1 px-2 -mx-2 rounded-lg hover:bg-gray-50 min-h-[32px] flex items-center touch-manipulation"
-                aria-label={`Reply to comment by ${typeof comment.author === 'string' ? comment.author : comment.author?.name || 'user'}`}
-              >
-                Reply
-              </button>
-            </div>
-
-            {/* Reply Input */}
-            {replyText[commentId] !== undefined && (
-              <div className="mt-3 flex space-x-2" role="form" aria-label="Reply to comment">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-xs">
-                      {user?.username?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  </div>
+        <div key={commentId} className={`${level > 0 ? "ml-6 border-l-2 border-gray-100 pl-4" : ""} ${level === 0 ? "mb-6" : "mb-3"}`}>
+          <div className="flex space-x-3">
+            {/* User Avatar */}
+            <div className="flex-shrink-0">
+              {(!((comment.isAnonymous ?? comment.anonymous) === true)) ? (
+                <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
+                  <span className="text-white font-semibold text-sm">
+                    {(typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
                 </div>
-                <div className="flex-1">
-                  <div className="bg-gray-50 rounded-2xl px-4 py-2 flex items-center hover:bg-gray-100 transition-colors">
-                    <input
-                      type="text"
-                      placeholder="Write a reply..."
-                      value={replyText[commentId]}
-                      onChange={(e) => setReplyText((prev) => ({ ...prev, [commentId]: e.target.value }))}
-                      className="border-none resize-none text-sm p-0 focus:ring-0 focus:outline-none bg-transparent placeholder:text-gray-500 flex-1 h-6 touch-manipulation"
-                      aria-label="Reply content"
-                      disabled={submittingReply === commentId}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey && replyText[commentId]?.trim()) {
-                          e.preventDefault()
-                          handleAddReply(commentId)
-                        }
-                      }}
-                    />
-                    {replyText[commentId]?.trim() && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleAddReply(commentId)}
+              ) : (
+                <div className="w-9 h-9 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center shadow-sm">
+                  <User className="h-4 w-4 text-white" />
+                </div>
+              )}
+            </div>
+            {/* Comment Content */}
+            <div className="flex-1 min-w-0">
+              <div className="bg-gray-50 rounded-xl px-4 py-3 hover:bg-gray-100 transition-colors">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="font-semibold text-gray-900 text-sm">
+                    {(comment.isAnonymous ?? comment.anonymous) ? 'Anonymous' : (typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')}
+                  </span>
+                  <span className="text-xs text-gray-500">{comment.timestamp}</span>
+                </div>
+                <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+              </div>
+              {/* Comment Actions */}
+              <div className="flex items-center space-x-6 mt-2 ml-1">
+                <button
+                  className={`text-xs font-medium transition-colors py-1.5 px-3 rounded-lg min-h-[32px] flex items-center touch-manipulation ${isLiked ? 'text-pink-600 bg-pink-50' : 'text-gray-500 hover:text-pink-600 hover:bg-pink-50'}`}
+                  aria-label={`Like comment by ${typeof comment.author === 'string' ? comment.author : comment.author?.name || 'user'}`}
+                  onClick={() => {
+                    setCommentLikes(prev => ({ ...prev, [commentId]: !isLiked }))
+                    setCommentLikeCounts(prev => ({ ...prev, [commentId]: isLiked ? Math.max(0, likeCount - 1) : likeCount + 1 }))
+                  }}
+                >
+                  <Heart className={`h-4 w-4 mr-1.5 ${isLiked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} />
+                  <span className="font-medium">{likeCount > 0 ? likeCount : 'Like'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    // Toggle reply input for this specific comment
+                    setReplyText((prev) => ({ 
+                      ...prev, 
+                      [commentId]: prev[commentId] !== undefined ? undefined : "" 
+                    }))
+                    if (!anonymousReply[commentId]) {
+                      setAnonymousReply((prev) => ({ ...prev, [commentId]: false }))
+                    }
+                  }}
+                  className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors py-1.5 px-3 rounded-lg hover:bg-blue-50 min-h-[32px] flex items-center touch-manipulation"
+                  aria-label={`Reply to comment by ${typeof comment.author === 'string' ? comment.author : comment.author?.name || 'user'}`}
+                >
+                  <MessageSquare className="h-4 w-4 mr-1.5" />
+                  <span className="font-medium">Reply</span>
+                </button>
+              </div>
+              {/* Reply Input */}
+              {replyText[commentId] !== undefined && (
+                <div className="mt-4 flex space-x-3" role="form" aria-label="Reply to comment">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm">
+                      <span className="text-white font-semibold text-xs">
+                        {user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center hover:border-blue-300 transition-colors focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-50">
+                      <input
+                        type="text"
+                        placeholder={`Reply to ${(comment.isAnonymous ?? comment.anonymous) ? 'Anonymous' : (typeof comment.author === 'string' ? comment.author : comment.author?.name || 'User')}...`}
+                        value={replyText[commentId]}
+                        onChange={(e) => setReplyText((prev) => ({ ...prev, [commentId]: e.target.value }))}
+                        className="border-none resize-none text-sm p-0 focus:ring-0 focus:outline-none bg-transparent placeholder:text-gray-500 flex-1 h-6 touch-manipulation"
+                        aria-label="Reply content"
                         disabled={submittingReply === commentId}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-6 px-3 rounded-full ml-2 touch-manipulation"
-                        aria-label="Submit reply"
-                      >
-                        {submittingReply === commentId ? (
-                          <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
-                        ) : (
-                          "Reply"
-                        )}
-                      </Button>
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey && replyText[commentId]?.trim()) {
+                            e.preventDefault()
+                            handleAddReply(commentId)
+                          }
+                        }}
+                      />
+                      {replyText[commentId]?.trim() && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleAddReply(commentId)}
+                          disabled={submittingReply === commentId}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7 px-4 rounded-lg ml-3 touch-manipulation font-medium"
+                          aria-label="Submit reply"
+                        >
+                          {submittingReply === commentId ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent"></div>
+                          ) : (
+                            "Reply"
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    {replyText[commentId]?.trim() && (
+                      <div className="flex items-center space-x-2 mt-3 ml-1">
+                        <Checkbox
+                          id={`anonymous-reply-${commentId}`}
+                          checked={anonymousReply[commentId] || false}
+                          onCheckedChange={(checked) => setAnonymousReply((prev) => ({ ...prev, [commentId]: checked as boolean }))}
+                          className="w-4 h-4"
+                          disabled={submittingReply === commentId}
+                        />
+                        <Label htmlFor={`anonymous-reply-${commentId}`} className="text-xs text-gray-600 cursor-pointer">
+                          Post anonymously
+                        </Label>
+                      </div>
                     )}
                   </div>
-                  {replyText[commentId]?.trim() && (
-                    <div className="flex items-center space-x-2 mt-2 ml-4">
-                      <Checkbox
-                        id={`anonymous-reply-${commentId}`}
-                        checked={anonymousReply[commentId] || false}
-                        onCheckedChange={(checked) => setAnonymousReply((prev) => ({ 
-                          ...prev, 
-                          [commentId]: checked as boolean 
-                        }))}
-                        className="w-4 h-4"
-                        disabled={submittingReply === commentId}
-                      />
-                      <Label htmlFor={`anonymous-reply-${commentId}`} className="text-xs text-gray-600 cursor-pointer">
-                        Post anonymously
-                      </Label>
+                </div>
+              )}
+              {/* Nested Replies - Show fewer initially */}
+              {hasReplies && (
+                <div className="mt-3">
+                  {renderComments(visibleReplies, level + 1)}
+                  {hiddenRepliesCount > 0 && !showingAllReplies && (
+                    <div className="ml-6 mt-3">
+                      <button
+                        onClick={() => setShowAllComments(prev => ({ ...prev, [commentId]: true }))}
+                        className="flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span>View {hiddenRepliesCount} more {hiddenRepliesCount === 1 ? 'reply' : 'replies'}</span>
+                      </button>
+                    </div>
+                  )}
+                  {showingAllReplies && hiddenRepliesCount > 0 && (
+                    <div className="ml-6 mt-3">
+                      <button
+                        onClick={() => setShowAllComments(prev => ({ ...prev, [commentId]: false }))}
+                        className="flex items-center space-x-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors py-2 px-3 rounded-lg hover:bg-gray-50"
+                      >
+                        <ArrowLeft className="h-4 w-4 rotate-90" />
+                        <span>Hide replies</span>
+                      </button>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-        
-        {/* Nested Replies */}
-        {comment.replies && comment.replies.length > 0 && (
-          <div className="mt-2">
-            {renderComments(comment.replies, level + 1)}
-          </div>
-        )}
-        
-        {level === 0 && <div className="mb-4"></div>}
-      </div>
       )
     })
-  }
+  }, [showAllComments, replyText, anonymousReply, submittingReply, commentLikes, commentLikeCounts, user, showAllTopLevelComments])
 
   if (!currentPost) {
     return (
@@ -498,24 +614,46 @@ export function PostDetail({
             </div>
           )}
 
-          {/* Media */}
+          {/* Media - Facebook Style */}
           {currentPost.images && currentPost.images.length > 0 && (
             <div className="relative">
               <div className={`${currentPost.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
-                {currentPost.images.slice(0, 4).map((image: string, index: number) => (
+                {currentPost.images.filter(Boolean).slice(0, 4).map((image: string, index: number) => (
                   <div 
                     key={index} 
-                    className="relative overflow-hidden"
+                    className="relative overflow-hidden cursor-pointer group"
+                    onClick={() => setSelectedImage({ url: getImageUrl(image), index })}
                   >
                     <img
                       src={getImageUrl(image)}
                       alt={`Post image ${index + 1}`}
-                      className="w-full h-auto object-cover hover:opacity-95 transition-opacity"
+                      className="w-full h-auto object-cover hover:opacity-95 transition-all duration-200 group-hover:scale-105"
                       style={{ 
                         maxHeight: currentPost.images && currentPost.images.length === 1 ? '400px' : '160px',
-                        aspectRatio: currentPost.images && currentPost.images.length === 1 ? 'auto' : '1'
+                        aspectRatio: currentPost.images && currentPost.images.length === 1 ? 'auto' : '1',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        console.error('🚨 Image failed to load:', {
+                          originalSrc: e.currentTarget.src,
+                          imagePath: image,
+                          error: e.type
+                        })
+                        // Set a fallback image
+                        e.currentTarget.src = '/placeholder.jpg'
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Image loaded successfully:', getImageUrl(image))
                       }}
                     />
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-200 flex items-center justify-center">
+                      <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm5 3a2 2 0 11-4 0 2 2 0 014 0zm4.5 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
                     {index === 3 && currentPost.images && currentPost.images.length > 4 && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                         <span className="text-white text-lg font-semibold">+{currentPost.images.length - 4}</span>
@@ -523,6 +661,67 @@ export function PostDetail({
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Facebook-Style Image Modal */}
+          {selectedImage && (
+            <div 
+              className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+              onClick={() => setSelectedImage(null)}
+            >
+              <div className="relative max-w-4xl max-h-full" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="absolute -top-10 right-0 text-white hover:text-gray-300 z-10"
+                >
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <img
+                  src={selectedImage.url}
+                  alt={`Post image ${selectedImage.index + 1}`}
+                  className="max-w-full max-h-full object-contain"
+                  style={{ maxHeight: '80vh' }}
+                />
+                {currentPost.images && currentPost.images.length > 1 && (
+                  <>
+                    {/* Previous button */}
+                    {selectedImage.index > 0 && (
+                      <button
+                        onClick={() => setSelectedImage({
+                          url: getImageUrl(currentPost.images[selectedImage.index - 1]),
+                          index: selectedImage.index - 1
+                        })}
+                        className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white bg-black/50 hover:bg-black/70 rounded-full p-2"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                    )}
+                    {/* Next button */}
+                    {selectedImage.index < currentPost.images.length - 1 && (
+                      <button
+                        onClick={() => setSelectedImage({
+                          url: getImageUrl(currentPost.images[selectedImage.index + 1]),
+                          index: selectedImage.index + 1
+                        })}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white bg-black/50 hover:bg-black/70 rounded-full p-2"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    )}
+                  </>
+                )}
+                {/* Image counter */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white bg-black/50 px-3 py-1 rounded-full text-sm">
+                  {selectedImage.index + 1} of {currentPost.images?.length || 1}
+                </div>
               </div>
             </div>
           )}
@@ -775,18 +974,56 @@ export function PostDetail({
           </div>
 
           {/* Comments List */}
-          <div className="px-3 sm:px-4 py-4">
+          <div className="px-4 py-6">
             {(!currentPost.comments || currentPost.comments.length === 0) ? (
-              <div className="text-center py-8 sm:py-12">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="h-8 w-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No comments yet</h3>
-                <p className="text-gray-500 text-sm">Be the first to share your thoughts</p>
+                <p className="text-gray-500 text-sm">Be the first to share your thoughts on this post</p>
               </div>
             ) : (
-              <div className="space-y-4" role="list" aria-label="Comments">
-                {renderComments(currentPost.comments || [])}
+              <div>
+                {/* Comments Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Comments ({currentPost.comments.length})
+                  </h3>
+                  {currentPost.comments.length > 3 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAllTopLevelComments(!showAllTopLevelComments)}
+                      className="text-xs"
+                    >
+                      {showAllTopLevelComments ? 'Show less' : 'View all'}
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Comments */}
+                <div className="space-y-6" role="list" aria-label="Comments">
+                  {renderComments(
+                    showAllTopLevelComments 
+                      ? currentPost.comments 
+                      : currentPost.comments.slice(0, 3)
+                  )}
+                </div>
+                
+                {/* Load More Comments Button */}
+                {!showAllTopLevelComments && currentPost.comments.length > 3 && (
+                  <div className="mt-6 text-center">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowAllTopLevelComments(true)}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-6 py-3 rounded-xl font-medium"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      View {currentPost.comments.length - 3} more comments
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

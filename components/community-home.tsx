@@ -163,11 +163,22 @@ const communityMap: { [key: string]: string } = {
 
 // Helper function to get full image URL
 const getImageUrl = (imagePath: string) => {
+  // Validate imagePath
+  if (!imagePath || typeof imagePath !== 'string') {
+    console.warn('🚨 Invalid image path:', imagePath)
+    return '/placeholder.jpg'
+  }
+  
   if (imagePath.startsWith('http')) {
     return imagePath // Already a full URL
   }
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001'
-  return `${BACKEND_URL}${imagePath}`
+  
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000'
+  const fullUrl = `${BACKEND_URL}${imagePath}`
+  console.log('🖼️ Image URL constructed:', { imagePath, BACKEND_URL, fullUrl })
+  
+  // Use Next.js image proxy to avoid CORS issues
+  return `/api/image-proxy?url=${encodeURIComponent(fullUrl)}`
 }
 
 const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
@@ -1801,7 +1812,9 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                     {post.images && post.images.length > 0 && (
                       <div className="relative">
                         <div className={`${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-0.5'}`}>
-                          {post.images.slice(0, 4).map((image, index) => (
+                          {post.images.filter(Boolean).slice(0, 4).map((image, index) => {
+                            console.log('🔍 Rendering image:', { image, index, postId: post._id })
+                            return (
                             <div 
                               key={index} 
                               className="relative overflow-hidden"
@@ -1814,6 +1827,18 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                   maxHeight: post.images && post.images.length === 1 ? '400px' : '160px',
                                   aspectRatio: post.images && post.images.length === 1 ? 'auto' : '1'
                                 }}
+                                onError={(e) => {
+                                  console.error('🚨 Image failed to load:', {
+                                    originalSrc: e.currentTarget.src,
+                                    imagePath: image,
+                                    error: e.type
+                                  })
+                                  // Set a fallback image
+                                  e.currentTarget.src = '/placeholder.jpg'
+                                }}
+                                onLoad={() => {
+                                  console.log('✅ Image loaded successfully:', getImageUrl(image))
+                                }}
                               />
                               {index === 3 && post.images && post.images.length > 4 && (
                                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -1821,7 +1846,8 @@ const CommunityHome: React.FC<CommunityHomeProps> = ({ user }) => {
                                 </div>
                               )}
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )}

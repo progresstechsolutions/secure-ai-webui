@@ -395,7 +395,17 @@ class ApiClient {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw Object.assign(new Error(errorData.error || `HTTP ${response.status}`), { status: response.status });
+            console.error('🚨 API Error Response:', {
+              status: response.status,
+              statusText: response.statusText,
+              url: `${this.baseURL}${endpoint}`,
+              errorData,
+              headers: Object.fromEntries(response.headers.entries())
+            });
+            throw Object.assign(new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`), { 
+              status: response.status,
+              errorData 
+            });
           }
 
           const data = await response.json();
