@@ -18,26 +18,64 @@ import {
   Settings,
   Stethoscope,
   FlaskConical,
-  FolderOpen,
   Clock,
   Plus,
-  TrendingUp,
   Pin,
   Menu,
   X,
+  FolderOpen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useNavigation } from "@/components/navigation-context"
+import { mockChatHistory } from "@/data/mockChatHistory"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export function Navigation() {
   const [expandedSections, setExpandedSections] = useState<string[]>([])
   const [isHovered, setIsHovered] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [researchHovered, setResearchHovered] = useState(false)
+  const [parentHovered, setParentHovered] = useState(false)
+  const [showProjectDialog, setShowProjectDialog] = useState(false)
+  const [projectName, setProjectName] = useState("")
+  const [projectType, setProjectType] = useState("")
   const { isPinned, setIsPinned } = useNavigation()
   const navRef = useRef<HTMLElement>(null)
 
   const [debouncedHover, setDebouncedHover] = useState(false)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
+  const researchHoverTimeoutRef = useRef<NodeJS.Timeout>()
+  const parentHoverTimeoutRef = useRef<NodeJS.Timeout>()
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    if (query.trim() === "") {
+      setSearchResults([])
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    const results = mockChatHistory.filter(
+      (chat) =>
+        chat.title.toLowerCase().includes(query.toLowerCase()) ||
+        chat.content.toLowerCase().includes(query.toLowerCase()),
+    )
+    setSearchResults(results)
+  }
+
+  const clearSearch = () => {
+    setSearchQuery("")
+    setSearchResults([])
+    setIsSearching(false)
+  }
 
   const toggleSection = (section: string) => {
     if (expandedSections.includes(section)) {
@@ -74,13 +112,73 @@ export function Navigation() {
     }, 300)
   }
 
+  const handleResearchMouseEnter = () => {
+    if (researchHoverTimeoutRef.current) {
+      clearTimeout(researchHoverTimeoutRef.current)
+    }
+    setResearchHovered(true)
+  }
+
+  const handleResearchMouseLeave = () => {
+    researchHoverTimeoutRef.current = setTimeout(() => {
+      setResearchHovered(false)
+    }, 300)
+  }
+
+  const handleParentMouseEnter = () => {
+    if (parentHoverTimeoutRef.current) {
+      clearTimeout(parentHoverTimeoutRef.current)
+    }
+    setParentHovered(true)
+  }
+
+  const handleParentMouseLeave = () => {
+    parentHoverTimeoutRef.current = setTimeout(() => {
+      setParentHovered(false)
+    }, 300)
+  }
+
+  const handleCreateProject = () => {
+    if (projectName.trim()) {
+      const newProject = {
+        id: Date.now().toString(),
+        name: projectName.trim(),
+        type: projectType || "general", // Default to general if no type selected
+        createdAt: new Date().toISOString(),
+      }
+
+      const existingProjects = JSON.parse(localStorage.getItem("caregene-projects") || "[]")
+      existingProjects.push(newProject)
+      localStorage.setItem("caregene-projects", JSON.stringify(existingProjects))
+
+      localStorage.setItem("caregene-active-project", JSON.stringify(newProject))
+
+      setProjectName("")
+      setProjectType("")
+      setShowProjectDialog(false)
+      closeMobileMenu()
+
+      window.location.href = "/"
+    }
+  }
+
+  const projectTypes = [
+    { value: "health-tracking", label: "Health Tracking" },
+    { value: "milestone-monitoring", label: "Milestone Monitoring" },
+    { value: "research-study", label: "Research Study" },
+    { value: "clinical-trial", label: "Clinical Trial" },
+    { value: "genetic-analysis", label: "Genetic Analysis" },
+    { value: "therapy-tracking", label: "Therapy Tracking" },
+    { value: "medication-management", label: "Medication Management" },
+    { value: "general", label: "General Project" },
+  ]
+
   const shouldExpand = isPinned || (isHovered && !isPinned)
 
   const parentApps = [
     { href: "/care-community", icon: Users, label: "Community" },
     { href: "/health-journal", icon: BookOpen, label: "Journal" },
     { href: "/genetic-tracker", icon: Dna, label: "Tracker" },
-    { href: "/trends", icon: TrendingUp, label: "Trends" },
     { href: "/milestone", icon: Zap, label: "Milestone" },
     { href: "/doc-hub", icon: FileText, label: "DocHub" },
   ]
@@ -95,7 +193,7 @@ export function Navigation() {
     <>
       <button
         onClick={toggleMobileMenu}
-        className="fixed top-4 left-4 z-50 p-2 rounded-md bg-sidebar/95 backdrop-blur border border-sidebar-border lg:hidden"
+        className="fixed top-4 left-4 z-50 p-3 rounded-lg bg-sidebar/95 backdrop-blur border border-sidebar-border lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center"
         aria-label="Toggle navigation menu"
       >
         {isMobileMenuOpen ? (
@@ -105,7 +203,13 @@ export function Navigation() {
         )}
       </button>
 
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={closeMobileMenu} />}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={closeMobileMenu}
+          onTouchStart={closeMobileMenu}
+        />
+      )}
 
       <nav
         ref={navRef}
@@ -121,23 +225,23 @@ export function Navigation() {
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="border-b border-sidebar-border flex items-center justify-between p-2 md:p-3 lg:p-4">
+          <div className="border-b border-sidebar-border flex items-center justify-between p-3">
             <Link
               href="/"
-              className="flex items-center transition-all duration-200 space-x-2 md:space-x-3"
+              className="flex items-center transition-all duration-200 space-x-2"
               onClick={closeMobileMenu}
             >
-              <div className="flex-shrink-0 h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8">
+              <div className="flex-shrink-0 h-6 w-6">
                 <Image
                   src="/images/caregene-logo.png"
                   alt="Caregene AI"
-                  width={32}
-                  height={32}
+                  width={24}
+                  height={24}
                   className="w-full h-full object-contain"
                 />
               </div>
               {(shouldExpand || isMobileMenuOpen) && (
-                <span className="font-serif font-bold text-xs sm:text-sm md:text-base lg:text-lg text-sidebar-foreground whitespace-nowrap">
+                <span className="font-serif font-bold text-sm text-sidebar-foreground whitespace-nowrap">
                   Caregene AI
                 </span>
               )}
@@ -158,99 +262,170 @@ export function Navigation() {
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 overflow-y-auto px-1.5 md:px-2">
+          <div className="flex-1 overflow-y-auto px-2 py-2">
             {/* New Chat */}
             <Link
               href="/"
-              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 mb-1 space-x-2 md:space-x-3 px-2 md:px-3"
+              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2"
               onClick={closeMobileMenu}
             >
-              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
-              {(shouldExpand || isMobileMenuOpen) && (
-                <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">New Chat</span>
-              )}
+              <Plus className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
+              {(shouldExpand || isMobileMenuOpen) && <span className="text-sm text-sidebar-foreground">New Chat</span>}
             </Link>
 
+            {shouldExpand || isMobileMenuOpen ? (
+              <div className="my-2">
+                <div className="relative">
+                  <div className="flex items-center rounded-lg border border-sidebar-border bg-sidebar-accent/5 h-8 px-2">
+                    <Search className="h-4 w-4 flex-shrink-0 text-muted-foreground mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Search chats..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-sidebar-foreground placeholder:text-muted-foreground border-0 outline-none"
+                    />
+                    {searchQuery && (
+                      <button onClick={clearSearch} className="ml-1 p-0.5 hover:bg-sidebar-accent/20 rounded">
+                        <X className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search Results */}
+                {isSearching && (
+                  <div className="mt-1 max-h-40 overflow-y-auto">
+                    {searchResults.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {searchResults.map((result) => (
+                          <Link
+                            key={result.id}
+                            href={`/chat/${result.id}`}
+                            className="block p-2 rounded-lg hover:bg-sidebar-accent/10 transition-colors"
+                            onClick={closeMobileMenu}
+                          >
+                            <div className="text-xs font-medium text-sidebar-foreground truncate">{result.title}</div>
+                            <div className="text-xs text-muted-foreground truncate mt-1">{result.content}</div>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2 text-xs text-muted-foreground text-center">No chats found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                href="/search"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2"
+                onClick={closeMobileMenu}
+              >
+                <Search className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
+              </Link>
+            )}
+
             {/* Projects */}
-            <Link
-              href="/projects"
-              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 mb-1 space-x-2 md:space-x-3 px-2 md:px-3"
-              onClick={closeMobileMenu}
-            >
-              <FolderOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
-              {(shouldExpand || isMobileMenuOpen) && (
-                <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">Projects</span>
-              )}
-            </Link>
+            <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
+              <DialogTrigger asChild>
+                <button className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2 w-full">
+                  <FolderOpen className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
+                  {(shouldExpand || isMobileMenuOpen) && (
+                    <span className="text-sm text-sidebar-foreground">New Project</span>
+                  )}
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create New Project</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="project-name">Project Name</Label>
+                    <Input
+                      id="project-name"
+                      placeholder="Enter project name..."
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="project-type">Project Type (Optional)</Label>
+                    <Select value={projectType} onValueChange={setProjectType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select project type (optional)..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projectTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setShowProjectDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateProject} disabled={!projectName.trim()}>
+                    Create Project
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Recent Chats */}
             <Link
               href="/recent"
-              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 mb-2 space-x-2 md:space-x-3 px-2 md:px-3"
+              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2 mb-2"
               onClick={closeMobileMenu}
             >
-              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+              <Clock className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
               {(shouldExpand || isMobileMenuOpen) && (
-                <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">
-                  Recent Chats
-                </span>
+                <span className="text-sm text-sidebar-foreground">Recent Chats</span>
               )}
             </Link>
 
-            {(shouldExpand || isMobileMenuOpen) && <div className="border-t border-sidebar-border/50 mb-2" />}
-
-            {/* Search */}
-            <Link
-              href="/search"
-              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 space-x-2 md:space-x-3 px-2 md:px-3"
-              onClick={closeMobileMenu}
-            >
-              <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
-              {(shouldExpand || isMobileMenuOpen) && (
-                <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">Search</span>
-              )}
-            </Link>
+            {(shouldExpand || isMobileMenuOpen) && <div className="border-t border-sidebar-border/50 my-2" />}
 
             {/* Parent Apps Section */}
-            <div className="mt-1">
+            <div>
               <button
                 onClick={() => toggleSection("parent")}
-                className={cn(
-                  "flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9",
-                  "justify-between space-x-2 md:space-x-3 px-2 md:px-3",
-                )}
+                onMouseEnter={handleParentMouseEnter}
+                onMouseLeave={handleParentMouseLeave}
+                className="flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 justify-between space-x-2 px-2"
               >
-                <div className="flex items-center space-x-2 md:space-x-3">
-                  <Dna className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                <div className="flex items-center space-x-2">
+                  <Dna className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                   {(shouldExpand || isMobileMenuOpen) && (
-                    <>
-                      <span className="text-xs sm:text-xs md:text-sm lg:text-sm font-medium text-sidebar-foreground">
-                        Parent Care
-                      </span>
-                    </>
+                    <span className="text-sm font-medium text-sidebar-foreground">Parent Care</span>
                   )}
                 </div>
                 {(shouldExpand || isMobileMenuOpen) && (
                   <>
-                    {expandedSections.includes("parent") ? (
-                      <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                    {expandedSections.includes("parent") || parentHovered ? (
+                      <ChevronDown className="h-3 w-3" />
                     ) : (
-                      <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                      <ChevronRight className="h-3 w-3" />
                     )}
                   </>
                 )}
               </button>
 
-              {(shouldExpand || isMobileMenuOpen) && expandedSections.includes("parent") && (
-                <div className="ml-4 sm:ml-5 md:ml-6 lg:ml-7 mt-0.5">
+              {(shouldExpand || isMobileMenuOpen) && (expandedSections.includes("parent") || parentHovered) && (
+                <div className="ml-6 mt-1" onMouseEnter={handleParentMouseEnter} onMouseLeave={handleParentMouseLeave}>
                   {parentApps.map((app) => (
                     <Link
                       key={app.href}
                       href={app.href}
-                      className="flex items-center space-x-2 md:space-x-3 px-2 md:px-3 py-0.5 md:py-1 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-xs sm:text-xs md:text-xs text-muted-foreground hover:text-foreground"
+                      className="flex items-center space-x-2 px-2 py-1 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-sm text-muted-foreground hover:text-foreground"
                       onClick={closeMobileMenu}
                     >
-                      <app.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                      <app.icon className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                       <span>{app.label}</span>
                     </Link>
                   ))}
@@ -262,115 +437,99 @@ export function Navigation() {
             <div className="mt-1">
               <button
                 onClick={() => toggleSection("enterprise")}
-                className={cn(
-                  "flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9",
-                  "justify-between space-x-2 md:space-x-3 px-2 md:px-3",
-                )}
+                onMouseEnter={handleResearchMouseEnter}
+                onMouseLeave={handleResearchMouseLeave}
+                className="flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 justify-between space-x-2 px-2"
               >
-                <div className="flex items-center space-x-2 md:space-x-3">
-                  <FlaskConical className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                <div className="flex items-center space-x-2">
+                  <FlaskConical className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                   {(shouldExpand || isMobileMenuOpen) && (
-                    <span className="text-xs sm:text-xs md:text-sm lg:text-sm font-medium text-sidebar-foreground">
-                      Research
-                    </span>
+                    <span className="text-sm font-medium text-sidebar-foreground">Research</span>
                   )}
                 </div>
                 {(shouldExpand || isMobileMenuOpen) && (
                   <>
-                    {expandedSections.includes("enterprise") ? (
-                      <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                    {expandedSections.includes("enterprise") || researchHovered ? (
+                      <ChevronDown className="h-3 w-3" />
                     ) : (
-                      <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                      <ChevronRight className="h-3 w-3" />
                     )}
                   </>
                 )}
               </button>
 
-              {(shouldExpand || isMobileMenuOpen) && expandedSections.includes("enterprise") && (
-                <div className="ml-4 sm:ml-5 md:ml-6 lg:ml-7 mt-0.5">
+              {(shouldExpand || isMobileMenuOpen) && (expandedSections.includes("enterprise") || researchHovered) && (
+                <div
+                  className="ml-6 mt-1"
+                  onMouseEnter={handleResearchMouseEnter}
+                  onMouseLeave={handleResearchMouseLeave}
+                >
                   {enterpriseApps.map((app) => (
                     <Link
                       key={app.href}
                       href={app.href}
-                      className="flex items-center space-x-2 md:space-x-3 px-2 md:px-3 py-0.5 md:py-1 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-xs sm:text-xs md:text-xs text-muted-foreground hover:text-foreground"
+                      className="flex items-center space-x-2 px-2 py-1 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-sm text-muted-foreground hover:text-foreground"
                       onClick={closeMobileMenu}
                     >
-                      <app.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                      <app.icon className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                       <span>{app.label}</span>
                     </Link>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* Simple Links */}
-            <Link
-              href="/about"
-              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 mt-1 space-x-2 md:space-x-3 px-2 md:px-3"
-              onClick={closeMobileMenu}
-            >
-              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
-              {(shouldExpand || isMobileMenuOpen) && (
-                <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">About</span>
-              )}
-            </Link>
-
-            <Link
-              href="/contact"
-              className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 space-x-2 md:space-x-3 px-2 md:px-3"
-              onClick={closeMobileMenu}
-            >
-              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
-              {(shouldExpand || isMobileMenuOpen) && (
-                <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">Contact</span>
-              )}
-            </Link>
           </div>
 
-          <div className="px-1.5 md:px-2 pb-1.5 md:pb-2 border-t border-sidebar-border">
-            <div className="py-1.5 md:py-2">
+          {/* Footer */}
+          <div className="px-2 pb-2 border-t border-sidebar-border">
+            <div className="py-2">
               <Link
                 href="/subscriptions"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 space-x-2 md:space-x-3 px-2 md:px-3"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2"
                 onClick={closeMobileMenu}
               >
-                <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                <CreditCard className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                 {(shouldExpand || isMobileMenuOpen) && (
-                  <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">
-                    Care Plans
-                  </span>
+                  <span className="text-sm text-sidebar-foreground">Care Plans</span>
                 )}
               </Link>
 
               <Link
                 href="/business"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 space-x-2 md:space-x-3 px-2 md:px-3"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2"
                 onClick={closeMobileMenu}
               >
-                <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                <Building2 className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                 {(shouldExpand || isMobileMenuOpen) && (
-                  <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">
-                    For Healthcare
-                  </span>
+                  <span className="text-sm text-sidebar-foreground">For Healthcare</span>
+                )}
+              </Link>
+
+              <Link
+                href="/contact"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2"
+                onClick={closeMobileMenu}
+              >
+                <Users className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
+                {(shouldExpand || isMobileMenuOpen) && (
+                  <span className="text-sm text-sidebar-foreground">Contact Us</span>
                 )}
               </Link>
 
               <Link
                 href="/settings"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-7 sm:h-8 md:h-8 lg:h-9 space-x-2 md:space-x-3 px-2 md:px-3"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-8 space-x-2 px-2"
                 onClick={closeMobileMenu}
               >
-                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 lg:h-5 lg:w-5 flex-shrink-0 text-sidebar-primary" />
+                <Settings className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                 {(shouldExpand || isMobileMenuOpen) && (
-                  <span className="ml-2 text-xs sm:text-xs md:text-sm lg:text-sm text-sidebar-foreground">
-                    Settings & Help
-                  </span>
+                  <span className="text-sm text-sidebar-foreground">Settings & Help</span>
                 )}
               </Link>
 
               {(shouldExpand || isMobileMenuOpen) && (
-                <div className="ml-4 sm:ml-5 md:ml-6 lg:ml-7 mt-1 pt-1 border-t border-sidebar-border/50">
-                  <div className="px-3 py-1 text-xs text-muted-foreground">© 2024 Caregene AI</div>
+                <div className="ml-6 mt-2 pt-2 border-t border-sidebar-border/50">
+                  <div className="px-2 text-xs text-muted-foreground text-center">© 2024 Caregene AI</div>
                 </div>
               )}
             </div>
@@ -379,88 +538,121 @@ export function Navigation() {
       </nav>
 
       {isMobileMenuOpen && (
-        <nav className="fixed left-0 top-0 z-50 h-full w-64 sm:w-72 md:w-80 bg-sidebar/95 backdrop-blur border-r border-sidebar-border lg:hidden">
+        <nav className="fixed left-0 top-0 z-50 h-full w-80 max-w-[85vw] bg-sidebar/95 backdrop-blur border-r border-sidebar-border lg:hidden overflow-hidden">
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="border-b border-sidebar-border flex items-center justify-between p-3 md:p-4">
+            <div className="border-b border-sidebar-border flex items-center justify-between p-4">
               <Link
                 href="/"
                 className="flex items-center transition-all duration-200 space-x-3"
                 onClick={closeMobileMenu}
               >
-                <div className="flex-shrink-0 h-6 w-6 md:h-8 md:w-8">
+                <div className="flex-shrink-0 h-7 w-7">
                   <Image
                     src="/images/caregene-logo.png"
                     alt="Caregene AI"
-                    width={32}
-                    height={32}
+                    width={28}
+                    height={28}
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <span className="font-serif font-bold text-sm md:text-lg text-sidebar-foreground whitespace-nowrap">
+                <span className="font-serif font-bold text-lg text-sidebar-foreground whitespace-nowrap">
                   Caregene AI
                 </span>
               </Link>
             </div>
 
             {/* Navigation Items */}
-            <div className="flex-1 overflow-y-auto px-2 md:px-3">
+            <div className="flex-1 overflow-y-auto px-3 py-3">
               {/* New Chat */}
               <Link
                 href="/"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 mb-1 space-x-3 px-3"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3"
                 onClick={closeMobileMenu}
               >
                 <Plus className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                <span className="text-sm md:text-base text-sidebar-foreground">New Chat</span>
+                <span className="text-base text-sidebar-foreground">New Chat</span>
               </Link>
 
+              <div className="my-3">
+                <div className="relative">
+                  <div className="flex items-center rounded-lg border border-sidebar-border bg-sidebar-accent/5 h-10 px-3">
+                    <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground mr-3" />
+                    <input
+                      type="text"
+                      placeholder="Search chats..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="flex-1 bg-transparent text-base text-sidebar-foreground placeholder:text-muted-foreground border-0 outline-none"
+                    />
+                    {searchQuery && (
+                      <button onClick={clearSearch} className="ml-2 p-1 hover:bg-sidebar-accent/20 rounded">
+                        <X className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Search Results */}
+                {isSearching && (
+                  <div className="mt-2 max-h-48 overflow-y-auto">
+                    {searchResults.length > 0 ? (
+                      <div className="space-y-1">
+                        {searchResults.map((result) => (
+                          <Link
+                            key={result.id}
+                            href={`/chat/${result.id}`}
+                            className="block p-3 rounded-lg hover:bg-sidebar-accent/10 transition-colors"
+                            onClick={closeMobileMenu}
+                          >
+                            <div className="text-sm font-medium text-sidebar-foreground truncate">{result.title}</div>
+                            <div className="text-sm text-muted-foreground truncate mt-1">{result.content}</div>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-sm text-muted-foreground text-center">No chats found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Projects */}
-              <Link
-                href="/projects"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 mb-1 space-x-3 px-3"
-                onClick={closeMobileMenu}
-              >
-                <FolderOpen className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                <span className="text-sm md:text-base text-sidebar-foreground">Projects</span>
-              </Link>
+              <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
+                <DialogTrigger asChild>
+                  <button className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3 w-full">
+                    <FolderOpen className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
+                    <span className="text-base text-sidebar-foreground">New Project</span>
+                  </button>
+                </DialogTrigger>
+              </Dialog>
 
               {/* Recent Chats */}
               <Link
                 href="/recent"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 mb-2 space-x-3 px-3"
+                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3 mb-3"
                 onClick={closeMobileMenu}
               >
                 <Clock className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                <span className="text-sm md:text-base text-sidebar-foreground">Recent Chats</span>
+                <span className="text-base text-sidebar-foreground">Recent Chats</span>
               </Link>
 
-              <div className="border-t border-sidebar-border/50 mb-2" />
-
-              {/* Search */}
-              <Link
-                href="/search"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 space-x-3 px-3"
-                onClick={closeMobileMenu}
-              >
-                <Search className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                <span className="text-sm md:text-base text-sidebar-foreground">Search</span>
-              </Link>
+              <div className="border-t border-sidebar-border/50 mb-3" />
 
               {/* Parent Apps Section */}
-              <div className="mt-1">
+              <div>
                 <button
                   onClick={() => toggleSection("parent")}
-                  className="flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 justify-between space-x-3 px-3"
+                  className="flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 justify-between space-x-3 px-3"
                 >
                   <div className="flex items-center space-x-3">
                     <Dna className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                    <span className="text-sm md:text-base font-medium text-sidebar-foreground">Parent Care</span>
+                    <span className="text-base font-medium text-sidebar-foreground">Parent Care</span>
                   </div>
                   {expandedSections.includes("parent") ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-5 w-5" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-5 w-5" />
                   )}
                 </button>
 
@@ -473,7 +665,7 @@ export function Navigation() {
                         className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-sm text-muted-foreground hover:text-foreground"
                         onClick={closeMobileMenu}
                       >
-                        <app.icon className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
+                        <app.icon className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                         <span>{app.label}</span>
                       </Link>
                     ))}
@@ -485,16 +677,16 @@ export function Navigation() {
               <div className="mt-1">
                 <button
                   onClick={() => toggleSection("enterprise")}
-                  className="flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 justify-between space-x-3 px-3"
+                  className="flex items-center w-full rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 justify-between space-x-3 px-3"
                 >
                   <div className="flex items-center space-x-3">
                     <FlaskConical className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                    <span className="text-sm md:text-base font-medium text-sidebar-foreground">Research</span>
+                    <span className="text-base font-medium text-sidebar-foreground">Research</span>
                   </div>
                   {expandedSections.includes("enterprise") ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-5 w-5" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-5 w-5" />
                   )}
                 </button>
 
@@ -507,65 +699,55 @@ export function Navigation() {
                         className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent/10 transition-colors text-sm text-muted-foreground hover:text-foreground"
                         onClick={closeMobileMenu}
                       >
-                        <app.icon className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
+                        <app.icon className="h-4 w-4 flex-shrink-0 text-sidebar-primary" />
                         <span>{app.label}</span>
                       </Link>
                     ))}
                   </div>
                 )}
               </div>
-
-              {/* Simple Links */}
-              <Link
-                href="/about"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 mt-1 space-x-3 px-3"
-                onClick={closeMobileMenu}
-              >
-                <FileText className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                <span className="text-sm md:text-base text-sidebar-foreground">About</span>
-              </Link>
-
-              <Link
-                href="/contact"
-                className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 space-x-3 px-3"
-                onClick={closeMobileMenu}
-              >
-                <Users className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                <span className="text-sm md:text-base text-sidebar-foreground">Contact</span>
-              </Link>
             </div>
 
-            <div className="px-2 md:px-3 pb-2 md:pb-3 border-t border-sidebar-border">
-              <div className="py-2 md:py-3">
+            <div className="px-3 pb-4 border-t border-sidebar-border">
+              <div className="py-3">
                 <Link
                   href="/subscriptions"
-                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 space-x-3 px-3"
+                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3"
                   onClick={closeMobileMenu}
                 >
                   <CreditCard className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                  <span className="text-sm md:text-base text-sidebar-foreground">Care Plans</span>
+                  <span className="text-base text-sidebar-foreground">Care Plans</span>
                 </Link>
 
                 <Link
                   href="/business"
-                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 space-x-3 px-3"
+                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3"
                   onClick={closeMobileMenu}
                 >
                   <Building2 className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                  <span className="text-sm md:text-base text-sidebar-foreground">For Healthcare</span>
+                  <span className="text-base text-sidebar-foreground">For Healthcare</span>
+                </Link>
+
+                <Link
+                  href="/contact"
+                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3"
+                  onClick={closeMobileMenu}
+                >
+                  <Users className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
+                  <span className="text-base text-sidebar-foreground">Contact Us</span>
                 </Link>
 
                 <Link
                   href="/settings"
-                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 md:h-12 space-x-3 px-3"
+                  className="flex items-center rounded-lg hover:bg-sidebar-accent/10 transition-colors h-10 space-x-3 px-3"
                   onClick={closeMobileMenu}
                 >
                   <Settings className="h-5 w-5 flex-shrink-0 text-sidebar-primary" />
-                  <span className="text-sm md:text-base text-sidebar-foreground">Settings & Help</span>
+                  <span className="text-base text-sidebar-foreground">Settings & Help</span>
                 </Link>
 
-                <div className="ml-8 mt-2 pt-2 border-t border-sidebar-border/50">
-                  <div className="px-3 py-1 text-xs text-muted-foreground">© 2024 Caregene AI</div>
+                <div className="ml-8 mt-3 pt-3 border-t border-sidebar-border/50">
+                  <div className="px-3 text-xs text-muted-foreground">© 2024 Caregene AI</div>
                 </div>
               </div>
             </div>
@@ -575,3 +757,5 @@ export function Navigation() {
     </>
   )
 }
+
+export default Navigation

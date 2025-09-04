@@ -9,19 +9,14 @@ interface GlobalChildProfilesProps {
 
 export function GlobalChildProfiles({ onClose }: GlobalChildProfilesProps) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Manage Children</h2>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="w-4 h-4" />
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm">
+        
       </div>
 
-      <div className="text-sm text-gray-600 mb-4">
-        Add and manage your children's profiles. This information is used across all Caregene AI features.
+      <div className="pb-8">
+        <ChildProfiles />
       </div>
-
-      <ChildProfiles />
     </div>
   )
 }

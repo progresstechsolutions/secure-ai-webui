@@ -2,11 +2,26 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Navigation } from "@/components/navigation"
 import { JournalService } from "@/lib/journal-service"
-import { SemanticSearchService, type SearchResult, type SearchInsight } from "@/lib/semantic-search-service"
-import { AIInsightsGenerator, type AIInsight } from "@/lib/ai-insights-generator"
+import type { SearchResult, SearchInsight } from "@/lib/semantic-search-service"
 import type { JournalEntry } from "@/types/journal"
+import PageWrapper from "@/components/page-wrapper"
+import Navigation from "@/components/navigation"
+import { Button } from "@/components/ui/button"
+import {
+  Plus,
+  X,
+  Save,
+  Loader2,
+  Sparkles,
+  Heart,
+  Calendar,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
+  Mic,
+} from "lucide-react"
 
 declare global {
   interface Window {
@@ -16,12 +31,14 @@ declare global {
 }
 
 export default function HealthJournalPage() {
+  const [selectedChildId, setSelectedChildId] = useState<string>("")
+
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [filteredEntries, setFilteredEntries] = useState<JournalEntry[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchInsights, setSearchInsights] = useState<SearchInsight[]>([])
-  const [aiInsights, setAiInsights] = useState<AIInsight[]>([])
+  const [aiInsights, setAiInsights] = useState<string>("")
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([])
@@ -46,6 +63,17 @@ export default function HealthJournalPage() {
 
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [dateFilterMode, setDateFilterMode] = useState<"all" | "recent" | "custom">("all")
+  const [showNewEntry, setShowNewEntry] = useState(false)
+
+  const [mood, setMood] = useState<number>(3)
+  const [energy, setEnergy] = useState<number>(3)
+  const [sleep, setSleep] = useState<number>(8)
+  const [pain, setPain] = useState<number>(0)
+
+  const [dailySummary, setDailySummary] = useState<string>("")
+  const [showDailySummary, setShowDailySummary] = useState(false)
+  const [lastNudgeTime, setLastNudgeTime] = useState<Date | null>(null)
+  const [showNudge, setShowNudge] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -53,15 +81,38 @@ export default function HealthJournalPage() {
   const recognitionRef = useRef<any>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  const [selectedMood, setSelectedMood] = useState<number | null>(null)
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([])
+  const [selectedMedications, setSelectedMedications] = useState<string[]>([])
+
   useEffect(() => {
+    const loadEntries = async () => {
+      setIsLoading(true)
+      try {
+        const allEntries = await JournalService.getEntries()
+        // Filter entries by selected child
+        const childEntries = selectedChildId
+          ? allEntries.filter((entry) => entry.childId === selectedChildId)
+          : allEntries
+        setEntries(childEntries)
+        setFilteredEntries(childEntries)
+      } catch (error) {
+        console.error("Error loading entries:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     loadEntries()
+  }, [selectedChildId]) // Re-load when child changes
+
+  useEffect(() => {
     initializeSpeechRecognition()
     initializeSearchSuggestions()
   }, [])
 
   const initializeSearchSuggestions = () => {
     try {
-      // Use static suggestions instead of instantiating the service
       const suggestions = [
         "Show me all nights with poor sleep",
         "Find entries with high pain levels",
@@ -75,7 +126,6 @@ export default function HealthJournalPage() {
       setSearchSuggestions(suggestions)
     } catch (error) {
       console.error("Failed to initialize search suggestions:", error)
-      // Fallback suggestions if service fails
       setSearchSuggestions([
         "Show me all nights with poor sleep",
         "Find entries with high pain levels",
@@ -89,34 +139,34 @@ export default function HealthJournalPage() {
     }
   }
 
-  const handleSemanticSearch = async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults([])
-      setSearchInsights([])
-      setShowSearchResults(false)
-      return
-    }
+  const handleSemanticSearch = async () => {
+    if (!searchQuery.trim()) return
 
     setIsSearching(true)
+    setShowSearchResults(false)
+    setSearchResults([])
+
     try {
-      const searchService = new SemanticSearchService()
-      const results = await searchService.searchEntries(query, entries)
-      const insights = searchService.generateSearchInsights(results)
+      const resultEntries = entries.filter(
+        (entry) =>
+          entry.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          entry.symptoms.some((symptom) => symptom.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          entry.meds.some((med) => med.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          entry.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
+      )
+
+      const results = resultEntries.map((entry) => ({
+        entry,
+        relevance: 0.8,
+        reasoning: "Text match found",
+      }))
 
       setSearchResults(results)
-      setSearchInsights(insights)
       setShowSearchResults(true)
-
-      if (results.length > 0) {
-        const aiInsightsGenerator = new AIInsightsGenerator()
-        const resultEntries = results.map((r) => r.entry)
-        const generatedInsights = await aiInsightsGenerator.generateInsights(resultEntries)
-        setAiInsights(generatedInsights)
-      } else {
-        setAiInsights([])
-      }
+      setAiInsights("")
     } catch (error) {
       console.error("Search failed:", error)
+      setAiInsights("Search temporarily unavailable. Please try again later.")
     } finally {
       setIsSearching(false)
     }
@@ -127,7 +177,7 @@ export default function HealthJournalPage() {
     setShowSuggestions(query.length > 0 && !showSearchResults)
 
     const timeoutId = setTimeout(() => {
-      handleSemanticSearch(query)
+      handleSemanticSearch()
     }, 500)
 
     return () => clearTimeout(timeoutId)
@@ -136,7 +186,7 @@ export default function HealthJournalPage() {
   const handleSuggestionSelect = (suggestion: string) => {
     setSearchQuery(suggestion)
     setShowSuggestions(false)
-    handleSemanticSearch(suggestion)
+    handleSemanticSearch()
     searchInputRef.current?.focus()
   }
 
@@ -144,7 +194,7 @@ export default function HealthJournalPage() {
     setSearchQuery("")
     setSearchResults([])
     setSearchInsights([])
-    setAiInsights([])
+    setAiInsights("")
     setShowSearchResults(false)
     setShowSuggestions(false)
   }
@@ -168,7 +218,6 @@ export default function HealthJournalPage() {
           console.error("Speech recognition error:", event.error)
           setIsListening(false)
 
-          // Handle specific error types
           switch (event.error) {
             case "not-allowed":
               alert(
@@ -205,14 +254,11 @@ export default function HealthJournalPage() {
     }
 
     try {
-      // Request microphone permission first with more specific error handling
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      // Stop the stream immediately as we only needed to check permissions
       stream.getTracks().forEach((track) => track.stop())
     } catch (permissionError: any) {
       console.error("Microphone permission error:", permissionError)
 
-      // Handle different types of permission errors
       if (permissionError.name === "NotAllowedError") {
         alert(
           "🎤 Microphone access was denied.\n\nTo enable voice input:\n1. Click the microphone icon in your browser's address bar\n2. Select 'Allow' for microphone access\n3. Refresh the page and try again",
@@ -277,8 +323,36 @@ export default function HealthJournalPage() {
     setFilteredEntries(filtered)
   }, [entries, searchQuery, selectedDates, searchResults, showSearchResults])
 
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.toDateString() === date2.toDateString()
+  const formatDate = (dateInput: Date | string | number) => {
+    // Convert input to Date object if it's not already
+    const date = new Date(dateInput)
+
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return "Invalid date"
+    }
+
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Today"
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "Yesterday"
+    } else {
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+    }
+  }
+
+  const isSameDay = (date1: Date | string | number, date2: Date | string | number) => {
+    const d1 = new Date(date1)
+    const d2 = new Date(date2)
+    return d1.toDateString() === d2.toDateString()
   }
 
   const isDateSelected = (date: Date) => {
@@ -407,22 +481,12 @@ export default function HealthJournalPage() {
     setDateFilterMode("all")
   }
 
-  const loadEntries = async () => {
-    try {
-      const loadedEntries = await JournalService.getEntries()
-      setEntries(loadedEntries)
-    } catch (error) {
-      console.error("Failed to load entries:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleNewEntry = () => {
     setShowInlineEntry(true)
     setEditingEntry(null)
     setEntryText("")
     setSelectedImages([])
+    setShowNewEntry(true)
   }
 
   const handleVoiceEntry = () => {
@@ -433,6 +497,7 @@ export default function HealthJournalPage() {
     setTimeout(() => {
       handleVoiceInput()
     }, 100)
+    setShowNewEntry(true)
   }
 
   const handleEditEntry = (entry: JournalEntry) => {
@@ -440,6 +505,7 @@ export default function HealthJournalPage() {
     setShowInlineEntry(true)
     setEntryText(entry.summary)
     setSelectedImages([])
+    setShowNewEntry(true)
   }
 
   const handleDeleteEntry = async (entry: JournalEntry, event: React.MouseEvent) => {
@@ -452,6 +518,22 @@ export default function HealthJournalPage() {
     if (confirmed) {
       try {
         await JournalService.deleteEntry(entry.id)
+        const loadEntries = async () => {
+          setIsLoading(true)
+          try {
+            const allEntries = await JournalService.getEntries()
+            // Filter entries by selected child
+            const childEntries = selectedChildId
+              ? allEntries.filter((entry) => entry.childId === selectedChildId)
+              : allEntries
+            setEntries(childEntries)
+            setFilteredEntries(childEntries)
+          } catch (error) {
+            console.error("Error loading entries:", error)
+          } finally {
+            setIsLoading(false)
+          }
+        }
         await loadEntries() // Reload entries to update the list
       } catch (error) {
         console.error("Failed to delete entry:", error)
@@ -469,36 +551,109 @@ export default function HealthJournalPage() {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index))
   }
 
+  useEffect(() => {
+    const checkForNudges = () => {
+      const now = new Date()
+      const lastEntry = entries[0]
+
+      // Show nudge if no entry in last 24 hours
+      if (!lastEntry || now.getTime() - new Date(lastEntry.createdAt).getTime() > 24 * 60 * 60 * 1000) {
+        const lastNudge = localStorage.getItem("lastNudgeTime")
+        const lastNudgeDate = lastNudge ? new Date(lastNudge) : null
+
+        // Only show nudge once per day
+        if (!lastNudgeDate || now.getTime() - lastNudgeDate.getTime() > 24 * 60 * 60 * 1000) {
+          setShowNudge(true)
+          localStorage.setItem("lastNudgeTime", now.toISOString())
+        }
+      }
+    }
+
+    const nudgeInterval = setInterval(checkForNudges, 60 * 60 * 1000) // Check every hour
+    checkForNudges() // Check immediately
+
+    return () => clearInterval(nudgeInterval)
+  }, [entries])
+
+  useEffect(() => {
+    const generateDailySummary = async () => {
+      const today = new Date()
+      const todayEntries = entries.filter((entry) => {
+        const entryDate = new Date(entry.createdAt)
+        return entryDate.toDateString() === today.toDateString()
+      })
+
+      if (todayEntries.length > 0) {
+        try {
+          const summary = await generateAISummary(todayEntries)
+          setDailySummary(summary)
+          setShowDailySummary(true)
+        } catch (error) {
+          console.error("Failed to generate daily summary:", error)
+        }
+      }
+    }
+
+    if (entries.length > 0) {
+      generateDailySummary()
+    }
+  }, [entries])
+
+  const generateAISummary = async (todayEntries: JournalEntry[]) => {
+    const avgMood = todayEntries.reduce((sum, entry) => sum + (entry.mood || 3), 0) / todayEntries.length
+    const avgEnergy = todayEntries.reduce((sum, entry) => sum + (entry.energy || 3), 0) / todayEntries.length
+    const avgSleep = todayEntries.reduce((sum, entry) => sum + (entry.sleep || 8), 0) / todayEntries.length
+    const avgPain = todayEntries.reduce((sum, entry) => sum + (entry.pain || 0), 0) / todayEntries.length
+
+    const allSymptoms = [...new Set(todayEntries.flatMap((entry) => entry.symptoms || []))]
+    const allMeds = [...new Set(todayEntries.flatMap((entry) => entry.meds || []))]
+
+    return `Today's Summary: Mood averaged ${avgMood.toFixed(1)}/5, energy ${avgEnergy.toFixed(1)}/5, sleep ${avgSleep.toFixed(1)}h, pain ${avgPain.toFixed(1)}/10. ${allSymptoms.length > 0 ? `Symptoms: ${allSymptoms.join(", ")}. ` : ""}${allMeds.length > 0 ? `Medications: ${allMeds.join(", ")}.` : ""}`
+  }
+
   const handleSaveEntry = async () => {
-    if (!entryText.trim() && selectedImages.length === 0) return
+    if (!entryText.trim()) return
 
     setIsSaving(true)
     try {
-      const newEntry: Partial<JournalEntry> = {
-        summary: entryText,
-        date: new Date(),
-        createdAt: new Date(),
+      const newEntry: Omit<JournalEntry, "id"> = {
+        content: entryText,
+        timestamp: new Date().toISOString(),
+        childId: selectedChildId,
+        mood: mood,
+        symptoms: selectedSymptoms,
+        meds: selectedMedications,
+        images: selectedImages.map((file) => URL.createObjectURL(file)),
+        tags: extractTags(entryText),
+        isVoiceEntry: isListening,
+        date: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         mode: isListening ? "voice" : "text",
-        symptoms: [],
-        meds: [],
-        tags: [],
-        mood: undefined,
-        sleep: undefined,
-        energy: undefined,
-        pain: undefined,
+        energy: energy,
+        sleep: sleep,
+        pain: pain,
       }
 
-      if (editingEntry) {
-        newEntry.id = editingEntry.id
-      }
+      const savedEntry = await JournalService.addEntry(newEntry)
 
-      await JournalService.saveEntry(newEntry)
+      const allEntries = await JournalService.getEntries()
+      const childEntries = selectedChildId
+        ? allEntries.filter((entry) => entry.childId === selectedChildId)
+        : allEntries
+      setEntries(childEntries)
+      setFilteredEntries(childEntries)
 
-      await loadEntries()
       setShowInlineEntry(false)
       setEditingEntry(null)
       setEntryText("")
       setSelectedImages([])
+      setShowNewEntry(false)
+
+      setMood(3)
+      setEnergy(3)
+      setSleep(8)
+      setPain(0)
     } catch (error) {
       console.error("Failed to save entry:", error)
     } finally {
@@ -511,6 +666,7 @@ export default function HealthJournalPage() {
     setEditingEntry(null)
     setEntryText("")
     setSelectedImages([])
+    setShowNewEntry(false)
     if (isRecording) {
       mediaRecorderRef.current?.stop()
       setIsRecording(false)
@@ -518,24 +674,6 @@ export default function HealthJournalPage() {
     if (isListening) {
       recognitionRef.current?.stop()
       setIsListening(false)
-    }
-  }
-
-  const formatDate = (date: Date) => {
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return "Today"
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return "Yesterday"
-    } else {
-      return date.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      })
     }
   }
 
@@ -705,12 +843,50 @@ export default function HealthJournalPage() {
     setDateFilterMode("custom")
   }
 
+  const handleChildSelect = (childId: string) => {
+    setSelectedChildId(childId)
+    // Reload entries for the selected child
+    const loadEntries = async () => {
+      setIsLoading(true)
+      try {
+        const allEntries = await JournalService.getEntries()
+        // Filter entries by selected child
+        const childEntries = selectedChildId
+          ? allEntries.filter((entry) => entry.childId === selectedChildId)
+          : allEntries
+        setEntries(childEntries)
+        setFilteredEntries(childEntries)
+      } catch (error) {
+        console.error("Error loading entries:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadEntries()
+  }
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    setCurrentMonth((prev) => {
+      const newMonth = new Date(prev)
+      if (direction === "prev") {
+        newMonth.setMonth(prev.getMonth() - 1)
+      } else {
+        newMonth.setMonth(prev.getMonth() + 1)
+      }
+      return newMonth
+    })
+  }
+
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white">
         <Navigation />
-        <main className="ml-12 sm:ml-12 md:ml-12 lg:ml-14 xl:ml-16">
-          <div className="px-4 py-6 max-w-md mx-auto sm:max-w-2xl">
+        <main className="ml-0 sm:ml-12 md:ml-12 lg:ml-14 xl:ml-16">
+          <div className="px-3 sm:px-4 py-4 sm:py-6 max-w-full sm:max-w-md mx-auto sm:mx-auto md:max-w-2xl">
             <div className="animate-pulse space-y-4">
               <div className="h-8 bg-gray-200 rounded w-1/3"></div>
               <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -726,564 +902,667 @@ export default function HealthJournalPage() {
     )
   }
 
+  const handleEntryClick = (entry: JournalEntry) => {
+    handleEditEntry(entry)
+  }
+
+  const extractTags = (text: string): string[] => {
+    const tagRegex = /#(\w+)/g
+    const matches = []
+    let match
+
+    while ((match = tagRegex.exec(text)) !== null) {
+      matches.push(match[1])
+    }
+
+    return matches
+  }
+
+  const generateCalendarDays = () => {
+    const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
+    const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()
+    const days = []
+
+    // Add empty days for the days before the first day of the month
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      days.push({
+        date: new Date(currentMonth.getFullYear(), currentMonth.getMonth(), -i),
+        isCurrentMonth: false,
+        isToday: false,
+      })
+    }
+
+    // Add days for the current month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
+      const isToday = date.toDateString() === new Date().toDateString()
+      days.push({
+        date: date,
+        isCurrentMonth: true,
+        isToday: isToday,
+      })
+    }
+
+    return days.reverse()
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <Navigation />
-
-      <main className="ml-12 sm:ml-12 md:ml-12 lg:ml-14 xl:ml-16">
-        <div className="px-4 py-6 max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Health Journal</h1>
-            <p className="text-gray-600 mb-8">Capture your health journey with voice and written entries</p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-              <button
-                onClick={handleVoiceEntry}
-                disabled={!isVoiceSupported}
-                className="group relative bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 min-w-[200px]"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3 3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                    />
-                  </svg>
-                  <div className="text-left">
-                    <div className="font-semibold">Voice Journal</div>
-                    <div className="text-sm opacity-90">Speak your thoughts</div>
-                  </div>
+    <PageWrapper selectedChildId={selectedChildId} onChildChange={setSelectedChildId}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        {showNudge && (
+          <div className="fixed top-4 right-4 z-50 bg-white border border-blue-200 rounded-xl shadow-lg p-4 max-w-sm animate-in slide-in-from-right-5">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Heart className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900 text-sm">Time for a check-in</h4>
+                <p className="text-gray-600 text-xs mt-1">
+                  How are you feeling today? A quick entry helps track your progress.
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setShowNewEntry(true)
+                      setShowNudge(false)
+                    }}
+                    className="text-xs h-7"
+                  >
+                    Add Entry
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setShowNudge(false)} className="text-xs h-7">
+                    Later
+                  </Button>
                 </div>
-                {isListening && (
-                  <div className="absolute inset-0 bg-red-500 rounded-2xl animate-pulse flex items-center justify-center">
-                    <span className="text-white font-semibold">Listening...</span>
-                  </div>
-                )}
-              </button>
-
-              <button
-                onClick={handleNewEntry}
-                className="group relative bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 min-w-[200px]"
-              >
-                <div className="flex items-center justify-center gap-3">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  <div className="text-left">
-                    <div className="font-semibold">Write Journal</div>
-                    <div className="text-sm opacity-90">Type your entry</div>
-                  </div>
-                </div>
-              </button>
+              </div>
             </div>
           </div>
+        )}
 
-          {entries.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        {showDailySummary && dailySummary && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95">
               <div className="flex items-center gap-3 mb-4">
-                <h3 className="font-semibold text-gray-900">Smart Search</h3>
-                {isSearching && (
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                )}
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Daily Summary</h3>
+                  <p className="text-sm text-gray-500">{new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                <p className="text-sm text-gray-700 leading-relaxed">{dailySummary}</p>
+              </div>
+              <Button onClick={() => setShowDailySummary(false)} className="w-full">
+                Got it
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="mb-8">
+            <div className="flex flex-col space-y-4 mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Health Journal</h1>
+                <p className="text-gray-600">Track your daily health and wellness journey</p>
               </div>
 
-              <div className="relative">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => handleSearchQueryChange(e.target.value)}
-                  onFocus={() => setShowSuggestions(searchQuery.length > 0 && !showSearchResults)}
-                  placeholder="Ask anything: 'Show me all nights with poor sleep' or 'Find headaches after meals'"
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={handleClearSearch}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+              <div className="space-y-3">
+                {/* Primary Actions Row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={() => setShowNewEntry(true)}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 flex-1 sm:flex-none sm:min-w-[140px]"
                   >
-                    <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Entry
+                  </Button>
 
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-                    <div className="p-2">
-                      <div className="text-xs font-medium text-gray-500 mb-2">Try asking:</div>
-                      {searchSuggestions
-                        .filter((suggestion) => suggestion.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .slice(0, 6)
-                        .map((suggestion, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestionSelect(suggestion)}
-                            className="w-full text-left px-3 py-2 hover:bg-blue-50 rounded-md transition-colors text-sm"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                )}
+                  <Button
+                    onClick={handleVoiceEntry}
+                    variant="outline"
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 bg-transparent flex-1 sm:flex-none sm:min-w-[140px]"
+                    disabled={!isVoiceSupported}
+                  >
+                    <Mic className={`w-4 h-4 mr-2 ${isListening ? "text-red-500 animate-pulse" : ""}`} />
+                    {isListening ? "Listening..." : "Voice Entry"}
+                  </Button>
+                </div>
+
+                {/* Secondary Actions Row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowCalendar(true)}
+                    className="relative flex-1 sm:flex-none sm:min-w-[140px]"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Filter by Date
+                    {selectedDates.length > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {selectedDates.length}
+                      </span>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => exportEntries("csv")}
+                    disabled={filteredEntries.length === 0}
+                    className="flex-1 sm:flex-none sm:min-w-[120px]"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {selectedDates.length > 0 && (
+              <div className="mt-4 flex items-center gap-2">
+                <span className="text-sm text-gray-600">Filtered by:</span>
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">{formatDateRange()}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetDateFilter}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {showNewEntry && (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6 animate-in slide-in-from-top-5">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">New Journal Entry</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowNewEntry(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
 
-              {showSearchResults && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-blue-900">
-                      Found {searchResults.length} relevant entries
-                    </span>
-                    <button
-                      onClick={handleClearSearch}
-                      className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      Clear search
-                    </button>
-                  </div>
-
-                  {searchInsights.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {searchInsights.map((insight, index) => (
-                        <div key={index} className="text-sm text-blue-800">
-                          <span className="font-medium">{insight.pattern}</span>
-                          {insight.suggestion && <span className="text-blue-600 ml-2">• {insight.suggestion}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {aiInsights.length > 0 && (
-                    <div className="border-t border-blue-200 pt-3">
-                      <div className="text-xs font-medium text-blue-900 mb-2">AI Insights:</div>
-                      <div className="space-y-2">
-                        {aiInsights.slice(0, 3).map((insight, index) => (
-                          <div key={index} className="text-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  insight.category === "Health Correlations"
-                                    ? "bg-green-100 text-green-700"
-                                    : insight.category === "Health Trends"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : insight.category === "Medication Insights"
-                                        ? "bg-purple-100 text-purple-700"
-                                        : insight.category === "Behavioral Patterns"
-                                          ? "bg-orange-100 text-orange-700"
-                                          : "bg-gray-100 text-gray-700"
-                                }`}
-                              >
-                                {insight.category}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {Math.round(insight.confidence * 100)}% confidence
-                              </span>
-                            </div>
-                            <p className="text-blue-800">{insight.insight}</p>
-                            {insight.actionable_recommendation && (
-                              <p className="text-blue-600 text-xs mt-1">{insight.actionable_recommendation}</p>
-                            )}
-                          </div>
-                        ))}
+              {/* Health Trackers */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Mood: {mood}/5</label>
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        value={mood}
+                        onChange={(e) => setMood(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>😢</span>
+                        <span>😐</span>
+                        <span>😊</span>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                  </div>
 
-          {entries.length > 0 && (
-            <div className="mb-6">
-              {/* Smart filter pills that appear contextually */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
-                  </span>
-                  {selectedDates.length > 0 && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                      {selectedDates.length === 1 ? formatDate(selectedDates[0]) : `${selectedDates.length} dates`}
-                    </span>
-                  )}
-                </div>
-
-                {/* Apple-style filter toggle */}
-                <div className="flex items-center gap-2">
-                  {selectedDates.length > 0 && (
-                    <button
-                      onClick={() => {
-                        setSelectedDates([])
-                        setDateFilterMode("all")
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                    >
-                      Clear
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Energy: {energy}/5</label>
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        value={energy}
+                        onChange={(e) => setEnergy(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                       />
-                    </svg>
-                    Filter
-                  </button>
-
-                  {filteredEntries.length > 0 && (
-                    <button
-                      onClick={() => exportEntries("csv")}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 rounded-full transition-all duration-200"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Apple-style contextual date picker that slides in */}
-              {showDatePicker && (
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-4 animate-in slide-in-from-top-2 duration-200">
-                  {/* Smart suggestions */}
-                  <div className="mb-4">
-                    <div className="flex flex-wrap gap-2">
-                      {getSmartDateSuggestions().map((suggestion) => (
-                        <button
-                          key={suggestion.value}
-                          onClick={() => {
-                            handleSmartDateFilter(suggestion.value)
-                            setShowDatePicker(false)
-                          }}
-                          className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                          {suggestion.label}
-                          <span className="text-xs text-gray-500 bg-white px-1.5 py-0.5 rounded-full">
-                            {suggestion.count}
-                          </span>
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setShowCalendar(true)}
-                        className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                      >
-                        Custom Range
-                      </button>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>🔋</span>
+                        <span>⚡</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Compact calendar that only shows when needed */}
-              {showCalendar && (
-                <div
-                  className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-4 animate-in slide-in-from-top-2 duration-200"
-                  onMouseLeave={handleMouseUp}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <button
-                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h4 className="font-semibold text-gray-900">
-                      {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                    </h4>
-                    <button
-                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Sleep: {sleep}h</label>
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="0"
+                        max="12"
+                        value={sleep}
+                        onChange={(e) => setSleep(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0h</span>
+                        <span>6h</span>
+                        <span>12h</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-1 mb-2">
-                    {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
-                      <div key={day} className="text-center text-xs font-medium text-gray-400 py-2">
-                        {day}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Pain: {pain}/10</label>
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value={pain}
+                        onChange={(e) => setPain(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>None</span>
+                        <span>Mild</span>
+                        <span>Severe</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">How are you feeling today?</label>
+                <textarea
+                  value={entryText}
+                  onChange={(e) => setEntryText(e.target.value)}
+                  placeholder="Describe your day, symptoms, medications, or anything else you'd like to track..."
+                  className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={4}
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Add Photos (Optional)</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <div className="flex flex-col items-center">
+                    <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600 mb-2">
+                      Drag photos here or{" "}
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        browse
+                      </button>
+                    </p>
+                    <p className="text-xs text-gray-500">Up to 3 images</p>
+                  </div>
+                </div>
+
+                {selectedImages.length > 0 && (
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    {selectedImages.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={URL.createObjectURL(image) || "/placeholder.svg"}
+                          alt={`Upload ${index + 1}`}
+                          className="w-full h-20 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
-
-                  <div className="grid grid-cols-7 gap-1 mb-4">{renderCalendarDays()}</div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => {
-                        setShowCalendar(false)
-                        setShowDatePicker(false)
-                      }}
-                      className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCalendar(false)
-                        setShowDatePicker(false)
-                      }}
-                      className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {showInlineEntry && (
-            <div className="bg-white rounded-xl shadow-lg border-2 border-blue-200 p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{editingEntry ? "Edit Entry" : "New Entry"}</h3>
-                <button onClick={handleCancelEntry} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                )}
               </div>
 
-              {isListening && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-red-700 font-medium">Listening... Speak now</span>
-                  </div>
-                </div>
-              )}
-
-              <textarea
-                value={entryText}
-                onChange={(e) => setEntryText(e.target.value)}
-                placeholder="Share your thoughts, symptoms, medications, or how you're feeling today..."
-                className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-
-              <div className="flex items-center justify-between mt-6">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={selectedImages.length >= 3}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0010.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    Photo
-                  </button>
-
-                  <button
-                    onClick={handleVoiceInput}
-                    disabled={!isVoiceSupported}
-                    className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
-                      isListening ? "bg-red-50 border-red-200 text-red-700" : "border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3 3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                      />
-                    </svg>
-                    {isListening ? "Stop" : "Voice"}
-                  </button>
-                </div>
-
-                <button
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setShowNewEntry(false)}>
+                  Cancel
+                </Button>
+                <Button
                   onClick={handleSaveEntry}
-                  disabled={(!entryText.trim() && selectedImages.length === 0) || isSaving}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSaving || !entryText.trim()}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
-                  {isSaving ? "Saving..." : editingEntry ? "Update Entry" : "Save Entry"}
-                </button>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Entry
+                    </>
+                  )}
+                </Button>
               </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-              />
             </div>
           )}
 
-          {filteredEntries.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Your Entries {selectedDates.length > 0 && `(${filteredEntries.length})`}
-                </h2>
-              </div>
+          {showCalendar && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
+                <div className="p-6 border-b border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Filter by Date</h3>
+                    <Button variant="ghost" size="sm" onClick={() => setShowCalendar(false)}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
 
-              {filteredEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 p-6"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-900">
-                        {new Date(entry.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                      {entry.mode && (
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full font-medium ${
-                            entry.mode === "voice" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
-                          }`}
+                <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+                  {/* Smart Date Suggestions */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Quick Filters</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {getSmartDateSuggestions().map((suggestion) => (
+                        <Button
+                          key={suggestion.value}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleSmartDateFilter(suggestion.value)
+                            setShowCalendar(false)
+                          }}
+                          className="text-xs"
                         >
-                          {entry.mode === "voice" ? "🎤 Voice" : "✏️ Typed"}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEditEntry(entry)
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit entry"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Edit
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteEntry(entry, e)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete entry"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                        Delete
-                      </button>
+                          {suggestion.label}
+                          <span className="ml-1 bg-gray-100 text-gray-600 px-1 rounded">{suggestion.count}</span>
+                        </Button>
+                      ))}
                     </div>
                   </div>
 
-                  <div
-                    className="cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-2 rounded-lg transition-colors"
-                    onClick={() => handleEditEntry(entry)}
-                  >
-                    <div className="mb-4">
-                      <p className="text-gray-900 leading-relaxed">{entry.summary}</p>
+                  {/* Calendar */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newMonth = new Date(currentMonth)
+                          newMonth.setMonth(currentMonth.getMonth() - 1)
+                          setCurrentMonth(newMonth)
+                        }}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <h4 className="font-medium text-gray-900">
+                        {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newMonth = new Date(currentMonth)
+                          newMonth.setMonth(currentMonth.getMonth() + 1)
+                          setCurrentMonth(newMonth)
+                        }}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
                     </div>
 
-                    <div className="flex items-center gap-4 flex-wrap">
-                      {entry.mood && (
-                        <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm rounded-full">
-                          Mood: {entry.mood}
-                        </span>
-                      )}
-                      {entry.symptoms?.map((symptom, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-red-100 text-red-700 text-sm rounded-full">
-                          {symptom}
-                        </span>
-                      ))}
-                      {entry.meds?.map((med, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                          {med}
-                        </span>
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                        <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
+                          {day}
+                        </div>
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-center mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Click to edit
-                      </span>
+                    <div className="grid grid-cols-7 gap-1" onMouseLeave={handleMouseUp}>
+                      {generateCalendarDays().map((day, index) => {
+                        const isSelected = selectedDates.some((date) => isSameDay(date, day.date))
+                        const hasEntries = entries.some((entry) => isSameDay(new Date(entry.date), day.date))
+                        const isInDragRange = isDateInDragRange(day.date)
+
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              if (day.isCurrentMonth) {
+                                handleDateClick(day.date)
+                              }
+                            }}
+                            onMouseDown={() => {
+                              if (day.isCurrentMonth) {
+                                handleMouseDown(day.date)
+                              }
+                            }}
+                            onMouseEnter={() => {
+                              if (day.isCurrentMonth) {
+                                handleMouseEnter(day.date)
+                              }
+                            }}
+                            onMouseUp={handleMouseUp}
+                            disabled={!day.isCurrentMonth}
+                            className={`
+                                h-8 w-8 text-xs rounded-lg transition-all duration-200 relative select-none
+                                ${day.isCurrentMonth ? "hover:bg-gray-100" : "text-gray-300 cursor-not-allowed"}
+                                ${isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""}
+                                ${isInDragRange && !isSelected ? "bg-blue-200 text-blue-800" : ""}
+                                ${day.isToday && !isSelected && !isInDragRange ? "bg-blue-50 text-blue-600 font-medium" : ""}
+                              `}
+                          >
+                            {day.date.getDate()}
+                            {hasEntries && (
+                              <div
+                                className={`absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-blue-500"}`}
+                              />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => exportEntries("csv")}
+                        disabled={filteredEntries.length === 0}
+                        className="flex-1"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export CSV
+                      </Button>
+                      <Button onClick={() => setShowCalendar(false)} className="flex-1">
+                        Apply Filter
+                      </Button>
                     </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           )}
 
-          {filteredEntries.length === 0 && !isLoading && !showInlineEntry && (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="h-10 w-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13m0-13C4.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {selectedDates.length > 0 ? "No entries for selected dates" : "Start Your Health Journey"}
-              </h3>
-              <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                {selectedDates.length > 0
-                  ? "Try selecting different dates or clear your filter to see all entries."
-                  : "Begin documenting your health journey with voice or written entries."}
-              </p>
+          {!showSearchResults && (
+            <div className="space-y-6 mb-6">
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-2">Loading your entries...</p>
+                </div>
+              ) : filteredEntries.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No entries found</h3>
+                  <p className="text-gray-600 mb-4">
+                    {searchQuery.trim() || selectedDates.length > 0
+                      ? "Try adjusting your search or date filters"
+                      : "Start by creating your first journal entry"}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Journal Entries ({filteredEntries.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {filteredEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md 
+                                      transition-all duration-200 ease-out transform hover:scale-[1.01] group"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <time className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                                {formatDate(entry.timestamp)}
+                              </time>
+                              {entry.isVoiceEntry && (
+                                <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                                    />
+                                  </svg>
+                                  Voice
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-base font-medium text-gray-900 line-clamp-2 group-hover:line-clamp-none transition-all duration-200 mb-3">
+                              {entry.summary}
+                            </p>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Mood:</span>
+                                <div className="flex">
+                                  {[1, 2, 3, 4, 5].map((i) => (
+                                    <div
+                                      key={i}
+                                      className={`w-2 h-2 rounded-full mr-1 ${
+                                        i <= (entry.mood || 3) ? "bg-yellow-400" : "bg-gray-200"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-xs font-medium text-gray-700">{entry.mood || 3}/5</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Energy:</span>
+                                <div className="flex">
+                                  {[1, 2, 3, 4, 5].map((i) => (
+                                    <div
+                                      key={i}
+                                      className={`w-2 h-2 rounded-full mr-1 ${
+                                        i <= (entry.energy || 3) ? "bg-green-400" : "bg-gray-200"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-xs font-medium text-gray-700">{entry.energy || 3}/5</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Sleep:</span>
+                                <span className="text-xs font-medium text-gray-700">{entry.sleep || 8}h</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Pain:</span>
+                                <div className="flex">
+                                  {[1, 2, 3, 4, 5].map((i) => (
+                                    <div
+                                      key={i}
+                                      className={`w-2 h-2 rounded-full mr-1 ${
+                                        i <= Math.ceil((entry.pain || 0) / 2) ? "bg-red-400" : "bg-gray-200"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-xs font-medium text-gray-700">{entry.pain || 0}/10</span>
+                              </div>
+                            </div>
+
+                            {(entry.symptoms?.length > 0 || entry.meds?.length > 0) && (
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                {entry.symptoms?.map((symptom, index) => (
+                                  <span
+                                    key={`symptom-${index}`}
+                                    className="inline-flex items-center px-2 py-1 bg-red-50 text-red-700 text-xs font-medium rounded-full"
+                                  >
+                                    {symptom}
+                                  </span>
+                                ))}
+                                {entry.meds?.map((med, index) => (
+                                  <span
+                                    key={`med-${index}`}
+                                    className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                                  >
+                                    💊 {med}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0 flex items-center ml-4">
+                            <button
+                              onClick={() => handleEntryClick(entry)}
+                              className="p-2 text-gray-400 hover:text-gray-600 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteEntry(entry, e)}
+                              className="p-2 text-gray-400 hover:text-red-600 rounded-full bg-gray-100 hover:bg-red-50 transition-colors duration-200 ml-2"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }

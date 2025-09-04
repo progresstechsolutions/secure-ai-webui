@@ -5,8 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Calendar,
   CheckCircle,
@@ -50,7 +48,7 @@ function RingProgress({ value, size = 120, strokeWidth = 8 }: { value: number; s
           stroke="currentColor"
           strokeWidth={strokeWidth}
           fill="transparent"
-          className="text-muted-foreground/20"
+          className="text-gray-200"
         />
         <circle
           cx={size / 2}
@@ -60,19 +58,18 @@ function RingProgress({ value, size = 120, strokeWidth = 8 }: { value: number; s
           strokeWidth={strokeWidth}
           fill="transparent"
           strokeDasharray={strokeDasharray}
-          className="text-primary transition-all duration-300 ease-in-out"
+          className="text-blue-500 transition-all duration-300 ease-in-out"
           strokeLinecap="round"
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-2xl font-bold">{Math.round(value)}%</span>
+        <span className="text-2xl font-semibold text-gray-900">{Math.round(value)}%</span>
       </div>
     </div>
   )
 }
 
-export function MilestoneDashboard() {
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
+export function MilestoneDashboard({ selectedChildId }: { selectedChildId?: string }) {
   const [children, setChildren] = useState<Child[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -84,9 +81,6 @@ export function MilestoneDashboard() {
       const loadedChildren = getChildren()
       const safeChildren = Array.isArray(loadedChildren) ? loadedChildren : []
       setChildren(safeChildren)
-      if (safeChildren.length > 0 && !selectedChildId) {
-        setSelectedChildId(safeChildren[0].id)
-      }
     } catch (error) {
       console.log("[v0] Error loading children:", error)
       setChildren([])
@@ -94,7 +88,7 @@ export function MilestoneDashboard() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedChildId])
+  }, [selectedChildId]) // Re-load when selectedChildId changes
 
   const handleRetry = () => {
     setError(null)
@@ -104,9 +98,6 @@ export function MilestoneDashboard() {
         const loadedChildren = getChildren()
         const safeChildren = Array.isArray(loadedChildren) ? loadedChildren : []
         setChildren(safeChildren)
-        if (safeChildren.length > 0 && !selectedChildId) {
-          setSelectedChildId(safeChildren[0].id)
-        }
       } catch (error) {
         setError("Failed to load children data. Please try again.")
       } finally {
@@ -126,7 +117,7 @@ export function MilestoneDashboard() {
     )
   }
 
-  const selectedChild = children.find((c) => c.id === selectedChildId)
+  const selectedChild = selectedChildId ? children.find((c) => c.id === selectedChildId) : children[0]
 
   if (!Array.isArray(children) || children.length === 0) {
     return (
@@ -265,70 +256,25 @@ export function MilestoneDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-4">
-          <Select value={selectedChildId || ""} onValueChange={setSelectedChildId}>
-            <SelectTrigger className="w-[200px] min-h-[44px]" aria-label="Select child">
-              <SelectValue>
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={selectedChild.photoUrl || "/placeholder.svg"} alt={selectedChild.firstName} />
-                    <AvatarFallback>{selectedChild.firstName.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <span>{selectedChild.firstName}</span>
-                </div>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {children.map((child) => (
-                <SelectItem key={child.id} value={child.id}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={child.photoUrl || "/placeholder.svg"} alt={child.firstName} />
-                      <AvatarFallback>{child.firstName.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span>{child.firstName}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{formatAge(childData.chronologicalAge)}</span>
-            {childData.isPremature && (
-              <Badge variant="secondary" className="text-xs">
-                Corrected: {formatAge(childData.correctedAge)}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <Button asChild variant="outline" className="min-h-[44px] bg-transparent">
-          <Link href={`/milestone/checklist/${selectedChild.id}/${childData.currentAgeKey}`}>
-            <CheckCircle className="h-4 w-4 mr-2" />
-            {childData.currentAgeKey.toUpperCase()} Checklist
-          </Link>
-        </Button>
-      </div>
-
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center gap-6">
+      <Card className="border-gray-200 shadow-sm rounded-xl">
+        <CardContent className="p-8">
+          <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="flex-shrink-0">
               <RingProgress
                 value={childData.totalItems > 0 ? (childData.answeredItems / childData.totalItems) * 100 : 0}
               />
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h3 className="text-xl font-semibold mb-2">{childData.currentAgeKey.toUpperCase()} Milestone Progress</h3>
-              <p className="text-muted-foreground mb-4">
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+                {childData.currentAgeKey.toUpperCase()} Milestone Progress
+              </h3>
+              <p className="text-gray-600 mb-6 text-lg">
                 {childData.answeredItems} of {childData.totalItems} milestones reviewed
                 {childData.completedItems > 0 && (
-                  <span className="text-green-600 ml-2">• {childData.completedItems} achieved</span>
+                  <span className="text-green-600 ml-2 font-medium">• {childData.completedItems} achieved</span>
                 )}
               </p>
-              <Button asChild size="lg" className="min-h-[44px]">
+              <Button asChild size="lg" className="min-h-[48px] px-8 bg-blue-600 hover:bg-blue-700 rounded-lg">
                 <Link
                   href={`/milestone/checklist/${selectedChild.id}/${childData.currentAgeKey}`}
                   onClick={() => {
@@ -358,7 +304,7 @@ export function MilestoneDashboard() {
             return (
               <Card
                 key={category}
-                className="cursor-pointer hover:shadow-md transition-shadow min-h-[44px]"
+                className="cursor-pointer hover:shadow-md transition-all duration-200 border-gray-200 rounded-xl hover:border-gray-300"
                 role="button"
                 tabIndex={0}
                 aria-label={`View ${category} milestones`}
@@ -372,17 +318,15 @@ export function MilestoneDashboard() {
                   }
                 }}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`p-1 rounded ${getCategoryColor(category)}`}>{getCategoryIcon(category)}</div>
-                    <span className="font-medium capitalize text-sm">{category}</span>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`p-2 rounded-lg ${getCategoryColor(category)}`}>{getCategoryIcon(category)}</div>
+                    <span className="font-semibold capitalize text-gray-900">{category}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {remaining > 0 ? `${remaining} to go` : "Complete!"}
-                  </div>
+                  <div className="text-sm text-gray-600 mb-3">{remaining > 0 ? `${remaining} to go` : "Complete!"}</div>
                   <Progress
                     value={progress.total > 0 ? (progress.completed / progress.total) * 100 : 0}
-                    className="h-1 mt-2"
+                    className="h-2"
                   />
                 </CardContent>
               </Card>
@@ -392,17 +336,24 @@ export function MilestoneDashboard() {
       </div>
 
       {childData.keyItemsNotYet.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <Card className="border-amber-200 bg-amber-50 rounded-xl">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
               <div className="flex-1">
-                <h4 className="font-medium text-amber-800 mb-1">Consider discussing at your next visit</h4>
-                <p className="text-sm text-amber-700 mb-3">
+                <h4 className="font-semibold text-amber-800 mb-2">Consider discussing at your next visit</h4>
+                <p className="text-amber-700 mb-4 leading-relaxed">
                   Some key milestones haven't been achieved yet. This is often normal, but worth mentioning to your
                   healthcare provider.
                 </p>
-                <Button asChild variant="outline" size="sm" className="min-h-[44px] bg-transparent">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[44px] border-amber-300 bg-white hover:bg-amber-50"
+                >
                   <Link href={`/milestone/appointments/${selectedChild.id}`}>
                     <Calendar className="h-4 w-4 mr-2" />
                     View Appointments
@@ -414,28 +365,40 @@ export function MilestoneDashboard() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Quick Actions</CardTitle>
-          <CardDescription>Helpful resources for {selectedChild.firstName}'s development</CardDescription>
+      <Card className="border-gray-200 shadow-sm rounded-xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-semibold text-gray-900">Quick Actions</CardTitle>
+          <CardDescription className="text-gray-600">Helpful resources for development</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Button asChild variant="outline" className="min-h-[44px] justify-start bg-transparent">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-[48px] justify-start border-gray-200 rounded-lg hover:bg-gray-50 bg-transparent"
+            >
               <Link href={`/milestone/tips/${selectedChild.id}/${childData.currentAgeKey}`}>
-                <BookOpen className="h-4 w-4 mr-2" />
+                <BookOpen className="h-4 w-4 mr-3" />
                 Tips for this age
               </Link>
             </Button>
-            <Button asChild variant="outline" className="min-h-[44px] justify-start bg-transparent">
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-[48px] justify-start border-gray-200 rounded-lg hover:bg-gray-50 bg-transparent"
+            >
               <Link href={`/milestone/summary/${selectedChild.id}`}>
-                <FileText className="h-4 w-4 mr-2" />
+                <FileText className="h-4 w-4 mr-3" />
                 View Summary
               </Link>
             </Button>
-            <Button asChild variant="outline" className="min-h-[44px] justify-start bg-transparent">
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-[48px] justify-start border-gray-200 rounded-lg hover:bg-gray-50 bg-transparent"
+            >
               <Link href={`/milestone/appointments/${selectedChild.id}`}>
-                <Calendar className="h-4 w-4 mr-2" />
+                <Calendar className="h-4 w-4 mr-3" />
                 Appointments
               </Link>
             </Button>
@@ -443,32 +406,40 @@ export function MilestoneDashboard() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Tips for {childData.currentAgeKey.toUpperCase()} Development</CardTitle>
-          <CardDescription>Activities and guidance for {selectedChild.firstName}'s current age</CardDescription>
+      <Card className="border-gray-200 shadow-sm rounded-xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-semibold text-gray-900">
+            Tips for {childData.currentAgeKey.toUpperCase()} Development
+          </CardTitle>
+          <CardDescription className="text-gray-600">
+            Activities and guidance for current age development
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-medium text-blue-800 mb-2">Social & Emotional Development</h4>
-              <p className="text-sm text-blue-700">
+          <div className="space-y-4">
+            <div className="p-5 bg-blue-50 rounded-xl border border-blue-200">
+              <h4 className="font-semibold text-blue-800 mb-2">Social & Emotional Development</h4>
+              <p className="text-blue-700 leading-relaxed">
                 Encourage pretend play and help your child express emotions through words and gestures.
               </p>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <h4 className="font-medium text-green-800 mb-2">Language & Communication</h4>
-              <p className="text-sm text-green-700">
+            <div className="p-5 bg-green-50 rounded-xl border border-green-200">
+              <h4 className="font-semibold text-green-800 mb-2">Language & Communication</h4>
+              <p className="text-green-700 leading-relaxed">
                 Read together daily and ask simple questions about pictures in books to build vocabulary.
               </p>
             </div>
-            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <h4 className="font-medium text-purple-800 mb-2">Cognitive Development</h4>
-              <p className="text-sm text-purple-700">
+            <div className="p-5 bg-purple-50 rounded-xl border border-purple-200">
+              <h4 className="font-semibold text-purple-800 mb-2">Cognitive Development</h4>
+              <p className="text-purple-700 leading-relaxed">
                 Provide toys with buttons, knobs, and moving parts to encourage problem-solving skills.
               </p>
             </div>
-            <Button asChild variant="outline" className="min-h-[44px] w-full bg-transparent">
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-[44px] w-full border-gray-200 rounded-lg hover:bg-gray-50 bg-transparent"
+            >
               <Link href={`/milestone/tips/${selectedChild.id}/${childData.currentAgeKey}`}>
                 <BookOpen className="h-4 w-4 mr-2" />
                 View All Tips & Activities
@@ -479,27 +450,27 @@ export function MilestoneDashboard() {
       </Card>
 
       {upcomingAppointments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+        <Card className="border-gray-200 shadow-sm rounded-xl">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               Upcoming Appointments
             </CardTitle>
-            <CardDescription>Next appointments for {selectedChild.firstName}</CardDescription>
+            <CardDescription className="text-gray-600">Next scheduled appointments</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {upcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border"
+                  className="flex items-center justify-between p-5 bg-gray-50 rounded-xl border border-gray-200"
                 >
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline" className="text-xs capitalize">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Badge variant="outline" className="text-xs capitalize border-gray-300">
                         {appointment.type}
                       </Badge>
-                      <span className="text-sm font-semibold">
+                      <span className="text-sm font-semibold text-gray-900">
                         {new Date(appointment.dateTime).toLocaleDateString("en-US", {
                           weekday: "short",
                           month: "short",
@@ -510,26 +481,26 @@ export function MilestoneDashboard() {
                       </span>
                     </div>
                     {appointment.location && (
-                      <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
-                        <span className="w-1 h-1 bg-muted-foreground rounded-full"></span>
+                      <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+                        <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                         {appointment.location}
                       </p>
                     )}
-                    {appointment.notes && <p className="text-sm text-muted-foreground mb-2">{appointment.notes}</p>}
+                    {appointment.notes && <p className="text-sm text-gray-600 mb-3">{appointment.notes}</p>}
                     {appointment.checklistItems && appointment.checklistItems.length > 0 && (
-                      <div className="flex items-center gap-1 text-xs text-blue-600">
+                      <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-lg inline-flex">
                         <CheckCircle className="h-3 w-3" />
                         <span>{appointment.checklistItems.length} milestone items to discuss</span>
                       </div>
                     )}
                     {appointment.reminderSettings?.push && (
-                      <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
+                      <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg inline-flex mt-2">
                         <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                         <span>Reminders enabled</span>
                       </div>
                     )}
                   </div>
-                  <Button asChild variant="ghost" size="sm" className="min-h-[44px]">
+                  <Button asChild variant="ghost" size="sm" className="min-h-[44px] hover:bg-gray-100 rounded-lg">
                     <Link href={`/milestone/appointments/${selectedChild.id}`}>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
@@ -538,8 +509,13 @@ export function MilestoneDashboard() {
               ))}
             </div>
             {childAppointments.length > upcomingAppointments.length && (
-              <div className="mt-4 pt-3 border-t">
-                <Button asChild variant="outline" size="sm" className="min-h-[44px] w-full bg-transparent">
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[44px] w-full border-gray-200 rounded-lg hover:bg-gray-50 bg-transparent"
+                >
                   <Link href={`/milestone/appointments/${selectedChild.id}`}>
                     View All Appointments ({childAppointments.length})
                   </Link>

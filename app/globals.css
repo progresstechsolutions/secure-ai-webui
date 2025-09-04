@@ -76,6 +76,21 @@
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --easing-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Input Component Brand Tokens */
+  --input-bg: hsl(var(--background));
+  --input-fg: hsl(var(--foreground));
+  --input-border: hsl(var(--border));
+  --input-muted: hsl(var(--muted));
+  --input-muted-fg: hsl(var(--muted-foreground));
+  --input-primary: hsl(var(--primary));
+  --input-primary-fg: hsl(var(--primary-foreground));
+  --input-destructive: hsl(var(--destructive));
+  --input-destructive-fg: hsl(var(--destructive-foreground));
+  --input-ring: hsl(var(--ring));
+  --input-success: #16a34a;
+  --input-warning: #f59e0b;
+  --shadow-focus: 0 0 0 3px hsl(var(--ring) / 0.6);
 }
 
 .dark {
@@ -125,11 +140,7 @@
 }
 
 @theme inline {
-  /* Updated typography to use Inter instead of Playfair Display for cleaner healthcare look */
-  --font-sans: var(--font-inter);
-  --font-serif: var(--font-source-sans);
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-
+  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

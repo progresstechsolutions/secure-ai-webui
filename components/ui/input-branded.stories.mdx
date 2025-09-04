@@ -1,0 +1,179 @@
+import { Meta, Story, Canvas, ArgsTable } from '@storybook/addon-docs'
+import { Input } from './input-branded'
+import { Search, Mail, Lock, User } from 'lucide-react'
+
+<Meta title="Components/Input" component={Input} />
+
+# Input Component
+
+A comprehensive input component following Caregene brand tokens with full accessibility support.
+
+## Features
+
+- **Variants**: outlined, filled, ghost
+- **Sizes**: sm, md, lg  
+- **States**: default, hover, focus, filled, disabled, readonly, loading, error, success
+- **Accessibility**: WCAG 2.1 AA compliant with proper ARIA attributes
+- **Slots**: prefix, suffix, leading/trailing icons, action buttons
+- **Utilities**: character counter, password toggle, clear button
+
+## Basic Usage
+
+<Canvas>
+  <Story name="Default">
+    <Input label="Email address" placeholder="Enter your email" />
+  </Story>
+</Canvas>
+
+## Variants
+
+<Canvas>
+  <Story name="Variants">
+    <div className="space-y-4">
+      <Input variant="outlined" label="Outlined (default)" placeholder="Outlined input" />
+      <Input variant="filled" label="Filled" placeholder="Filled input" />
+      <Input variant="ghost" label="Ghost" placeholder="Ghost input" />
+    </div>
+  </Story>
+</Canvas>
+
+## Sizes
+
+<Canvas>
+  <Story name="Sizes">
+    <div className="space-y-4">
+      <Input inputSize="sm" label="Small" placeholder="Small input" />
+      <Input inputSize="md" label="Medium (default)" placeholder="Medium input" />
+      <Input inputSize="lg" label="Large" placeholder="Large input" />
+    </div>
+  </Story>
+</Canvas>
+
+## States
+
+<Canvas>
+  <Story name="States">
+    <div className="space-y-4">
+      <Input label="Default" placeholder="Default state" />
+      <Input label="Disabled" placeholder="Disabled state" disabled />
+      <Input label="Loading" placeholder="Loading state" isLoading />
+      <Input label="Error" placeholder="Error state" error="This field is required" />
+      <Input label="Success" placeholder="Success state" success="Email is valid" />
+    </div>
+  </Story>
+</Canvas>
+
+## With Icons and Slots
+
+<Canvas>
+  <Story name="Icons and Slots">
+    <div className="space-y-4">
+      <Input 
+        label="Search" 
+        placeholder="Search users..." 
+        leadingIcon={<Search className="h-4 w-4" />}
+      />
+      <Input 
+        label="Email" 
+        placeholder="user@example.com" 
+        leadingIcon={<Mail className="h-4 w-4" />}
+        onClear={() => {}}
+      />
+      <Input 
+        label="Website" 
+        placeholder="mysite" 
+        prefix="https://"
+        suffix=".com"
+      />
+    </div>
+  </Story>
+</Canvas>
+
+## Password Input
+
+<Canvas>
+  <Story name="Password">
+    <Input 
+      type="password"
+      label="Password" 
+      placeholder="Enter password"
+      showPasswordToggle
+      leadingIcon={<Lock className="h-4 w-4" />}
+    />
+  </Story>
+</Canvas>
+
+## With Counter
+
+<Canvas>
+  <Story name="Counter">
+    <Input 
+      label="Bio" 
+      placeholder="Tell us about yourself..."
+      description="Brief description for your profile"
+      counter
+      maxLength={160}
+    />
+  </Story>
+</Canvas>
+
+## Required Field
+
+<Canvas>
+  <Story name="Required">
+    <Input 
+      label="Full Name" 
+      placeholder="Enter your full name"
+      required
+      leadingIcon={<User className="h-4 w-4" />}
+    />
+  </Story>
+</Canvas>
+
+## Props
+
+<ArgsTable of={Input} />
+
+## Accessibility Notes
+
+- **Keyboard Navigation**: Full keyboard support with Tab/Shift+Tab navigation
+- **Screen Readers**: Proper labeling with `aria-describedby` linking descriptions and errors
+- **Focus Management**: Visible focus indicators meeting WCAG 2.1 AA contrast requirements
+- **Error Handling**: Error messages use `role="alert"` for immediate screen reader announcement
+- **Required Fields**: Visual and programmatic indication with `aria-required`
+
+## Usage Examples
+
+### Controlled Input
+\`\`\`tsx
+const [email, setEmail] = useState('')
+
+<Input
+  label="Email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  placeholder="Enter email"
+/>
+\`\`\`
+
+### Uncontrolled Input
+\`\`\`tsx
+<Input
+  label="Name"
+  defaultValue="John Doe"
+  placeholder="Enter name"
+/>
+\`\`\`
+
+### Form Integration
+\`\`\`tsx
+<form>
+  <Input
+    label="Parent Email"
+    type="email"
+    required
+    error={errors.email?.message}
+    leadingIcon={<Mail className="h-4 w-4" />}
+  />
+</form>
+\`\`\`

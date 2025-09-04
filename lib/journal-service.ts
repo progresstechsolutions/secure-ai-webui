@@ -35,19 +35,22 @@ export class JournalService {
       date: entry.date || now,
       mode: entry.mode || "text",
       transcript: entry.transcript,
-      summary: entry.summary || "",
+      summary: entry.summary || (entry as any).content || "",
       tags: entry.tags || [],
       event_type: entry.event_type,
-      free_notes: entry.free_notes || entry.summary || "",
+      free_notes: entry.free_notes || (entry as any).content || entry.summary || "",
       mood: entry.mood,
       sleep: entry.sleep,
       energy: entry.energy,
       pain: entry.pain,
       meds: entry.meds || [],
       symptoms: entry.symptoms || [],
-      attachments: entry.attachments || [],
+      attachments: entry.attachments || (entry as any).images || [],
       createdAt: entry.createdAt || now,
       updatedAt: entry.id ? now : undefined, // Only set updatedAt if editing existing entry
+      childId: (entry as any).childId,
+      timestamp: (entry as any).timestamp,
+      isVoiceEntry: (entry as any).isVoiceEntry,
     }
 
     const existingIndex = entries.findIndex((e) => e.id === savedEntry.id)
@@ -64,6 +67,10 @@ export class JournalService {
       console.error("Failed to save journal entry:", error)
       throw new Error("Failed to save entry. Please try again.")
     }
+  }
+
+  static async addEntry(entry: Partial<JournalEntry>): Promise<JournalEntry> {
+    return this.saveEntry(entry)
   }
 
   static async deleteEntry(id: string): Promise<void> {

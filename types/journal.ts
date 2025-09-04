@@ -16,6 +16,11 @@ export interface JournalEntry {
   attachments: string[]
   createdAt: Date
   updatedAt?: Date
+  childId?: string // Associate entry with specific child
+  content?: string // Alternative to summary for simple text content
+  timestamp?: string // ISO string timestamp
+  images?: string[] // Alternative to attachments for image URLs
+  isVoiceEntry?: boolean // Flag for voice-recorded entries
 }
 
 export interface Insight {

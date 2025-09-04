@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Settings, User, ChevronDown, Plus } from "lucide-react"
+import { User, ChevronDown, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,7 +13,6 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { getChildren, type Child } from "@/lib/milestone-data-layer"
 import { GlobalChildProfiles } from "@/components/global-child-profiles"
-import { GlobalSettings } from "@/components/global-settings"
 
 interface GlobalHeaderProps {
   selectedChildId?: string
@@ -115,16 +114,6 @@ export function GlobalHeader({ selectedChildId, onChildSelect, showChildSelector
         </DropdownMenu>
       )}
 
-      {/* Settings Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setShowSettingsModal(true)}
-        className="bg-white/95 backdrop-blur border-gray-200 hover:bg-gray-50"
-      >
-        <Settings className="w-4 h-4" />
-      </Button>
-
       {/* Child Management Modal */}
       <Dialog open={showChildModal} onOpenChange={setShowChildModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -133,11 +122,11 @@ export function GlobalHeader({ selectedChildId, onChildSelect, showChildSelector
       </Dialog>
 
       {/* Settings Modal */}
-      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+      {/* <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <GlobalSettings onClose={() => setShowSettingsModal(false)} />
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </div>
   )
 }

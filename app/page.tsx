@@ -1,14 +1,32 @@
+"use client"
+
 import { Navigation } from "@/components/navigation"
 import { HeroSection } from "@/components/hero-section"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { User } from "lucide-react"
+import { User, FolderOpen } from "lucide-react"
+import { useEffect, useState } from "react"
 
 export default function HomePage() {
+  const [activeProject, setActiveProject] = useState<any>(null)
+
+  useEffect(() => {
+    const storedProject = localStorage.getItem("caregene-active-project")
+    if (storedProject) {
+      setActiveProject(JSON.parse(storedProject))
+    }
+  }, [])
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
       <div className="fixed top-3 sm:top-4 md:top-4 lg:top-6 right-3 sm:right-4 md:right-4 lg:right-6 z-50 flex items-center gap-2 sm:gap-3 md:gap-4">
+        {activeProject && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-sidebar/95 backdrop-blur border border-sidebar-border rounded-lg">
+            <FolderOpen className="h-4 w-4 text-sidebar-primary" />
+            <span className="text-xs sm:text-sm font-medium text-sidebar-foreground">{activeProject.name}</span>
+          </div>
+        )}
         <Link
           href="/about"
           className="text-xs sm:text-xs md:text-xs lg:text-sm text-muted-foreground hover:text-foreground transition-colors"

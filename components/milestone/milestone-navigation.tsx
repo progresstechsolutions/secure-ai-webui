@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, CheckSquare, Lightbulb, Calendar, FileText, Settings } from "lucide-react"
+import { LayoutDashboard, CheckSquare, Lightbulb, Calendar, FileText } from "lucide-react"
 import { getChildName, childExists } from "@/lib/milestone-utils"
 
 interface MilestoneNavigationProps {
@@ -20,11 +20,6 @@ export function MilestoneNavigation({ childId, ageKey }: MilestoneNavigationProp
       href: "/milestone",
       label: "Dashboard",
       icon: LayoutDashboard,
-    },
-    {
-      href: "/milestone/children",
-      label: "Children",
-      icon: Users,
     },
   ]
 
@@ -55,20 +50,11 @@ export function MilestoneNavigation({ childId, ageKey }: MilestoneNavigationProp
         ]
       : []
 
-  // Settings (always available)
-  const settingsNavItems = [
-    {
-      href: "/milestone/settings",
-      label: "Settings",
-      icon: Settings,
-    },
-  ]
-
-  // Combine all navigation items
-  const navItems = [...baseNavItems, ...childSpecificNavItems, ...settingsNavItems]
+  // Combine navigation items (removed settingsNavItems)
+  const navItems = [...baseNavItems, ...childSpecificNavItems]
 
   return (
-    <div className="border-b border-border mb-6">
+    <div className="border-b border-gray-200 mb-8">
       <nav className="flex space-x-8 overflow-x-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href
@@ -81,8 +67,8 @@ export function MilestoneNavigation({ childId, ageKey }: MilestoneNavigationProp
               className={cn(
                 "flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors",
                 isActive
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground",
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300",
               )}
             >
               <Icon className="h-4 w-4" />
@@ -92,12 +78,11 @@ export function MilestoneNavigation({ childId, ageKey }: MilestoneNavigationProp
         })}
       </nav>
 
-      {/* Child context indicator */}
       {childId && childExists(childId) && (
-        <div className="py-2 px-1">
-          <p className="text-xs text-muted-foreground">
-            Viewing data for <span className="font-medium text-foreground">{getChildName(childId)}</span>
-            {ageKey && ageKey !== "current" && <span> • {ageKey.replace("-", " to ")}</span>}
+        <div className="py-3 px-1">
+          <p className="text-sm text-gray-600">
+            Viewing data for <span className="font-semibold text-gray-900">{getChildName(childId)}</span>
+            {ageKey && ageKey !== "current" && <span className="text-gray-500"> • {ageKey.replace("-", " to ")}</span>}
           </p>
         </div>
       )}
