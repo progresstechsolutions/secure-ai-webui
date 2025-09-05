@@ -16,7 +16,7 @@ export interface OfflineState {
 
 class OfflineManager {
   private state: OfflineState = {
-    isOnline: navigator.onLine,
+    isOnline: typeof window !== 'undefined' ? navigator.onLine : true,
     queue: [],
     syncing: false,
     lastSync: null,
@@ -26,13 +26,17 @@ class OfflineManager {
   private retryTimeout: NodeJS.Timeout | null = null
 
   constructor() {
-    this.loadQueue()
-    this.setupEventListeners()
+    if (typeof window !== 'undefined') {
+      this.loadQueue()
+      this.setupEventListeners()
+    }
   }
 
   private setupEventListeners() {
-    window.addEventListener("online", this.handleOnline.bind(this))
-    window.addEventListener("offline", this.handleOffline.bind(this))
+    if (typeof window !== 'undefined') {
+      window.addEventListener("online", this.handleOnline.bind(this))
+      window.addEventListener("offline", this.handleOffline.bind(this))
+    }
   }
 
   private handleOnline() {
@@ -47,6 +51,8 @@ class OfflineManager {
   }
 
   private loadQueue() {
+    if (typeof window === 'undefined') return
+    
     try {
       const stored = localStorage.getItem("milestone_offline_queue")
       if (stored) {
@@ -58,6 +64,8 @@ class OfflineManager {
   }
 
   private saveQueue() {
+    if (typeof window === 'undefined') return
+    
     try {
       localStorage.setItem("milestone_offline_queue", JSON.stringify(this.state.queue))
     } catch (error) {
